@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="pt-br">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ACIANexus • Kanban</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <link rel="shortcut icon" type="image/png" href="img\WhatsApp Image 2025-10-10 at 15.39.08.jpeg" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
+    rel="stylesheet">
+
+  <script>
+    // aplica o tema salvo antes do CSS carregar (evita FOUC)
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light') document.documentElement.classList.add('light');
+      } catch (_) { }
+    })();
+  </script>
+
+
+  <link rel="stylesheet" href="main.css">
+</head>
+
+<body>
+  <header>
+    <nav class="nav">
+      <a href="#/" data-link><img id="logo" alt="ACIA Nexus" class="brand-logo"></a>
+      <a href="#/agenda" data-link>Agenda</a>
+      <a href="#/criar" data-link>Criar Tarefa</a>
+      <a href="#/kanban" data-link>Kanban</a>
+      <a href="#/indicadores" data-link>Indicadores</a>
+      <a href="#/reportar" data-link>Suporte</a>
+      <button id="themeToggle" class="btn secondary" type="button">🌙</button>
+      <div class="spacer"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <a id="members-open" class="hidden" href="#/membros" data-link>Membros</a>
+      </div>
+      <span class="chip" id="authChip">Offline</span>
+      <button id="btnLogin" class="btn secondary" type="button">Entrar</button>
+      <button id="btnLogout" class="btn secondary hidden" type="button">Sair</button>
+
+      <!-- Sino de notificações -->
+      <button id="mural-bell" class="icon-button" aria-label="Notificações do mural">
+        🔔
+        <span id="mural-badge" hidden class="badge"></span>
+      </button>
+
+      <div id="mural-dropdown" class="dropdown" hidden>
+        <div class="dropdown-head">
+          <strong>Comunicados</strong>
+          <button id="mural-marcar-lido" class="link">Marcar tudo como lido</button>
+        </div>
+        <ul id="mural-dropdown-list" class="dropdown-list"></ul>
+        <a id="mural-ver-tudo" href="#/mural" class="dropdown-foot">Ver tudo</a>
+      </div>
+
+
+
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- HOME -->
+    <section id="view-home" class="grid" style="grid-template-columns: 1fr; gap: 24px">
+      <!-- <div class="hero">
+        <div class="chip" style="width:max-content">Central ACIA</div>
+        <h1>ACIA Ops — Central de Operações</h1>
+        <p class="muted" style="font-size:16px;margin:0">
+          Mural interno de comunicação + atalhos rápidos.
+        </p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+          <a class="btn" href="#/kanban">Abrir Kanbans</a>
+          <a class="btn secondary" href="#/reportar">Reportar bug</a>
+          <a class="btn secondary" href="#/indicadores">Indicadores</a>
+        </div>
+      </div> -->
+
+      <!-- Mural informativo -->
+      <div class="card" style="display:grid; gap:12px">
+
+        <h2 style="margin:0">Mural de Informações</h2>
+        <p class="muted" style="margin:0">Comunicados gerais para todos os colaboradores.</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button id="mu-open" class="btn hidden" type="button">Novo Comunicado</button>
+        </div>
+
+        <div id="mural-list" style="display:flex;flex-direction:column;gap:10px"></div>
+
+      </div>
+    </section>
+
+    <!-- AUTH -->
+    <section id="view-auth" class="hidden">
+      <div class="card" style="max-width:620px;margin:0 auto">
+        <div class="auth-head">
+          <h2 style="margin:0">Acessar a Central</h2>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="auth-tab-login" type="button">Entrar</button>
+          <button class="auth-tab" id="auth-tab-register" type="button">Criar conta</button>
+        </div>
+
+        <!-- LOGIN -->
+        <form id="loginForm" class="auth-pane">
+          <div class="field">
+            <label for="auth-login-email">E-mail ACIA</label>
+            <input id="auth-login-email" type="email" placeholder="seu.nome@acia.com.br" required />
+          </div>
+          <div class="field">
+            <label for="auth-login-pass">Senha</label>
+            <input id="auth-login-pass" type="password" placeholder="••••••••" required />
+          </div>
+          <div class="muted" style="font-size:12px;margin:6px 0">
+            <a id="auth-forgot" href="#" style="color:var(--accent)">Esqueci minha senha</a>
+          </div>
+
+          <div id="auth-login-msg" class="msg"></div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+            <button id="auth-login-btn" class="btn" type="submit">Entrar</button>
+            <button class="btn secondary" type="button" id="auth-to-register">Criar conta</button>
+          </div>
+        </form>
+
+        <!-- REGISTER -->
+        <form id="registerForm" class="auth-pane hidden">
+          <div class="field">
+            <label for="auth-reg-name">Seu nome</label>
+            <input id="auth-reg-name" required type="text" placeholder="Ex.: Maria Silva" />
+          </div>
+          <div class="field">
+            <label for="auth-reg-email">E-mail ACIA</label>
+            <input id="auth-reg-email" type="email" placeholder="seu.nome@acia.com.br" required />
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="auth-reg-pass">Senha</label>
+              <input id="auth-reg-pass" type="password" placeholder="mín. 6 caracteres" required />
+            </div>
+            <div class="field">
+              <label for="auth-reg-pass2">Confirmar senha</label>
+              <input id="auth-reg-pass2" type="password" placeholder="repita a senha" required />
+            </div>
+          </div>
+
+          <div id="auth-reg-msg" class="msg"></div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:8px">
+            <button id="auth-reg-btn" class="btn" type="submit">Criar conta</button>
+            <button class="btn secondary" type="button" id="auth-to-login">Já tenho conta</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+
+    <section id="view-create" class="hidden">
+      <div class="card" style="max-width:900px;margin:0 auto">
+        <h2 style="margin:0 0 10px">Criar Tarefa</h2>
+
+        <div class="row">
+          <div class="field">
+            <label for="c-title">Título</label>
+            <input id="c-title" type="text" placeholder="Ex.: Planejar ações para a campanha X" />
+          </div>
+          <div class="field">
+            <label for="c-board">Kanban</label>
+            <select id="c-board">
+              <option value="PROJETOS">Projetos</option>
+              <option value="ROTINAS">Rotinas</option>
+              <option value="EVENTOS">Eventos</option>
+              <option value="VENDAS">Vendas</option>
+              <!--<option value="COMPRAS">Compras</option>-->
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="c-resp">Responsável</label>
+            <select id="c-resp"></select>
+          </div>
+          <div class="field">
+            <label for="c-due">Prazo</label>
+            <input id="c-due" type="datetime-local" />
+          </div>
+        </div>
+        <div class="card" style="margin:12px 0 14px">
+          <div id="c-gut-block" class="card" style="margin:12px 0 14px">
+            <h3 style="margin:0 0 8px">GUT (1–5)</h3>
+            <div class="row" style="grid-template-columns: repeat(4, 1fr)">
+              <div class="field">
+                <label for="c-g">G</label>
+                <input id="c-g" type="number" min="1" max="10" value="5" />
+              </div>
+              <div class="field">
+                <label for="c-u">U</label>
+                <input id="c-u" type="number" min="1" max="10" value="5" />
+              </div>
+              <div class="field">
+                <label for="c-t">T</label>
+                <input id="c-t" type="number" min="1" max="10" value="5" />
+              </div>
+              <div class="field">
+                <label>Total (G×U×T)</label>
+                <input id="c-gut" type="text" disabled value="125" />
+              </div>
+            </div>
+          </div>
+          <!-- MEMBROS DO CARD -->
+
+
+          <!-- MEMBROS DO CARD -->
+          <div class="row">
+            <div class="field" style="grid-column: 1 / -1">
+              <label for="c-members">Responsável(eis) Envolvido(s)</label>
+              <div id="c-members" class="c-members-list"></div>
+              <!-- Tarefa linkada (subtarefa) -->
+              <div class="row">
+                <div class="field" style="grid-column: 1 / -1">
+                  <label for="c-parent">Tarefa linkada com</label>
+                  <select id="c-parent">
+                    <option value="">—Nenhuma—</option>
+                  </select>
+                  <div class="muted" style="font-size:12px;margin-top:6px">Use para vincular esta tarefa como subtarefa
+                    de
+                    uma tarefa‑mãe.</div>
+                </div>
+              </div>
+
+              <!-- === Descritivo da Tarefa === -->
+              <h3 class="subtitle">Descritivo da Tarefa</h3>
+              <div class="desc-grid">
+                <div class="field">
+                  <label for="md-objetivo">Objetivo da Tarefa</label>
+                  <textarea id="md-objetivo" placeholder="Descreva o objetivo..."></textarea>
+                </div>
+
+                <div class="field">
+                  <label for="md-acoes">Descrever a Tarefa</label>
+                  <textarea id="md-acoes" placeholder="Explique as ações, etapas, critérios de aceite..."></textarea>
+                </div>
+
+                <div class="field full-row">
+                  <label for="md-info">Informações Adicionais</label>
+                  <textarea id="md-info" placeholder="Links, observações, anexos, referências..."></textarea>
+                </div>
+              </div>
+
+
+              <div class="field" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+                <input id="c-new-check" type="text" placeholder="Novo item da checklist…" />
+                <button id="c-add-check" class="btn secondary" type="button">Adicionar à Checklist</button>
+              </div>
+            </div>
+            <!-- Descrição (agora oculta, preenchida automaticamente) -->
+
+
+            <!-- Descrição (agora oculta, preenchida automaticamente) -->
+            <textarea id="c-desc" hidden></textarea>
+
+            <!-- Checklist (gerada do modelo) -->
+            <div>
+              <h4 style="margin:10px 0 6px">Checklist (gerada do modelo)</h4>
+              <div id="c-checklist"></div>
+            </div>
+
+            <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+              <button id="c-ai" class="btn secondary" type="button">Gerar Checklist com IA</button>
+              <button id="c-create" class="btn" type="button">Gerar Card</button>
+              <span id="c-msg" class="msg"></span>
+            </div>
+
+
+
+
+
+            <!-- ROTINAS -->
+            <div id="rt-block" class="card hidden" style="margin:12px 0 14px">
+              <div class="card" style="margin:12px 0 14px">
+                <h3 style="margin:0 0 8px">Rotinas</h3>
+                <div class="row">
+                  <div class="field">
+                    <label for="c-rt-enabled">Ativar rotina</label>
+                    <select required id="c-rt-enabled">
+                      <option value="on">Ativada</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="c-rt-kind">Periodicidade</label>
+                    <select required id="c-rt-kind">
+                      <option value="DAILY">Diariamente</option>
+                      <option value="WEEKLY">Semanalmente</option>
+                      <option value="BIWEEKLY">Quinzenalmente</option>
+                      <option value="MONTHLY">Mensalmente</option>
+                      <option value="MON">Toda segunda</option>
+                      <option value="TUE">Toda terça</option>
+                      <option value="WED">Toda quarta</option>
+                      <option value="THU">Toda quinta</option>
+                      <option value="FRI">Toda sexta</option>
+                    </select>
+                  </div>
+                </div>
+                <p class="muted" style="margin:6px 0 0;font-size:12px">
+                  Os prazos das tarefas rotineiras, são definidos por cada responsável. Quando o prazo é vencido, a
+                  tarefa é gerada novamente e aplicada no início do fluxo automaticamente.
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <div id="c-checklist"></div>
+            </div>
+          </div>
+    </section>
+
+    <!-- AGENDA / CALENDÁRIO -->
+    <section id="view-calendar" class="hidden">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <h2 style="margin:0" id="cal-title">Agenda</h2>
+          <div class="spacer"></div>
+          <div style="display:flex;gap:8px">
+            <button id="cal-prev" class="btn secondary" type="button">◀</button>
+            <button id="cal-today" class="btn secondary" type="button">Hoje</button>
+            <button id="cal-next" class="btn secondary" type="button">▶</button>
+          </div>
+        </div>
+
+        <div id="calendar" style="margin-top:12px;">
+          <style>
+            /* Calendar small styles */
+            #cal-grid {
+              width: 100%;
+            }
+
+            .cal-day.muted {
+              opacity: 0.45
+            }
+
+            .cal-day .cal-events .cal-evt:hover {
+              background: rgba(59, 130, 246, .08);
+            }
+          </style>
+
+          <div id="cal-grid" class="card" style="padding:12px;"></div>
+          <div id="cal-list" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MODAL AGENDA -->
+    <div id="calendarModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="cal-modal-title">
+      <div class="modal-head">
+        <strong id="cal-modal-title">Novo evento</strong>
+        <button id="cal-close" class="btn secondary" type="button">Fechar</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field"><label>Data</label><input id="evt-date" type="date" /></div>
+        <div class="field"><label>Horário</label><input id="evt-time" type="time" /></div>
+        <div class="field"><label>Título</label><input id="evt-title" type="text" /></div>
+        <div class="field"><label>Responsáveis (vírgula)</label><input id="evt-resp" type="text"
+            placeholder="Maria, João" /></div>
+        <div class="field"><label>Descrição</label><textarea id="evt-desc"></textarea></div>
+        <div id="evt-msg" class="msg"></div>
+      </div>
+
+      <div class="modal-foot">
+        <button id="evt-delete" class="btn secondary" type="button">Excluir</button>
+        <button id="evt-save" class="btn" type="button">Salvar</button>
+      </div>
+    </div>
+
+    <!-- KANBANS -->
+    <section id="view-kanban" class="hidden">
+
+      <div class="card">
+        <div class="tabs" id="kb-tabs">
+          <div class="tab active" data-b="PROJETOS">Projetos</div>
+          <div class="tab" data-b="ROTINAS">Rotinas</div>
+          <div class="tab" data-b="EVENTOS">Eventos</div>
+          <div class="tab" data-b="VENDAS">Vendas</div>
+          <input id="k-q" type="search" placeholder="Buscar por título…" />
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="k-resp" title="Responsável"></select>
+          </div>
+          <!--<div class="tab" data-b="COMPRAS">Compras</div>-->
+          <div class="spacer"></div>
+          <button id="k-refresh" class="btn">Atualizar</button>
+
+        </div>
+
+        <div class="kpis" id="kpis"></div>
+
+        <div class="kanban-wrap" style="margin-top:12px">
+          <div id="columns" class="columns"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INDICADORES -->
+    <section id="view-metrics" class="hidden">
+      <div class="card">
+        <h2 style="margin:0 0 10px">Indicadores</h2>
+
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+          <select id="m-board" title="Board">
+            <option value="ALL" selected>Todos os boards</option>
+            <option value="PROJETOS">Projetos</option>
+            <option value="ROTINAS">Rotinas</option>
+            <option value="EVENTOS">Eventos</option>
+            <option value="VENDAS">Vendas</option>
+          </select>
+
+          <select id="m-period" title="Período">
+            <option value="30" selected>Últimos 30 dias</option>
+            <option value="90">Últimos 90 dias</option>
+            <option value="365">Últimos 12 meses</option>
+            <option value="0">Todo período</option>
+          </select>
+
+          <button id="m-refresh" class="btn">Atualizar</button>
+          <div class="spacer"></div>
+          <button id="m-export" class="btn secondary">Exportar XLSX</button>
+        </div>
+
+        <div id="m-kpis" class="kpis"></div>
+
+        <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
+          <div class="card">
+            <h3 style="margin:0 0 8px">Cards por status</h3>
+            <canvas id="chartStatus" height="220"></canvas>
+          </div>
+          <div class="card">
+            <h3 style="margin:0 0 8px">Cards por responsável</h3>
+            <canvas id="chartResp" height="220"></canvas>
+          </div>
+        </div>
+
+        <div class="grid" style="grid-template-columns:1fr;gap:14px;margin-top:12px">
+          <div class="card">
+            <h3 style="margin:0 0 8px">Cards por board</h3>
+            <canvas id="chartBoard" height="240"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- REPORTAR BUG -->
+    <section id="view-report" class="hidden">
+      <div class="card" style="max-width:780px;margin:0 auto">
+        <h1 style="margin:0 0 6px;font-size:24px">Reportar um Problema</h1>
+        <p class="muted" style="margin:0 0 16px">Explique com suas palavras. Leva menos de 1 minuto. 🙂</p>
+        <div id="msg-ok" class="msg ok">✅ Obrigado! Seu relato foi enviado ao time.</div>
+        <div id="msg-err" class="msg err">⚠️ Não foi possível enviar agora. Tente novamente.</div>
+        <form id="bugForm" novalidate>
+          <div class="row">
+            <div class="field"><label for="name">Seu nome</label><input id="name" type="text"
+                placeholder="Ex.: Maria Silva" /></div>
+            <div class="field"><label for="email">Seu e-mail</label><input id="email" type="email"
+                placeholder="Ex.: maria@empresa.com" /></div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="severity">Gravidade</label>
+              <select id="severity">
+                <option>Baixa</option>
+                <option>Média</option>
+                <option>Alta</option>
+              </select>
+            </div>
+            <div class="field"><label for="title">Título</label><input id="title" type="text" required /></div>
+          </div>
+          <div class="field"><label for="desc">Descrição</label><textarea id="desc" required></textarea></div>
+          <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+            <button type="submit" id="sendBtn" class="btn">Enviar</button>
+            <button type="reset" class="btn secondary">Limpar</button>
+          </div>
+        </form>
+      </div>
+    </section>
+    <!-- MEMBROS -->
+    <section id="view-members" class="hidden">
+      <div class="card" style="max-width:900px;margin:0 auto">
+        <h2 style="margin:0 0 10px">Membros</h2>
+        <p class="muted" style="margin:0 0 12px">Gerencie os papéis (viewer, editor, admin). Somente
+          <strong>admin</strong> pode alterar.
+        </p>
+
+        <div id="memb-msg" class="msg"></div>
+
+        <div class="row" style="margin-bottom:10px">
+          <div class="field">
+            <label>Nome</label>
+            <input id="mb-name" type="text" placeholder="Nome" />
+          </div>
+          <div class="field">
+            <label>E-mail</label>
+            <input id="mb-email" type="email" placeholder="email@exemplo.com" />
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px">
+          <div class="field">
+            <label>Papel</label>
+            <select id="mb-role">
+              <option value="viewer">viewer</option>
+              <option value="editor" selected>editor</option>
+              <option value="admin">admin</option>
+            </select>
+          </div>
+          <div class="field" style="display:flex;align-items:flex-end">
+            <button id="mb-add" class="btn secondary" type="button">Adicionar/Atualizar</button>
+          </div>
+        </div>
+
+        <div class="kpis" style="grid-template-columns:1fr">
+          <div class="kpi-card">
+            <div class="kpi-title">Equipe</div>
+            <div id="mb-list" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>ACIA Nexus — 2025</footer>
+
+  <!-- MODAL: Novo Comunicado do Mural (apenas admin) -->
+  <div id="muralModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mu-title-h">
+    <div class="modal-head">
+      <strong id="mu-title-h">Novo Comunicado</strong>
+      <button id="mu-close" class="btn secondary" type="button">Fechar</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="row">
+        <div class="field">
+          <label for="mu-title">Título</label>
+          <input id="mu-title" type="text" placeholder="Ex.: Campanha de fim de ano" />
+        </div>
+        <div class="field">
+          <label for="mu-cat">Categoria</label>
+          <select id="mu-cat">
+            <option>Vendas</option>
+            <option>Eventos</option>
+            <option>RH</option>
+            <option>Operações</option>
+            <option>Geral</option>
+            <option>Sistema</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="mu-text">Mensagem</label>
+        <textarea id="mu-text" placeholder="Conteúdo objetivo do comunicado."></textarea>
+      </div>
+      <div id="mu-msg" class="msg"></div>
+    </div>
+
+    <div class="modal-foot">
+      <button id="mu-publish" class="btn" type="button">Publicar</button>
+    </div>
+  </div>
+
+
+  <!-- MODAL EDITAR CARD -->
+  <div id="modalBack" class="backdrop"></div>
+  <!-- MODAL EDITAR CARD (atualizado) -->
+  <div id="cardModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="modal-head">
+      <strong id="m-title">Editar card</strong>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="m-badge-gut" class="badge">GUT: 0 (C)</span>
+        <span id="m-badge-pri" class="badge">PRI: 0</span>
+        <button id="m-open-chat" class="btn secondary" type="button" title="Abrir chat">Chat</button>
+        <button id="m-close" class="btn secondary" type="button">Fechar</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="cols">
+        <div class="field">
+          <label for="m-title-in">Título</label>
+          <input id="m-title-in" type="text" />
+        </div>
+        <div class="field">
+          <label for="m-resp">Responsável</label>
+          <!-- value = uid; data-label = nome/email p/ exibir em card.resp -->
+          <select id="m-resp"></select>
+        </div>
+      </div>
+
+      <div class="cols">
+        <div class="field">
+          <label for="m-status">Status</label>
+          <select id="m-status"></select>
+        </div>
+        <div class="field">
+          <label for="m-due">Prazo</label>
+          <input id="m-due" type="datetime-local" />
+        </div>
+      </div>
+
+      <!-- GUT/Prioridade -->
+      <div class="row" style="margin:6px 0">
+        <h4 style="margin:0 0 6px">GUT & Prioridade</h4>
+        <br>
+        <div class="row">
+          <div class="field"><label for="m-g">Gravidade (G)</label><input id="m-g" type="number" min="1" max="10" />
+          </div>
+          <div class="field"><label for="m-u">Urgência (U)</label><input id="m-u" type="number" min="1" max="10" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field"><label for="m-t">Tendência (T)</label><input id="m-t" type="number" min="1" max="10" />
+          </div>
+          <div class="field"><label for="m-gut">Resultado (G×U×T)</label><input id="m-gut" type="text" disabled /></div>
+        </div>
+      </div>
+
+      <!-- Membros -->
+      <div class="field">
+        <label for="m-members">Responsável(eis) Envolvido(s)</label>
+        <div id="m-members" class="m-members-list"></div>
+      </div>
+      <!-- Tarefa linkada (subtarefa) — EDITAR -->
+      <div class="field">
+        <label for="m-parent">Tarefa linkada com</label>
+        <select id="m-parent">
+          <option value="">—Nenhuma—</option>
+        </select>
+        <p class="muted" style="margin:6px 0 0;font-size:12px">Use para vincular esta tarefa como subtarefa de uma
+          tarefa‑mãe.</p>
+      </div>
+
+
+      <!-- Rotinas -->
+      <div id="m-rt-block" class="card hidden" style="margin:6px 0">
+        <h4 style="margin:0 0 6px">Rotinas</h4>
+        <div class="row hidden">
+          <div class="field hidden">
+            <label for="m-rt-enabled">Ativar rotina</label>
+            <select id="m-rt-enabled">
+              <option value="off">Desativada</option>
+              <option value="on">Ativada</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="m-rt-kind">Periodicidade</label>
+            <select id="m-rt-kind">
+              <option value="DAILY">Diariamente</option>
+              <option value="WEEKLY">Semanalmente</option>
+              <option value="BIWEEKLY">Quinzenalmente</option>
+              <option value="MONTHLY">Mensalmente</option>
+              <option value="MON">Toda segunda</option>
+              <option value="TUE">Toda terça</option>
+              <option value="WED">Toda quarta</option>
+              <option value="THU">Toda quinta</option>
+              <option value="FRI">Toda sexta</option>
+            </select>
+          </div>
+        </div>
+        <p class="muted" style="margin:6px 0 0;font-size:12px">
+          Com rotina ativada, ao “bater” o prazo o card volta ao início do fluxo e o próximo prazo é calculado
+          automaticamente.
+        </p>
+      </div>
+
+      <!-- Descritivo da Tarefa — EDITAR -->
+      <!-- === Descritivo da Tarefa (MODAL / EDITAR CARD) === -->
+      <h3 class="subtitle">🧩 Descritivo da Tarefa</h3>
+      <div id="m-desc-block" class="desc-grid">
+        <div class="field">
+          <label for="m-md-objetivo">🎯 Objetivo da Tarefa</label>
+          <textarea id="m-md-objetivo" placeholder="Descreva o objetivo..."></textarea>
+        </div>
+
+        <div class="field">
+          <label for="m-md-acoes">🧭 Descrever a Tarefa</label>
+          <textarea id="m-md-acoes" placeholder="Explique as ações, etapas e critérios de aceite..."></textarea>
+        </div>
+
+        <div class="field full-row">
+          <label for="m-md-info">📎 Informações Adicionais</label>
+          <textarea id="m-md-info" placeholder="Links, observações, anexos, referências..."></textarea>
+        </div>
+      </div>
+
+
+      <div class="field hidden"><label for="m-desc">Descrição</label><textarea id="m-desc" rows="6"></textarea></div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <h4 style="margin:0 0 6px">Checklist</h4>
+          <div id="m-checklist"></div>
+          <div class="field" style="margin-top:6px;display:flex;gap:8px">
+            <input id="m-new-check" type="text" placeholder="Novo item…" />
+            <button id="m-add-check" class="btn secondary" type="button">Adicionar</button>
+          </div>
+        </div>
+        <div>
+          <h4 style="margin:0 0 6px">Anexos (URL)</h4>
+          <div id="m-attachments"></div>
+          <div class="field" style="margin-top:6px;display:flex;gap:8px">
+            <div id="m-attachments"></div>
+            <div style="margin-top:8px">
+              <button id="m-send-attach" class="btn secondary" type="button">Anexar arquivo</button>
+            </div>
+
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button id="m-copy-link" class="btn secondary">🔗 Copiar link</button>
+      <button id="m-delete" class="btn secondary" type="button">Excluir</button>
+      <button id="m-save" class="btn" type="button">Salvar</button>
+    </div>
+  </div>
+
+  <!-- MODAL DE CHAT (por card) -->
+  <div id="chatModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chat-title">
+    <div class="modal-head">
+      <strong id="chat-title">Chat</strong>
+      <button id="chat-close" class="btn secondary" type="button">Fechar</button>
+    </div>
+    <div class="modal-body">
+      <div id="chat-list" style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow:auto"></div>
+    </div>
+    <div class="modal-foot">
+      <input id="chat-text" type="text" placeholder="Escreva uma mensagem…" />
+      <button id="chat-send" class="btn" type="button">Enviar</button>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+  <script>
+    UPLOADCARE_PUBLIC_KEY = 'bec8b0653d0455ca2d7d'; // substitua pela sua chave
+  </script>
+  <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
+
+
+</body>
+
+</html>
