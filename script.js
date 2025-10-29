@@ -1827,17 +1827,6 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
                     } catch { }
                     await Cards.update(cardId, patch);
                     // 🔹 Fluxo especial: APROVAR → CORRIGIR / FINALIZAR
-                    if (newStatus === "APROVAR") {
-                        const escolha = confirm("Tarefa aprovada?\n\nOK = Sim (enviar para CORRIGIR)\nCancelar = Não (enviar para FINALIZAR)");
-                        const destino = escolha ? "CORRIGIR" : "FINALIZAR";
-
-                        try {
-                            await Cards.update(cardId, { status: destino });
-                            alert(`Tarefa movida automaticamente para: ${destino}`);
-                        } catch (err) {
-                            console.error("Erro ao mover tarefa:", err);
-                        }
-                    }
                 }
             });
         });
@@ -3563,3 +3552,4 @@ document.getElementById('toggleTheme')?.addEventListener('click', () => {
 
 // Chama uma vez ao carregar a página
 aplicarTema();
+
