@@ -521,6 +521,9 @@ const Cards = {
             gut: Number(card.gut) || 0,                      // NOVO
             gutGrade: card.gutGrade || 'C',                // NOVO
             priority: Number(card.priority) || 0,
+            gutG: Number(card.gutG) || 5,
+            gutU: Number(card.gutU) || 5,
+            gutT: Number(card.gutT) || 5,
             // NOVO,
             parentId: card.parentId || null,
             parentTitle: card.parentTitle || ''
@@ -1328,6 +1331,9 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             desc,
             routine,
             members,
+            gutG: Number(cG.value),
+            gutU: Number(cU.value),
+            gutT: Number(cT.value),
             parentId: (cParent?.value || '').trim() || null,
             parentTitle: (cParent && cParent.value ? (cParent.selectedOptions[0]?.dataset?.label || cParent.selectedOptions[0]?.textContent || '') : '')
         });
@@ -2024,6 +2030,13 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             try { bindUsersToEdit(); } catch { }
         }
 
+        mG.value = (card.gutG ?? 5);
+        mU.value = (card.gutU ?? 5);
+        mT.value = (card.gutT ?? 5);
+
+        mGUT.value = computeGut(mG.value, mU.value, mT.value);
+        refreshEditGUT();
+
         mTitle.value = card.title || '';
         mDesc.value = card.desc || '';
         // dentro de openModal(card)
@@ -2125,9 +2138,9 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         if (mRtKind) mRtKind.value = r.kind || 'DAILY';
 
         // GUT/PRI (se não guarda G/U/T individualmente, inicia em 5/5/5)
-        mG.value = 5; mU.value = 5; mT.value = 5;
-        mGUT.value = Number(card.gut) || 125;
-        refreshEditGUT();
+        // mG.value = 5; mU.value = 5; mT.value = 5;
+        // mGUT.value = Number(card.gut) || 125;
+        // refreshEditGUT();
 
         const canEdit = (currentRole !== 'viewer') && !!currentUser;
         [mTitle, mResp, mStatus, mDue, mDesc, mASend, btnSave, mChkAdd,
@@ -2282,7 +2295,12 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             desc: mDesc.value,
             members,
             routine,
-            gut, gutGrade, priority,
+            gut,
+            gutGrade: gutClass(gut),
+            priority: computePriority(dueIso, gut),
+            gutG: Number(mG.value),
+            gutU: Number(mU.value),
+            gutT: Number(mT.value),
             parentId: (mParent?.value || '').trim() || null,
             parentTitle: (mParent && mParent.value ? (mParent.selectedOptions[0]?.dataset?.label || mParent.selectedOptions[0]?.textContent || '') : '')
         });
@@ -3523,24 +3541,24 @@ document.addEventListener('auth:changed', loadAndRenderCalendar);
 const logo = document.getElementById('logo');
 
 function aplicarTema() {
-  const tema = localStorage.getItem('theme') || 'dark';
-  document.body.setAttribute('data-theme', tema);
+    const tema = localStorage.getItem('theme') || 'dark';
+    document.body.setAttribute('data-theme', tema);
 
-  // Troca o logo conforme o tema
-  if (logo) {
-    if (tema === 'light') {
-      logo.src = 'img/8572256d-599f-44c3-86d9-40052c7a886c.jpeg'; // <- CAMINHO DA LOGO CLARA
-    } else {
-      logo.src = 'img/logoacianexus.png'; // <- CAMINHO DA LOGO ESCURA
+    // Troca o logo conforme o tema
+    if (logo) {
+        if (tema === 'light') {
+            logo.src = 'img/8572256d-599f-44c3-86d9-40052c7a886c.jpeg'; // <- CAMINHO DA LOGO CLARA
+        } else {
+            logo.src = 'img/logoacianexus.png'; // <- CAMINHO DA LOGO ESCURA
+        }
     }
-  }
 }
 
 // Quando o usuário clica pra trocar o tema:
 document.getElementById('toggleTheme')?.addEventListener('click', () => {
-  const atual = localStorage.getItem('theme') === 'light' ? 'dark' : 'light';
-  localStorage.setItem('theme', atual);
-  aplicarTema();
+    const atual = localStorage.getItem('theme') === 'light' ? 'dark' : 'light';
+    localStorage.setItem('theme', atual);
+    aplicarTema();
 });
 
 // Chama uma vez ao carregar a página
