@@ -1317,12 +1317,14 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         const priority = computePriority(dueIso, gut);
         const gutGrade = gutClass(gut);
 
+        const titleUpper = title.toUpperCase();
+
         // Descrição + checklist do buffer atual (IA ou básica)
         const desc = cDesc.value || buildDescFromModel();
         const checklistItems = setDescAndPreview._buffer || basicChecklistFromModel();
 
         const rec = await Cards.add({
-            title,
+            title: titleUpper,
             board: cBoard.value,
             resp: respLabel,          // compat com UI atual
             respUid,
@@ -3552,4 +3554,5 @@ document.getElementById('toggleTheme')?.addEventListener('click', () => {
 
 // Chama uma vez ao carregar a página
 aplicarTema();
+
 
