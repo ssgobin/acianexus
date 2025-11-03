@@ -19,40 +19,58 @@ function playNotifySound() {
     }
 }
 
-// === Notificações por usuário (responsável + membros) ===
-async function notifyUsers(userIds = [], payload = {}) {
-    if (!Array.isArray(userIds) || !userIds.length || !cloudOk) return;
-    const unique = [...new Set(userIds.filter(Boolean))];
-    const { collection, addDoc, serverTimestamp } =
-        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+// === Corrige coleta de membros de card ===
+function getSelectedMembers(rootEl) {
+    // checkboxes
+    const cb = rootEl.querySelectorAll('input[name="c-member"]:checked, input[type="checkbox"][name="member"]:checked');
+    if (cb.length) return [...cb].map(el => el.value);
 
-    await Promise.all(unique.map(uid =>
-        addDoc(collection(db, 'users', uid, 'inbox'), {
-            ...payload,
-            read: false,
-            createdAt: serverTimestamp ? serverTimestamp() : new Date().toISOString()
-        })
-    ));
+    // select múltiplo
+    const sel = rootEl.querySelector('#c-members, select[name="members"]');
+    if (sel) {
+        const opts = sel.multiple ? [...sel.selectedOptions] : (sel.value ? [sel.options[sel.selectedIndex]] : []);
+        return opts.map(o => o.value).filter(Boolean);
+    }
+    return [];
+}
+
+
+// === Notificações por usuário (responsável + membros) ===
+// === Envio de notificações de cards ===
+async function notifyUsers(userIds = [], payload = {}) {
+  if (!Array.isArray(userIds) || !userIds.length || !cloudOk) return;
+  const unique = [...new Set(userIds.filter(Boolean))];
+  const { collection, addDoc, serverTimestamp } =
+    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+  await Promise.all(unique.map(uid =>
+    addDoc(collection(db, 'users', uid, 'inbox'), {
+      ...payload,
+      read: false,
+      createdAt: serverTimestamp ? serverTimestamp() : new Date().toISOString()
+    })
+  ));
 }
 
 async function sendCardNotification(type, card, extra = {}) {
-    const actorUid = currentUser?.uid || null;
-    const members = Array.isArray(card.members) ? card.members : [];
-    const targets = [card.respUid, ...members].filter(uid => uid && uid !== actorUid);
+  const actorUid = currentUser?.uid || null;
+  const members = Array.isArray(card.members) ? card.members : [];
+  const targets = [card.respUid, ...members].filter(uid => uid && uid !== actorUid);
 
-    await notifyUsers(targets, {
-        kind: 'card',
-        type,                     // 'CARD_CREATED' | 'CARD_STATUS_CHANGED' | 'CARD_REASSIGNED' | 'CARD_MEMBER_ADDED' ...
-        cardId: card.id,
-        title: card.title,
-        board: card.board,
-        status: card.status,
-        due: card.due || null,
-        actorUid,
-        actorName: currentUser?.displayName || currentUser?.email || 'Sistema',
-        ...extra
-    });
+  await notifyUsers(targets, {
+    kind: 'card',
+    type,
+    cardId: card.id,
+    title: card.title,
+    board: card.board,
+    status: card.status,
+    due: card.due || null,
+    actorUid,
+    actorName: currentUser?.displayName || currentUser?.email || 'Sistema',
+    ...extra
+  });
 }
+
 
 // (opcional) som quando chegar algo novo na inbox do usuário logad
 function listenUserInbox() {
@@ -1825,7 +1843,6 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
         const members = Array.from(document.querySelectorAll('#c-members input[name="c-member"]:checked')).map(ch => ch.value);
 
-        const respUid = cloudOk ? cResp.value : null;
         const respLabel = cloudOk
             ? (cResp.selectedOptions[0]?.dataset?.label || '')
             : cResp.value;
@@ -1842,22 +1859,22 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         const desc = cDesc.value || buildDescFromModel();
         const checklistItems = setDescAndPreview._buffer || basicChecklistFromModel();
 
+        const respUid = document.getElementById('c-resp').value || null;
+        const memberUids = getSelectedMembers(document);
 
         const rec = await Cards.add({
-            title,
+            title: cTitle.value.trim() || '(sem título)',
+            desc: cDesc.value || '',
             board: cBoard.value,
-            resp: respLabel,          // compat com UI atual
-            respUid,
-            gut, gutGrade, priority,
-            due: dueIso,
-            desc,
-            routine,
-            members,
-            gutG: Number(cG.value),
-            gutU: Number(cU.value),
-            gutT: Number(cT.value),
-            parentId: (cParent?.value || '').trim() || null,
-            parentTitle: (cParent && cParent.value ? (cParent.selectedOptions[0]?.dataset?.label || cParent.selectedOptions[0]?.textContent || '') : '')
+            status: FLOWS[cBoard.value][0],
+            resp: $('#c-resp option:checked')?.dataset?.label || '',
+            respUid: respUid,
+            due: cDue.value ? new Date(cDue.value).toISOString() : null,
+            members: memberUids,
+            gut: Number($('#c-gut').value) || 0,
+            gutGrade: gutClass(Number($('#c-gut').value) || 0),
+            priority: computePriority(cDue.value ? new Date(cDue.value).toISOString() : null, Number($('#c-gut').value) || 0),
+            gutG: Number($('#c-g').value) || 5, gutU: Number($('#c-u').value) || 5, gutT: Number($('#c-t').value) || 5
         });
         await sendCardNotification('CARD_CREATED', rec);
 
