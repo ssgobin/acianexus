@@ -19,7 +19,62 @@ function playNotifySound() {
     }
 }
 
+// === Notificações por usuário (responsável + membros) ===
+async function notifyUsers(userIds = [], payload = {}) {
+    if (!Array.isArray(userIds) || !userIds.length || !cloudOk) return;
+    const unique = [...new Set(userIds.filter(Boolean))];
+    const { collection, addDoc, serverTimestamp } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
+    await Promise.all(unique.map(uid =>
+        addDoc(collection(db, 'users', uid, 'inbox'), {
+            ...payload,
+            read: false,
+            createdAt: serverTimestamp ? serverTimestamp() : new Date().toISOString()
+        })
+    ));
+}
+
+async function sendCardNotification(type, card, extra = {}) {
+    const actorUid = currentUser?.uid || null;
+    const members = Array.isArray(card.members) ? card.members : [];
+    const targets = [card.respUid, ...members].filter(uid => uid && uid !== actorUid);
+
+    await notifyUsers(targets, {
+        kind: 'card',
+        type,                     // 'CARD_CREATED' | 'CARD_STATUS_CHANGED' | 'CARD_REASSIGNED' | 'CARD_MEMBER_ADDED' ...
+        cardId: card.id,
+        title: card.title,
+        board: card.board,
+        status: card.status,
+        due: card.due || null,
+        actorUid,
+        actorName: currentUser?.displayName || currentUser?.email || 'Sistema',
+        ...extra
+    });
+}
+
+// (opcional) som quando chegar algo novo na inbox do usuário logad
+function listenUserInbox() {
+    if (!cloudOk || !currentUser?.uid) return;
+    (async () => {
+        const { collection, onSnapshot, orderBy, query, where } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const qRef = query(
+            collection(db, 'users', currentUser.uid, 'inbox'),
+            where('read', '==', false),
+            orderBy('createdAt', 'desc')
+        );
+        onSnapshot(qRef, snap => {
+            const unread = [];
+            snap.forEach(d => unread.push({ id: d.id, ...d.data() }));
+            if (unread.length) { try { notifySound.play(); } catch { } }
+            // aqui você pode também atualizar um badge do sino (se quiser unificar com o mural)
+        });
+    })();
+}
+// reconecta quando logar
+document.addEventListener('auth:changed', listenUserInbox);
 
 // === Notificação nativa do sistema ===
 function showSystemNotification(title, body) {
@@ -816,36 +871,36 @@ async function initFirebase() {
 // script.js
 let unsubBroadcast = null;
 function listenAdminForceReload() {
-  if (!cloudOk || !db) return;
-  if (unsubBroadcast) return;
+    if (!cloudOk || !db) return;
+    if (unsubBroadcast) return;
 
-  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js")
-    .then(({ doc, onSnapshot }) => {
-      const ref = doc(db, 'admin', 'broadcast');
-      let lastSeen = Number(localStorage.getItem('nexus:lastForceReload') || 0);
+    import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js")
+        .then(({ doc, onSnapshot }) => {
+            const ref = doc(db, 'admin', 'broadcast');
+            let lastSeen = Number(localStorage.getItem('nexus:lastForceReload') || 0);
 
-      unsubBroadcast = onSnapshot(ref, (snap) => {
-        const data = snap.data() || {};
-        const ts = Number(data.forceReloadAt || 0);
-        if (!ts || ts <= lastSeen) return;
+            unsubBroadcast = onSnapshot(ref, (snap) => {
+                const data = snap.data() || {};
+                const ts = Number(data.forceReloadAt || 0);
+                if (!ts || ts <= lastSeen) return;
 
-        // guarda “o que dizer” depois do reload
-        const notice = {
-          ts,
-          category: data.category || 'Atualização do sistema',
-          message: data.message || '',
-          ref: data.ref || '',
-          by: data.by || 'Admin'
-        };
-        localStorage.setItem('nexus:lastForceReload', String(ts));
-        localStorage.setItem('nexus:pendingReloadNotice', JSON.stringify(notice));
+                // guarda “o que dizer” depois do reload
+                const notice = {
+                    ts,
+                    category: data.category || 'Atualização do sistema',
+                    message: data.message || '',
+                    ref: data.ref || '',
+                    by: data.by || 'Admin'
+                };
+                localStorage.setItem('nexus:lastForceReload', String(ts));
+                localStorage.setItem('nexus:pendingReloadNotice', JSON.stringify(notice));
 
-        // recarrega tipo Ctrl+Shift+R
-        location.reload(true);
-      }, (err) => {
-        console.warn('Broadcast listener falhou:', err?.message || err);
-      });
-    });
+                // recarrega tipo Ctrl+Shift+R
+                location.reload(true);
+            }, (err) => {
+                console.warn('Broadcast listener falhou:', err?.message || err);
+            });
+        });
 }
 
 document.addEventListener('auth:changed', listenAdminForceReload);
@@ -945,6 +1000,29 @@ const Cards = {
             const i = all.cards.findIndex(c => String(c.id) === String(id));
             if (i >= 0) { all.cards[i] = { ...all.cards[i], ...patch }; LocalDB.save(all); }
         }
+        async function updateCardWithNotice(prevCard, patch) {
+            const id = prevCard.id;
+            await Cards.update(id, patch);
+            const next = { ...prevCard, ...patch };
+
+            if (patch.status && patch.status !== prevCard.status) {
+                await sendCardNotification('CARD_STATUS_CHANGED', next, { oldStatus: prevCard.status });
+            }
+            if (patch.respUid && patch.respUid !== prevCard.respUid) {
+                await sendCardNotification('CARD_REASSIGNED', next, { oldResp: prevCard.respUid });
+            }
+            if (Array.isArray(patch.members)) {
+                const prev = new Set(prevCard.members || []);
+                const added = patch.members.filter(u => !prev.has(u));
+                if (added.length) {
+                    await notifyUsers(added, {
+                        kind: 'card', type: 'CARD_MEMBER_ADDED',
+                        cardId: id, title: next.title, board: next.board, status: next.status
+                    });
+                }
+            }
+        }
+
     },
     listen(cb) {
         if (cloudOk) {
@@ -1327,16 +1405,16 @@ async function isChecklistComplete(cardId) {
 }
 
 ; (function showReloadNoticeIfAny() {
-  try {
-    const raw = localStorage.getItem('nexus:pendingReloadNotice');
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    // só mostra se for relativamente recente (ex.: 5 minutos)
-    const fresh = Date.now() - (Number(data.ts) || 0) < 5 * 60 * 1000;
-    if (!fresh) { localStorage.removeItem('nexus:pendingReloadNotice'); return; }
+    try {
+        const raw = localStorage.getItem('nexus:pendingReloadNotice');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        // só mostra se for relativamente recente (ex.: 5 minutos)
+        const fresh = Date.now() - (Number(data.ts) || 0) < 5 * 60 * 1000;
+        if (!fresh) { localStorage.removeItem('nexus:pendingReloadNotice'); return; }
 
-    const html =
-      `<div style="text-align:left">
+        const html =
+            `<div style="text-align:left">
         <div><strong>Categoria:</strong> ${data.category}</div>
         ${data.ref ? `<div><strong>Referência:</strong> ${escapeHtml(data.ref)}</div>` : ''}
         ${data.message ? `<div style="margin-top:8px">${escapeHtml(data.message)}</div>` : ''}
@@ -1345,30 +1423,30 @@ async function isChecklistComplete(cardId) {
         </div>
       </div>`;
 
-    // dispara o alerta
-    if (window.Swal) {
-      Swal.fire({
-        title: 'Nexus atualizado 🚀',
-        html,
-        icon: 'success',
-        confirmButtonText: 'Ok, obrigado!',
-      });
-    } else {
-      // fallback: alert simples
-      alert(`Nexus atualizado: ${data.category}\n${data.ref || ''}\n${data.message || ''}`);
+        // dispara o alerta
+        if (window.Swal) {
+            Swal.fire({
+                title: 'Nexus atualizado 🚀',
+                html,
+                icon: 'success',
+                confirmButtonText: 'Ok, obrigado!',
+            });
+        } else {
+            // fallback: alert simples
+            alert(`Nexus atualizado: ${data.category}\n${data.ref || ''}\n${data.message || ''}`);
+        }
+    } catch { /* ignore */ }
+    finally {
+        // consome a mensagem
+        localStorage.removeItem('nexus:pendingReloadNotice');
     }
-  } catch { /* ignore */ }
-  finally {
-    // consome a mensagem
-    localStorage.removeItem('nexus:pendingReloadNotice');
-  }
 
-  // util: evita XSS na mensagem do admin
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => (
-      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]
-    ));
-  }
+    // util: evita XSS na mensagem do admin
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]
+        ));
+    }
 })();
 
 
@@ -1781,6 +1859,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             parentId: (cParent?.value || '').trim() || null,
             parentTitle: (cParent && cParent.value ? (cParent.selectedOptions[0]?.dataset?.label || cParent.selectedOptions[0]?.textContent || '') : '')
         });
+        await sendCardNotification('CARD_CREATED', rec);
 
         if (checklistItems.length) {
             for (const it of checklistItems) {
