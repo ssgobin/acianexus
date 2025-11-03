@@ -3,6 +3,38 @@
    CONFIG & HELPERS
 ============================ */
 
+
+
+// === Som de notificação ===
+const notifySound = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
+function playNotifySound() {
+    try {
+        notifySound.currentTime = 0; // reinicia o áudio se já estiver tocando
+        notifySound.play().catch(() => {
+            // fallback se o autoplay for bloqueado
+            console.warn('Navegador bloqueou o som de notificação (interaja com a página primeiro)');
+        });
+    } catch (e) {
+        console.warn('Erro ao tocar som:', e);
+    }
+}
+
+
+
+// === Notificação nativa do sistema ===
+function showSystemNotification(title, body) {
+    if (!("Notification" in window)) return; // navegador não suporta
+    if (Notification.permission === "granted") {
+        new Notification(title, { body, icon: "img/logoacianexus.png" });
+    } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(p => {
+            if (p === "granted") new Notification(title, { body, icon: "img/logoacianexus.png" });
+        });
+    }
+}
+
+
+
 function computeGut(g, u, t) {
     const G = Math.max(1, Math.min(10, Number(g) || 0));
     const U = Math.max(1, Math.min(10, Number(u) || 0));
@@ -107,6 +139,144 @@ const Members = {
 };
 
 /* ===========================
+   Tickets (Firestore + Local)
+=========================== */
+const Tickets = {
+    async add(ticket) {
+        const base = {
+            title: ticket.title || '(sem título)',
+            desc: ticket.desc || '',
+            severity: ticket.severity || 'Baixa',
+            author: ticket.author || '',
+            authorEmail: ticket.authorEmail || '',
+            status: 'Aberto',
+            feedback: '',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        if (cloudOk) {
+            const { addDoc, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            const ref = await addDoc(collection(db, 'tickets'), base);
+            return { id: ref.id, ...base };
+        } else {
+            const all = LocalDB.load();
+            all.tickets = all.tickets || [];
+            const id = String(Date.now() + Math.random());
+            all.tickets.push({ id, ...base });
+            LocalDB.save(all);
+            return { id, ...base };
+        }
+    },
+
+    async update(id, patch) {
+        const data = { ...patch, updatedAt: new Date().toISOString() };
+        if (cloudOk) {
+            const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            await updateDoc(doc(db, 'tickets', id), data);
+            // 🔔 Notifica o autor sobre feedback do TI
+            if (patch.feedback) {
+                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+                const snap = await getDoc(doc(db, "tickets", id));
+                if (snap.exists()) {
+                    const t = snap.data();
+                    const authorUid = t.authorUid || t.authorEmail || null;
+                    if (authorUid) {
+                        await notifyUser(authorUid, `Feedback no seu ticket`, `O ticket "${t.title}" recebeu um feedback do TI.`);
+                    }
+                }
+            }
+
+        } else {
+            const all = LocalDB.load();
+            all.tickets = all.tickets || [];
+            const i = all.tickets.findIndex(t => t.id === id);
+            if (i >= 0) {
+                all.tickets[i] = { ...all.tickets[i], ...data };
+                LocalDB.save(all);
+            }
+        }
+    },
+
+    listen(cb) {
+        if (cloudOk) {
+            import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js")
+                .then(({ collection, onSnapshot, orderBy, query }) => {
+                    const qRef = query(collection(db, 'tickets'), orderBy('createdAt', 'desc'));
+                    onSnapshot(qRef, snap => {
+                        const arr = [];
+                        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+                        cb(arr);
+                    });
+                });
+            return;
+        }
+        const emit = () => cb((LocalDB.load().tickets || []).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)));
+        emit();
+        const t = setInterval(emit, 800);
+        return () => clearInterval(t);
+    }
+};
+
+// ========== CRIAR TICKET ==========
+const formTicket = document.getElementById('formTicket');
+if (formTicket) {
+    formTicket.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = document.getElementById('ticketTitle').value.trim();
+        const desc = document.getElementById('ticketDesc').value.trim();
+        const dept = document.getElementById('ticketDept').value;
+
+        if (!title || !desc) return alert('Preencha todos os campos');
+
+        try {
+            await Tickets.add({
+                title,
+                desc,
+                severity: dept,            // aproveita o campo "departamento" como severidade
+                author: currentUser?.displayName || currentUser?.email || 'Anônimo',
+                authorEmail: currentUser?.email || 'Anônimo'
+            });
+            alert('Ticket enviado com sucesso!');
+            formTicket.reset();
+            window.location.hash = '#/tickets';
+        } catch (err) {
+            console.error(err);
+            alert('Erro ao enviar ticket');
+        }
+    });
+}
+
+/* ===========================
+   Inbox efêmero (não persiste no Firestore)
+=========================== */
+const Ephemeral = (() => {
+    const KEY = 'acia-ephem-v1';
+    const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
+    const save = (arr) => localStorage.setItem(KEY, JSON.stringify(arr));
+    function push({ titulo, corpo }) {
+        const it = {
+            id: (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
+            titulo: titulo || '(sem título)',
+            corpo: corpo || '',
+            createdAt: new Date().toISOString(),
+            lido: false
+        };
+        const arr = load();
+        arr.unshift(it);
+        // limite pra não inchar o storage
+        save(arr.slice(0, 80));
+    }
+    const list = () => load();
+    function markAllRead() {
+        const arr = load().map(x => ({ ...x, lido: true }));
+        save(arr);
+    }
+    function clear() { save([]); }
+    return { push, list, markAllRead, clear };
+})();
+
+
+/* ===========================
    Mural Service (Firestore / Local)
 =========================== */
 const MuralService = (() => {
@@ -133,8 +303,31 @@ const MuralService = (() => {
                 lidoBy: { ...(x.lidoBy || {}), [uid]: true }
             }));
             LocalMural.save(db);
+        },
+        clear() {
+            localStorage.setItem('acia-mural', JSON.stringify({ items: [] }));
         }
     };
+
+    // dentro do IIFE do MuralService
+    async function clearAll() {
+        if (!cloudOk) {
+            // Local (localStorage)
+            try {
+                LocalMural.clear();         // (ver Passo 2)
+                return;
+            } catch (e) { console.warn('clearAll local falhou:', e); return; }
+        }
+        // Firestore: apaga TODOS os docs da coleção "mural"
+        const { collection, getDocs, deleteDoc } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const snap = await getDocs(collection(db, COL));
+        await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
+    }
+
+    // exporte a função
+    return { listOnce, listen, add, markAllRead, clearAll };
+
 
     async function listOnce() {
         if (!cloudOk) return LocalMural.list();
@@ -165,6 +358,31 @@ const MuralService = (() => {
         })();
     }
 
+    // use a mesma assinatura para não quebrar chamadas existentes
+    // NOTIFICAÇÃO EFÊMERA: som + Notification API + badge do sino
+    async function notifyUser(uid, title, body) {
+        try {
+            playNotifySound(); // 🎵 toca o som
+
+            if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                    new Notification(title || 'Notificação', { body: body || '' });
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(p => {
+                        if (p === 'granted') new Notification(title || 'Notificação', { body: body || '' });
+                    });
+                }
+            }
+
+            // Adiciona à área de notificações locais (sem salvar no mural)
+            Ephemeral.push({ titulo: title, corpo: body });
+            renderMuralCombined();
+        } catch (e) {
+            console.warn('notifyUser falhou:', e);
+        }
+    }
+
+
     async function add({ titulo, corpo }) {
         const rec = {
             titulo: titulo || '(sem título)',
@@ -174,6 +392,7 @@ const MuralService = (() => {
         };
         if (!cloudOk) {
             LocalMural.upsert({ id: String(Date.now() + Math.random()), ...rec });
+            notifyUser(null, "Novo comunicado", "Há um novo comunicado no ACIANexus.");
             return;
         }
         const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
@@ -198,6 +417,36 @@ const MuralService = (() => {
     return { listOnce, listen, add, markAllRead };
 })();
 
+// use a mesma assinatura para não quebrar chamadas existentes
+// use a mesma assinatura para não quebrar chamadas existentes
+// NOTIFICAÇÃO EFÊMERA: som + Notification API + badge do sino
+async function notifyUser(uid, title, body) {
+    try {
+        // 1) som (se existir)
+        if (typeof playNotifySound === 'function') playNotifySound();
+
+        // 2) notificação nativa do sistema
+        if ('Notification' in window) {
+            if (Notification.permission === 'granted') {
+                new Notification(title || 'Notificação', { body: body || '' });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission().then(p => {
+                    if (p === 'granted') new Notification(title || 'Notificação', { body: body || '' });
+                });
+            }
+        }
+
+        // 3) badge do sino (efêmero, não grava no mural)
+        Ephemeral.push({ titulo: title, corpo: body });
+        // força re-render
+        renderMuralCombined();
+    } catch (e) {
+        console.warn('notifyUser falhou:', e);
+    }
+}
+
+
+
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -218,34 +467,80 @@ const muralUI = {
     open: false
 };
 
-function renderMural(items) {
+// rastreador de IDs do mural já vistos
+let _muralSeen = new Set();
+
+function renderMuralCombined(muralItemsRaw) {
     const uid = currentUser?.uid || 'anon';
-    const unread = items.filter(x => !(x.lidoBy || {})[uid]);
+    const muralItems = Array.isArray(muralItemsRaw) ? muralItemsRaw : (window._lastMuralItems || []);
+
+    const eph = Ephemeral.list();
+    const unreadEph = eph.filter(x => !x.lido).length;
+    const unreadMural = muralItems.filter(x => !(x.lidoBy || {})[uid]).length;
+    const unread = unreadEph + unreadMural;
+
     // badge
     if (muralUI.badge) {
-        if (unread.length > 0) {
-            muralUI.badge.textContent = unread.length;
+        if (unread > 0) {
+            muralUI.badge.textContent = unread;
             muralUI.badge.hidden = false;
         } else {
             muralUI.badge.hidden = true;
         }
     }
-    // lista
-    if (muralUI.list) {
-        muralUI.list.innerHTML = items.map(x => {
-            const lido = !!(x.lidoBy || {})[uid];
-            return `<li class="${lido ? 'lido' : ''}">
-        <div style="font-weight:700">${x.title || '(sem título)'}</div>
-        ${x.corpo ? `<div class="muted" style="font-size:12px;margin-top:4px">${x.corpo}</div>` : ''}
-      </li>`;
-        }).join('') || '<li class="muted">Sem comunicados</li>';
-    }
+
+    if (!muralUI.list) return;
+
+    const ephHtml = eph.length
+        ? [
+            '<li class="muted" style="font-size:11px;margin:4px 0 6px">Atividades recentes</li>',
+            ...eph.map(x => `
+          <li class="${x.lido ? 'lido' : ''}">
+            <div style="font-weight:700">${x.titulo || '(sem título)'}</div>
+            ${x.corpo ? `<div class="muted" style="font-size:12px;margin-top:4px">${x.corpo}</div>` : ''}
+          </li>
+        `)
+        ].join('')
+        : '';
+
+    const muralHtml = muralItems.length
+        ? [
+            '<li class="muted" style="font-size:11px;margin:8px 0 6px">Comunicados</li>',
+            ...muralItems.map(x => {
+                const lido = !!(x.lidoBy || {})[uid];
+                return `
+            <li class="${lido ? 'lido' : ''}">
+              <div style="font-weight:700">${x.titulo || x.title || '(sem título)'}</div>
+              ${x.corpo ? `<div class="muted" style="font-size:12px;margin-top:4px">${x.corpo}</div>` : ''}
+            </li>`;
+            })
+        ].join('')
+        : (!eph.length ? '<li class="muted">Sem comunicados</li>' : '');
+
+    muralUI.list.innerHTML = ephHtml + muralHtml;
 }
+
 
 async function startMuralLive() {
     stopMuralLive(); // evita múltiplos listeners
     // ainda não logado? escuta local
-    muralUI.unsub = await MuralService.listen(renderMural);
+    muralUI.unsub = await MuralService.listen((items) => {
+        const currIds = new Set(items.map(x => x.id));
+        if (_muralSeen.size > 0) {
+            for (const id of currIds) {
+                if (!_muralSeen.has(id)) {
+                    notifyUser(null, "Novo comunicado", "Há um novo comunicado no ACIANexus.");
+                    playNotifySound(); // 🎺 toca o bugle_tune
+                    break;
+                }
+            }
+        }
+        _muralSeen = currIds;
+        window._lastMuralItems = items;
+        renderMuralCombined(items);
+    });
+
+
 }
 
 function stopMuralLive() {
@@ -260,6 +555,8 @@ function initMuralUI() {
     muralUI.list = document.getElementById('mural-dropdown-list');
     muralUI.btnAllRead = document.getElementById('mural-marcar-lido');
     muralUI.btnSeeAll = document.getElementById('mural-ver-tudo');
+    muralUI.btnClear = document.getElementById('mural-limpar');
+
 
     // toggle do dropdown
     muralUI.bell?.addEventListener('click', () => {
@@ -280,8 +577,48 @@ function initMuralUI() {
     // marcar tudo como lido
     muralUI.btnAllRead?.addEventListener('click', async () => {
         const uid = currentUser?.uid || 'anon';
-        await MuralService.markAllRead(uid);
+
+        await MuralService.markAllRead(uid);        // marca no Firestore/local
+        if (typeof Ephemeral?.markAllRead === 'function') Ephemeral.markAllRead(); // efêmero
+
+        // atualiza cache para refletir lidos
+        if (Array.isArray(window._lastMuralItems)) {
+            window._lastMuralItems = window._lastMuralItems.map(x => ({
+                ...x,
+                lidoBy: { ...(x.lidoBy || {}), [uid]: true }
+            }));
+        }
+
+        // re-render imediato
+        if (typeof renderMuralCombined === 'function') {
+            renderMuralCombined(window._lastMuralItems);
+        } else if (typeof renderMural === 'function') {
+            renderMural(window._lastMuralItems || []);
+        }
     });
+
+
+    muralUI.btnClear?.addEventListener('click', async () => {
+        const uid = currentUser?.uid || 'anon';
+
+        // 1) limpar efêmero (se você usa o Ephemeral)
+        if (typeof Ephemeral?.clear === 'function') Ephemeral.clear();
+
+        // 2) apagar TODOS os comunicados do mural (Firestore/local)
+        await MuralService.clearAll();
+
+        // 3) zera cache em memória para refletir imediatamente
+        window._lastMuralItems = [];
+
+        // 4) re-render e badge na hora
+        if (typeof renderMuralCombined === 'function') {
+            renderMuralCombined(window._lastMuralItems);
+        } else if (typeof renderMural === 'function') {
+            renderMural(window._lastMuralItems);
+        }
+    });
+
+
 }
 
 
@@ -306,7 +643,7 @@ Listar todas as informações pertinentes que contribuam para a ação mais efet
 
 /* ========== IA (Groq) ========== */
 // Cole sua chave do Groq. Se vazio, usa fallback heurístico local.
-const GROQ_API_KEY = "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"; // <<< SUA GROQ KEY AQUI
+const GROQ_API_KEY = "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"; // <<< SUA GROQ KEY AQUI
 // Modelo Groq (sugestões: "llama3-70b-8192", "mixtral-8x7b-32768")
 const GROQ_MODEL = "llama-3.3-70b-versatile";
 // Se encontrar CORS no navegador, publique um proxy simples e coloque a URL aqui:
@@ -476,6 +813,46 @@ async function initFirebase() {
     }
 }
 
+// script.js
+let unsubBroadcast = null;
+function listenAdminForceReload() {
+  if (!cloudOk || !db) return;
+  if (unsubBroadcast) return;
+
+  import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js")
+    .then(({ doc, onSnapshot }) => {
+      const ref = doc(db, 'admin', 'broadcast');
+      let lastSeen = Number(localStorage.getItem('nexus:lastForceReload') || 0);
+
+      unsubBroadcast = onSnapshot(ref, (snap) => {
+        const data = snap.data() || {};
+        const ts = Number(data.forceReloadAt || 0);
+        if (!ts || ts <= lastSeen) return;
+
+        // guarda “o que dizer” depois do reload
+        const notice = {
+          ts,
+          category: data.category || 'Atualização do sistema',
+          message: data.message || '',
+          ref: data.ref || '',
+          by: data.by || 'Admin'
+        };
+        localStorage.setItem('nexus:lastForceReload', String(ts));
+        localStorage.setItem('nexus:pendingReloadNotice', JSON.stringify(notice));
+
+        // recarrega tipo Ctrl+Shift+R
+        location.reload(true);
+      }, (err) => {
+        console.warn('Broadcast listener falhou:', err?.message || err);
+      });
+    });
+}
+
+document.addEventListener('auth:changed', listenAdminForceReload);
+listenAdminForceReload();
+
+
+
 
 /* ===========================
    LocalDB Fallback
@@ -532,6 +909,14 @@ const Cards = {
             const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             const ref = collection(db, 'cards');
             const docRef = await addDoc(ref, base);
+            try {
+                const users = base.members || [];
+                for (const m of users) {
+                    await notifyUser(m, `Novo card: ${base.title}`, `Você foi adicionado ao card "${base.title}" no board ${base.board}.`);
+                }
+            } catch (e) {
+                console.warn("Falha ao notificar membros do card:", e);
+            }
             return { id: docRef.id, ...base };
         } else {
             const id = String(Date.now() + Math.random());
@@ -543,6 +928,18 @@ const Cards = {
         if (cloudOk) {
             const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             await updateDoc(doc(db, 'cards', id), patch);
+            // 🔔 Notifica atualização aos membros
+            if (patch && patch.title) {
+                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+                const snap = await getDoc(doc(db, "cards", id));
+                if (snap.exists()) {
+                    const data = snap.data();
+                    for (const uid of (data.members || [])) {
+                        await notifyUser(uid, `Atualização no card: ${data.title}`, `O card "${data.title}" foi atualizado.`);
+                    }
+                }
+            }
+
         } else {
             const all = LocalDB.load();
             const i = all.cards.findIndex(c => String(c.id) === String(id));
@@ -929,6 +1326,52 @@ async function isChecklistComplete(cardId) {
     return list.length === 0 ? true : list.every(it => !!it.done);
 }
 
+; (function showReloadNoticeIfAny() {
+  try {
+    const raw = localStorage.getItem('nexus:pendingReloadNotice');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    // só mostra se for relativamente recente (ex.: 5 minutos)
+    const fresh = Date.now() - (Number(data.ts) || 0) < 5 * 60 * 1000;
+    if (!fresh) { localStorage.removeItem('nexus:pendingReloadNotice'); return; }
+
+    const html =
+      `<div style="text-align:left">
+        <div><strong>Categoria:</strong> ${data.category}</div>
+        ${data.ref ? `<div><strong>Referência:</strong> ${escapeHtml(data.ref)}</div>` : ''}
+        ${data.message ? `<div style="margin-top:8px">${escapeHtml(data.message)}</div>` : ''}
+        <div style="margin-top:8px;color:#64748b;font-size:12px">
+          ${new Date(data.ts).toLocaleString('pt-BR')} · ${escapeHtml(data.by || 'Admin')}
+        </div>
+      </div>`;
+
+    // dispara o alerta
+    if (window.Swal) {
+      Swal.fire({
+        title: 'Nexus atualizado 🚀',
+        html,
+        icon: 'success',
+        confirmButtonText: 'Ok, obrigado!',
+      });
+    } else {
+      // fallback: alert simples
+      alert(`Nexus atualizado: ${data.category}\n${data.ref || ''}\n${data.message || ''}`);
+    }
+  } catch { /* ignore */ }
+  finally {
+    // consome a mensagem
+    localStorage.removeItem('nexus:pendingReloadNotice');
+  }
+
+  // util: evita XSS na mensagem do admin
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => (
+      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]
+    ));
+  }
+})();
+
+
 
 ; (function initMural() {
     // liga UI imediatamente
@@ -1286,7 +1729,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
     // ===== Criar card =====
     btnCreate.addEventListener('click', async () => {
-        const title = (cTitle.value || '').trim();
+        const title = ((cTitle.value || '').trim()).toUpperCase();
         if (!title) { setMsg(msg, 'err', 'Informe o título.'); return; }
 
         const dueIso = cDue.value ? new Date(cDue.value).toISOString() : null;
@@ -1317,14 +1760,13 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         const priority = computePriority(dueIso, gut);
         const gutGrade = gutClass(gut);
 
-        const titleUpper = title.toUpperCase();
-
         // Descrição + checklist do buffer atual (IA ou básica)
         const desc = cDesc.value || buildDescFromModel();
         const checklistItems = setDescAndPreview._buffer || basicChecklistFromModel();
 
+
         const rec = await Cards.add({
-            title: titleUpper,
+            title,
             board: cBoard.value,
             resp: respLabel,          // compat com UI atual
             respUid,
@@ -1345,6 +1787,34 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
                 await Sub.addChecklistItem(rec.id, it.text, it.done);
             }
         }
+
+        // depois do await Cards.add(...)
+        try {
+            const title = (cTitle?.value || '(sem título)').trim();
+            const board = cBoard?.value || 'PROJETOS';
+
+            // notifica o responsável (se houver)
+            const respOpt = cResp?.selectedOptions?.[0];
+            const respUid = respOpt?.value || null;
+            const respName = respOpt?.dataset?.label || respOpt?.textContent || '';
+
+            const prazo = cDue?.value ? new Date(cDue.value).toLocaleString() : 'sem prazo definido';
+            const body = `[${board}] ${title}\nPrazo: ${prazo}`;
+
+            // dispara para o responsável
+            if (respUid) await notifyUser(respUid, 'Novo card atribuído', body);
+
+            // dispara para cada membro marcado
+            const memberInputs = Array.from(document.querySelectorAll('#c-members input[name="c-member"]:checked'));
+            for (const inp of memberInputs) {
+                const uid = inp.value;
+                if (!uid || uid === respUid) continue;
+                await notifyUser(uid, 'Você foi marcado em um card', body);
+            }
+        } catch (e) {
+            console.warn('Falha ao notificar criação de card:', e);
+        }
+
 
         setMsg(msg, 'ok', '✅ Card criado!');
         // reset mínimos
@@ -2434,9 +2904,15 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
     // ---- Permissões (apenas admin vê o botão) ----
     function paintPermissions() {
+        // Tickets visível para todos
+        const btnTkt = document.querySelector('#nav-tickets');
+        if (btnTkt) btnTkt.classList.remove('hidden');
+
+        // Botões de publicar mural e gerenciar membros continuam só para admin
         if (btnOpen) btnOpen.classList.toggle('hidden', currentRole !== 'admin');
         if (btnMem) btnMem.classList.toggle('hidden', currentRole !== 'admin');
     }
+
     document.addEventListener('auth:changed', paintPermissions);
     paintPermissions();
 
@@ -2511,23 +2987,190 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
     form?.addEventListener('submit', async (e) => {
         e.preventDefault(); okMsg.classList.remove('show'); errMsg.classList.remove('show');
         if (!titleEl.value.trim() || !descEl.value.trim()) { setMsg(errMsg, 'err', '⚠️ Preencha o título e a descrição.'); return; }
-        const now = new Date();
-        const embed = {
-            title: `[${sevEl.value}] ${titleEl.value.trim()}`,
-            color: sevColor(sevEl.value),
-            description: `${descEl.value.trim()}\n\n**Quem reportou:** ${nameEl.value.trim() || '—'}\n**E-mail:** ${emailEl.value.trim() || '—'}\n**Quando:** ${now.toLocaleString('pt-BR')}`,
-            footer: { text: 'Bug Reporter • ACIANexus' }
-        };
-        const payload = { username: 'ACIA Bug Reporter', embeds: [embed] };
+
         setBusy(true);
         try {
-            const resp = await fetch(HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-            if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            form.reset(); setMsg(okMsg, 'ok', '✅ Obrigado! Seu relato foi enviado.');
-        } catch (err) { console.error(err); setMsg(errMsg, 'err', '⚠️ Não foi possível enviar agora.'); }
-        finally { setBusy(false); }
+            await Tickets.add({
+                title: titleEl.value.trim(),
+                desc: descEl.value.trim(),
+                severity: sevEl.value,
+                author: (nameEl.value || '').trim(),
+                authorEmail: (emailEl.value || '').trim()
+            });
+            form.reset();
+            setMsg(okMsg, 'ok', '✅ Ticket criado! O TI foi notificado.');
+        } catch (err) {
+            console.error(err);
+            setMsg(errMsg, 'err', '⚠️ Não foi possível criar o ticket agora.');
+        } finally {
+            setBusy(false);
+        }
     });
+
 })();
+
+
+/* ===========================
+   UI dos Tickets (apenas TI)
+=========================== */
+; (function initTicketsUI() {
+    const view = document.querySelector('#view-tickets');
+    if (!view) return;
+
+    const list = view.querySelector('#tickets-list');
+    const filterEl = view.querySelector('#tkt-filter');
+    const qEl = view.querySelector('#tkt-q');
+    const counter = view.querySelector('#tkt-counter');
+
+    // modal refs
+    const modal = document.querySelector('#ticketModal');
+    const mClose = document.querySelector('#ticket-close');
+    const mTitle = document.querySelector('#ticket-title');
+    const mAuthor = document.querySelector('#ticket-author');
+    const mEmail = document.querySelector('#ticket-email');
+    const mDesc = document.querySelector('#ticket-desc');
+    const mSev = document.querySelector('#ticket-severity');
+    const mStatus = document.querySelector('#ticket-status');
+    const mFeedback = document.querySelector('#ticket-feedback');
+    const mMsg = document.querySelector('#tkt-msg');
+    const mSave = document.querySelector('#ticket-save');
+
+    // Fechar ao clicar fora (overlay) ou na borda do modal
+    const back = document.querySelector('#modalBack');
+
+    // clique no overlay
+    back?.addEventListener('click', () => {
+        if (modal.classList.contains('show')) closeModal();
+    });
+
+    // clique na área vazia do próprio modal (fora do painel)
+    modal?.addEventListener('mousedown', (e) => {
+        // fecha apenas se o clique for no contêiner (não dentro do painel)
+        if (e.target === modal) closeModal();
+    });
+
+    // tecla ESC
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('show')) {
+            closeModal();
+        }
+    });
+
+
+    let __all = [];
+    let __currentId = null;
+
+    function paint(arr) {
+        __all = arr || [];
+        const term = (qEl.value || '').toLowerCase();
+        const f = (filterEl.value || 'ALL');
+
+        const filtered = __all.filter(t => {
+            const okStatus = (f === 'ALL' || t.status === f);
+            const okQ = !term || (String(t.title || '').toLowerCase().includes(term) || String(t.author || '').toLowerCase().includes(term));
+            return okStatus && okQ;
+        });
+
+        counter.textContent = `${filtered.length} tickets`;
+        list.innerHTML = filtered.map(t => {
+            const when = new Date(t.createdAt || Date.now()).toLocaleString('pt-BR');
+            return `
+        <div class="card" style="padding:10px">
+          <div class="title" data-open="${t.id}" role="button" tabindex="0" style="cursor:pointer">
+            <div class="title-text">${escapeHtml(t.title || '(sem título)')}</div>
+            <div class="title-badges">
+              <span class="badge">${escapeHtml(t.status || 'Aberto')}</span>
+              <span class="badge">${escapeHtml(t.severity || 'Baixa')}</span>
+            </div>
+          </div>
+          <div class="meta muted" style="margin:6px 0">${escapeHtml(t.author || '—')} • ${escapeHtml(t.authorEmail || '—')} • ${when}</div>
+          <div class="desc" style="margin:6px 0">${escapeHtml(t.desc || '')}</div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="btn" data-open="${t.id}">Abrir</button>
+          </div>
+        </div>
+      `;
+        }).join('');
+
+        // delegação: qualquer clique/Enter/Espaço em algo com [data-open] abre o modal
+        list.onclick = (e) => {
+            const el = e.target.closest('[data-open]');
+            if (el) openModal(el.getAttribute('data-open'));
+        };
+        list.onkeydown = (e) => {
+            if (e.key === 'Enter' || e.code === 'Space') {
+                const el = e.target.closest('[data-open]');
+                if (el) { e.preventDefault(); openModal(el.getAttribute('data-open')); }
+            }
+        };
+    }
+
+    function openModal(id) {
+        const t = __all.find(x => String(x.id) === String(id));
+        __currentId = t?.id || null;
+        if (!t) return;
+        mTitle.textContent = `Ticket — ${t.title || '(sem título)'}`;
+        mAuthor.value = t.author || '';
+        mEmail.value = t.authorEmail || '';
+        mDesc.value = t.desc || '';
+        mSev.value = t.severity || '';
+        mStatus.value = t.status || 'Aberto';
+        mFeedback.value = t.feedback || '';
+        mMsg.textContent = '';
+        modal.classList.add('show');
+        document.querySelector('#modalBack')?.classList.add('show');
+        applyTicketPermissions();
+    }
+
+    function closeModal() {
+        modal.classList.remove('show');
+        // respeita outros modais
+        if (!document.querySelector('#cardModal.show') && !document.querySelector('#chatModal.show')) {
+            document.querySelector('#modalBack')?.classList.remove('show');
+        }
+    }
+
+    mClose?.addEventListener('click', closeModal);
+    mSave?.addEventListener('click', async () => {
+        if (currentRole !== 'admin') {
+            mMsg.classList.remove('ok');
+            mMsg.classList.add('err');
+            mMsg.textContent = 'Somente o TI pode editar.';
+            return;
+        }
+        if (!__currentId) return;
+        mMsg.classList.remove('ok', 'err');
+        try {
+            await Tickets.update(__currentId, { status: mStatus.value, feedback: mFeedback.value });
+            mMsg.classList.add('ok'); mMsg.textContent = 'Salvo.';
+            setTimeout(closeModal, 300);
+        } catch (e) {
+            console.error(e);
+            mMsg.classList.add('err'); mMsg.textContent = 'Falha ao salvar.';
+        }
+    });
+
+    filterEl?.addEventListener('change', () => paint(__all));
+    qEl?.addEventListener('input', () => paint(__all));
+
+    // live listen
+    let stop = null;
+    (async () => { stop = await Tickets.listen(paint); })();
+    document.addEventListener('auth:changed', async () => { try { stop && stop(); } catch { }; stop = await Tickets.listen(paint); });
+
+    function applyTicketPermissions() {
+        const canEdit = (currentRole === 'admin') && !!currentUser;
+        [mSev, mStatus, mFeedback].forEach(el => el && (el.disabled = !canEdit));
+        [mAuthor, mEmail, mDesc].forEach(el => el && (el.disabled = true));
+        if (mSave) mSave.classList.toggle('hidden', !canEdit);
+    }
+    document.addEventListener('auth:changed', applyTicketPermissions);
+
+    applyTicketPermissions();
+
+
+})();
+
 
 /* ===========================
 Membros (admin)
@@ -3098,7 +3741,11 @@ function renderRoute() {
 
 
     // esconda TODOS os views sempre
-    const views = ['#view-home', '#view-create', '#view-kanban', '#view-report', '#view-members', '#view-metrics', '#view-auth', '#view-calendar'];
+    const views = [
+        '#view-home', '#view-create', '#view-kanban', '#view-members',
+        '#view-metrics', '#view-auth', '#view-calendar',
+        '#view-report', '#view-tickets'
+    ];
     views.forEach(id => { const el = document.querySelector(id); el && el.classList.add('hidden'); });
 
     // mostre só o view da rota atual
@@ -3108,6 +3755,8 @@ function renderRoute() {
         document.querySelector('#view-kanban')?.classList.remove('hidden');
     } else if (hash.startsWith('#/reportar')) {
         document.querySelector('#view-report')?.classList.remove('hidden');
+    } else if (hash.startsWith('#/tickets')) {
+        document.querySelector('#view-tickets')?.classList.remove('hidden');
     } else if (hash.startsWith('#/membros')) {
         document.querySelector('#view-members')?.classList.remove('hidden');
     } else if (hash.startsWith('#/indicadores')) {
@@ -3128,6 +3777,194 @@ window.addEventListener('hashchange', renderRoute);
     await initFirebase();
     renderRoute();
 })();
+
+/* =========================================================
+   Relatório de Tarefas Diárias (DRP) — popup obrigatório
+   Horários:
+     Seg-Qui: 11:30 e 17:30  → períodos [08:00–11:30] e [13:00–17:30]
+     Sexta : 11:30 e 16:30   → períodos [08:00–11:30] e [13:00–16:30]
+========================================================= */
+
+// ---- Persistência DRP (Firestore + Local) ----
+const DRP = {
+    // chave única por usuário+data+período, evita repetir popup
+    keyFor(uid, ymd, label) { return `drp-${uid || 'anon'}-${ymd}-${label}`; },
+
+    async save({ uid, userName, date, start, end, items }) {
+        const rec = {
+            uid: uid || 'anon',
+            userName: userName || '—',
+            date,        // "YYYY-MM-DD"
+            start, end,  // "HH:MM"
+            items: items.map(t => ({ ...t, createdAt: new Date().toISOString() })),
+            createdAt: new Date().toISOString()
+        };
+        if (cloudOk) {
+            const { addDoc, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            await addDoc(collection(db, 'daily_reports'), rec);
+        } else {
+            // guarda junto do LocalDB
+            const all = LocalDB.load();
+            all.daily_reports = all.daily_reports || [];
+            all.daily_reports.push(rec);
+            LocalDB.save(all);
+        }
+    }
+};
+
+// ---- UI / Lógica do modal ----
+(function setupDailyReport() {
+    const modal = document.getElementById('dailyReportModal');
+    const inStart = document.getElementById('drp-start');
+    const inEnd = document.getElementById('drp-end');
+    const inTitle = document.getElementById('drp-title-input');
+    const inNotes = document.getElementById('drp-notes');
+    const btnAdd = document.getElementById('drp-add');
+    const btnSave = document.getElementById('drp-save');
+    const msg = document.getElementById('drp-msg');
+
+    if (!modal) return;
+
+    let buffer = [];      // tarefas adicionadas no período atual
+    let guardKey = null;  // chave para marcar como entregue
+    let currentMeta = null; // {date, label, start, end}
+
+    function ymd(d = new Date()) {
+        const z = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+    }
+
+    function openDRP({ start, end, label }) {
+        // zera estado
+        buffer = [];
+        currentMeta = { date: ymd(), start, end, label };
+        guardKey = DRP.keyFor(currentUser?.uid || 'anon', currentMeta.date, label);
+
+        // preenche campos
+        inStart.value = start; inEnd.value = end;
+        inTitle.value = ''; inNotes.value = '';
+        btnSave.disabled = true;
+        msg.className = 'msg'; msg.textContent = '';
+
+        // mostra modal (sem possibilidade de fechar por fora)
+        modal.classList.add('show');
+        modal.style.display = 'grid';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDRP() {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+
+    function renderState() {
+        // habilita concluir apenas se existir pelo menos 1 tarefa no buffer
+        btnSave.disabled = buffer.length === 0;
+        if (buffer.length) {
+            msg.className = 'msg ok show';
+            msg.textContent = `${buffer.length} tarefa(s) adicionada(s).`;
+        } else {
+            msg.className = 'msg err show';
+            msg.textContent = 'Adicione pelo menos 1 tarefa antes de concluir.';
+        }
+    }
+
+    btnAdd?.addEventListener('click', () => {
+        const title = (inTitle.value || '').trim();
+        const notes = (inNotes.value || '').trim();
+        if (!title && !notes) {
+            msg.className = 'msg err show';
+            msg.textContent = 'Informe um título ou uma descrição.';
+            return;
+        }
+        buffer.push({ title, notes });
+        inTitle.value = ''; inNotes.value = '';
+        renderState();
+    });
+
+    btnSave?.addEventListener('click', async () => {
+        if (buffer.length === 0) { renderState(); return; }
+        try {
+            await DRP.save({
+                uid: currentUser?.uid || 'anon',
+                userName: currentUser?.displayName || currentUser?.email || '—',
+                date: currentMeta.date,
+                start: currentMeta.start,
+                end: currentMeta.end,
+                items: buffer
+            });
+            // marca como entregue para esse período
+            try { localStorage.setItem(guardKey, 'ok'); } catch { }
+            closeDRP();
+        } catch (e) {
+            msg.className = 'msg err show';
+            msg.textContent = 'Falha ao salvar. Tente novamente.';
+            console.error('DRP save error:', e);
+        }
+    });
+
+    // impede fechar com ESC ou clique fora
+    window.addEventListener('keydown', (ev) => {
+        if (modal.style.display !== 'none' && ev.key === 'Escape') ev.preventDefault();
+    });
+    document.addEventListener('click', (ev) => {
+        if (modal.style.display === 'none') return;
+        if (!modal.contains(ev.target)) ev.stopPropagation();
+    });
+
+    // Agenda de disparos
+    function nextTriggersFor(date = new Date()) {
+        const dow = date.getDay();        // 0=Dom, 1=Seg, ..., 5=Sex
+        const mk = (h, m) => { const d = new Date(date); d.setHours(h, m, 0, 0); return d; };
+
+        if (dow >= 1 && dow <= 4) {       // seg—qui
+            return [
+                { at: mk(11, 30), label: 'manha', start: '08:00', end: '11:30' },
+                { at: mk(17, 30), label: 'tarde', start: '13:00', end: '17:30' },
+            ];
+        }
+        if (dow === 5) {                   // sexta
+            return [
+                { at: mk(11, 30), label: 'manha', start: '08:00', end: '11:30' },
+                { at: mk(16, 30), label: 'tarde', start: '13:00', end: '16:30' },
+            ];
+        }
+        return [];                         // sáb/dom: nada
+    }
+
+    function tick() {
+        const now = new Date();
+        const triggers = nextTriggersFor(now);
+        const uid = currentUser?.uid || 'anon';
+        const today = ymd(now);
+
+        for (const t of triggers) {
+            const diff = Math.abs(now.getTime() - t.at.getTime());
+            // janela de 60s para abrir (para não depender do milissegundo exato)
+            if (diff <= 60 * 1000) {
+                const key = DRP.keyFor(uid, today, t.label);
+                const done = (localStorage.getItem(key) === 'ok');
+                if (!done) {
+                    openDRP({ start: t.start, end: t.end, label: t.label });
+                    break;
+                }
+            }
+        }
+    }
+
+    // roda ao entrar/logar e depois a cada 20s
+    function arm() {
+        try { clearInterval(arm._t); } catch { }
+        tick();
+        arm._t = setInterval(tick, 20 * 1000);
+    }
+
+    // (re)arma sempre que o auth mudar
+    document.addEventListener('auth:changed', arm);
+    arm();
+})();
+
 // === IA: Gerar Checklist com Groq ===
 $('#c-ai')?.addEventListener('click', async () => {
     const title = $('#c-title')?.value?.trim();
@@ -3170,25 +4007,40 @@ $('#c-ai')?.addEventListener('click', async () => {
 });
 
 // === Upload de anexos via Uploadcare (REST, gratuito) ===
-const UPLOADCARE_PUBLIC_KEY = "bec8b0653d0455ca2d7d"; // sua public key
+const UPLOADCARE_PUBLIC_KEY = "b4ee2700efa718b5276c"; // sua public key
 // Dica: não precisa de domínio fixo; use sempre ucarecdn.com
 async function uploadWithUploadcare(file) {
+    if (!UPLOADCARE_PUBLIC_KEY) throw new Error("UPLOADCARE_PUBLIC_KEY não definida");
+
     const form = new FormData();
     form.append("UPLOADCARE_PUB_KEY", UPLOADCARE_PUBLIC_KEY);
-    form.append("UPLOADCARE_STORE", "1");           // guarda no CDN
+    form.append("UPLOADCARE_STORE", "1");
     form.append("file", file);
 
     const res = await fetch("https://upload.uploadcare.com/base/", {
         method: "POST",
-        body: form
+        body: form,
+        headers: { Accept: "application/json" }
     });
-    const data = await res.json();
-    if (!data.file) throw new Error("Falha no upload (sem UUID).");
-    // URL canônica do CDN:
-    // Usa o seu subdomínio real
-    return `https://4n9t773dy8.ucarecd.net/${data.file}/${encodeURIComponent(file.name)}`;
 
+    const raw = await res.text();         // pode vir texto
+    let data;
+    try {
+        data = JSON.parse(raw);
+    } catch {
+        throw new Error(`Resposta inesperada do Uploadcare: ${raw.slice(0, 80)}…`);
+    }
+
+    if (!res.ok) {
+        // quando dá erro, o Uploadcare costuma mandar {"detail": "..."}
+        throw new Error(data?.detail || `HTTP ${res.status}`);
+    }
+    if (!data.file) throw new Error("Falha no upload: UUID ausente.");
+
+    // URL canônica no CDN (sem subdomínio fixo)
+    return `https://ucarecdn.com/${data.file}/${encodeURIComponent(file.name)}`;
 }
+
 
 // Clique do botão "Anexar" no modal
 document.querySelector('#m-send-attach')?.addEventListener('click', async () => {
@@ -3438,7 +4290,15 @@ async function loadAndRenderCalendar() {
 }
 
 // small helper to escape HTML
-function escapeHtml(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function escapeHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 
 // open modal and populate fields for event id (or create new)
 window.__openCalendarModal = async function (id) {
@@ -3554,5 +4414,4 @@ document.getElementById('toggleTheme')?.addEventListener('click', () => {
 
 // Chama uma vez ao carregar a página
 aplicarTema();
-
 

@@ -23,6 +23,20 @@
     color-scheme: dark;
 }
 
+:root {
+  --bg: #0b0d10;
+  --text: #e7e7e7;
+  --surface: #13161b;
+}
+.light {
+  --bg: #f6f7fb;
+  --text: #0e1116;
+  --surface: #ffffff;
+}
+body { background: var(--bg); color: var(--text); }
+.header, .panel, .card { background: var(--surface); }
+
+
 html.light {
     color-scheme: light;
 }
@@ -205,7 +219,7 @@ header {
     text-decoration: none;
     padding: 8px;
     border-radius: 10px;
-    border: 1px solid transparent
+    border: 1px solid transparent;
 }
 
 .auth-head {
@@ -488,28 +502,34 @@ footer {
 
 .col-body {
 
-  flex-direction: column;
-  gap: 10px;
+    flex-direction: column;
+    gap: 10px;
 
-  /* garante área clicável/soltável mesmo vazia */
-  min-height: 180px;
+    /* garante área clicável/soltável mesmo vazia */
+    min-height: 180px;
 
-  /* limite com rolagem */
-  max-height: var(--kanban-col-max-h, 68vh);
-  overflow-y: auto;
-  overflow-x: hidden;
+    /* limite com rolagem */
+    max-height: var(--kanban-col-max-h, 68vh);
+    overflow-y: auto;
+    overflow-x: hidden;
 
-  padding: 6px 6px 10px;
-  border-radius: 12px;
+    padding: 6px 6px 10px;
+    border-radius: 12px;
 }
 
 /* (opcional) scrollbar discreto */
-.col-body::-webkit-scrollbar { width: 8px; }
-.col-body::-webkit-scrollbar-thumb {
-  background: rgba(96,165,250,.25);
-  border-radius: 8px;
+.col-body::-webkit-scrollbar {
+    width: 8px;
 }
-.col-body:hover::-webkit-scrollbar-thumb { background: rgba(96,165,250,.45); }
+
+.col-body::-webkit-scrollbar-thumb {
+    background: rgba(96, 165, 250, .25);
+    border-radius: 8px;
+}
+
+.col-body:hover::-webkit-scrollbar-thumb {
+    background: rgba(96, 165, 250, .45);
+}
 
 @media (max-width: 900px) {
     :root {
@@ -518,8 +538,8 @@ footer {
 }
 
 .col-body.drag-over {
-  outline: 2px dashed rgba(96, 165, 250, .4);
-  outline-offset: -4px;
+    outline: 2px dashed rgba(96, 165, 250, .4);
+    outline-offset: -4px;
 }
 
 .card-item {
@@ -532,12 +552,12 @@ footer {
 }
 
 .col-body:empty::after {
-  content: "Solte os cards aqui";
-  display: block;
-  text-align: center;
-  padding: 18px 8px;
-  font-size: 12px;
-  opacity: .45;
+    content: "Solte os cards aqui";
+    display: block;
+    text-align: center;
+    padding: 18px 8px;
+    font-size: 12px;
+    opacity: .45;
 }
 
 /* evita qualquer vazamento do conteúdo do card */
@@ -659,12 +679,13 @@ footer {
     background: rgba(2, 6, 23, .6);
     backdrop-filter: blur(4px);
     display: none;
-    z-index: 60
+    z-index: 60;
 }
 
 .backdrop.show {
-    display: block
+    display: block;
 }
+
 
 /* Modal com layout flexível e rolável no corpo */
 .modal {
@@ -674,23 +695,20 @@ footer {
     transform: translate(-50%, -50%);
     width: min(820px, 92vw);
     max-height: 90vh;
-    /* evita estourar a viewport */
-    display: grid;
-    /* cabeçalho | body rolável | rodapé */
-    grid-template-rows: auto 1fr auto;
     background: linear-gradient(180deg, rgba(15, 23, 42, .95), rgba(15, 23, 42, .8));
     border: 1px solid rgba(96, 165, 250, .2);
     border-radius: 16px;
     box-shadow: var(--shadow-lg);
     z-index: 70;
     overflow: hidden;
-    /* bordas arredondadas + scroll interno */
     display: none;
+    grid-template-rows: auto 1fr auto;
 }
 
 .modal.show {
     display: grid;
 }
+
 
 .modal-head {
     display: flex;
@@ -1201,55 +1219,57 @@ html.light .kpi-card {
 
 /* ==== Checklist editável ==== */
 .chk-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 6px 0;
 }
 
 .chk-row .chk-text {
-  flex: 1;
-  min-width: 0;
-  padding: 8px 10px;
-  border-radius: 10px;
-  border: 1px solid rgba(96,165,250,.22);
-  background: rgba(15,23,42,.65);
-  color: var(--text);
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(96, 165, 250, .22);
+    background: rgba(15, 23, 42, .65);
+    color: var(--text);
 }
 
 .icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: rgba(17,24,39,.7);
-  color: var(--text);
-  cursor: pointer;
-  transition: transform .05s ease, background .2s ease, border-color .2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(17, 24, 39, .7);
+    color: var(--text);
+    cursor: pointer;
+    transition: transform .05s ease, background .2s ease, border-color .2s ease;
 }
 
 .icon-btn:hover {
-  background: rgba(31,41,55,.8);
-  border-color: rgba(148,163,184,.35);
+    background: rgba(31, 41, 55, .8);
+    border-color: rgba(148, 163, 184, .35);
 }
 
 .icon-btn:active {
-  transform: translateY(1px);
+    transform: translateY(1px);
 }
 
 .icon-btn svg {
-  display: block;
+    display: block;
 }
 
 #logo {
-  content: url('img/logoacianexus.png'); /* logo padrão (tema escuro) */
+    content: url('img/logoacianexus.png');
+    /* logo padrão (tema escuro) */
 }
 
 html.light #logo {
-  content: url('img/logoacianexus_light.png'); /* logo para tema claro */
+    content: url('img/logoacianexus_light.png');
+    /* logo para tema claro */
 }
 
 html.light .chk-row .chk-text {
@@ -1269,199 +1289,497 @@ html.light .icon-btn {
 /* Mantém o bloco com grid moderno */
 #c-create .row,
 #m-desc-model .row {
-  display: grid;
-  grid-template-columns: 1fr 2fr; /* Objetivo | Descrever */
-  gap: 14px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    /* Objetivo | Descrever */
+    gap: 14px;
+    align-items: start;
 }
 
 /* Campo de Informações Adicionais ocupa toda a largura */
 #md-info,
 #m-md-info {
-  grid-column: 1 / -1; /* ocupa as duas colunas */
+    grid-column: 1 / -1;
+    /* ocupa as duas colunas */
 }
 
 /* Ajuste das alturas e paddings */
 #md-acoes,
 #m-md-acoes {
-  min-height: 160px;
+    min-height: 160px;
 }
 
 #md-objetivo,
 #m-md-objetivo {
-  min-height: 160px;
+    min-height: 160px;
 }
 
 
 /* Responsividade — empilha tudo em telas menores */
 @media (max-width: 900px) {
-  #c-create .row,
-  #m-desc-model .row {
-    grid-template-columns: 1fr;
-  }
+
+    #c-create .row,
+    #m-desc-model .row {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* === Layout aprimorado dos campos de tarefa === */
 #view-create .row {
-  display: grid;
-  grid-template-columns: 1fr 2fr; /* Objetivo | Descrever */
-  gap: 14px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    /* Objetivo | Descrever */
+    gap: 14px;
+    align-items: start;
 }
 
 /* “Informações adicionais” ocupa toda a linha */
 #view-create .row .field.full {
-  grid-column: 1 / -1;
+    grid-column: 1 / -1;
 }
 
 /* Altura mínima e espaçamento */
 #view-create textarea {
-  min-height: 160px;
-  resize: vertical;
+    min-height: 160px;
+    resize: vertical;
 }
 
 /* Responsivo para telas pequenas */
 @media (max-width: 900px) {
-  #view-create .row {
-    grid-template-columns: 1fr;
-  }
+    #view-create .row {
+        grid-template-columns: 1fr;
+    }
 }
 
 
 /* === Layout dos campos de descrição === */
 .desc-grid {
-  display: grid;
-  grid-template-columns: 1fr 2fr;  /* Objetivo | Descrever (maior) */
-  gap: 14px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    /* Objetivo | Descrever (maior) */
+    gap: 14px;
+    align-items: start;
 }
 
 /* “Informações Adicionais” ocupa a linha de baixo inteira */
 .desc-grid .full-row {
-  grid-column: 1 / -1;
+    grid-column: 1 / -1;
 }
 
 /* Alturas mínimas (ajuste à sua preferência) */
 .desc-grid textarea {
-  min-height: 160px;
-  resize: vertical;
+    min-height: 160px;
+    resize: vertical;
 }
 
 /* Responsivo: empilha em telas menores */
 @media (max-width: 900px) {
-  .desc-grid {
-    grid-template-columns: 1fr;
-  }
+    .desc-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* === Layout dos campos de descrição === */
 .desc-grid {
-  display: grid;
-  grid-template-columns: 1fr 2fr; /* Objetivo | Descrever */
-  gap: 14px;
-  align-items: start;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    /* Objetivo | Descrever */
+    gap: 14px;
+    align-items: start;
 }
 
 /* “Informações adicionais” ocupa a linha inteira */
 .desc-grid .full-row {
-  grid-column: 1 / -1;
+    grid-column: 1 / -1;
 }
 
 /* Aparência uniforme */
 .desc-grid textarea {
-  min-height: 160px;
-  width: 100%;
-  resize: vertical;
+    min-height: 160px;
+    width: 100%;
+    resize: vertical;
 }
 
 /* Responsivo */
 @media (max-width: 900px) {
-  .desc-grid {
-    grid-template-columns: 1fr;
-  }
+    .desc-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* === Correção final — faz o "Informações Adicionais" ir pra baixo === */
 
 /* Remove o grid da row que envolve o descritivo */
 #view-create .desc-grid {
-  display: grid !important;
-  grid-template-columns: 1fr 2fr !important; /* Objetivo | Descrever (maior) */
-  gap: 14px;
-  align-items: start;
+    display: grid !important;
+    grid-template-columns: 1fr 2fr !important;
+    /* Objetivo | Descrever (maior) */
+    gap: 14px;
+    align-items: start;
 }
 
 /* “Informações adicionais” ocupa toda a linha */
 #view-create .desc-grid .full-row {
-  grid-column: 1 / -1 !important;
+    grid-column: 1 / -1 !important;
 }
 
 /* Mantém aparência uniforme */
 #view-create .desc-grid textarea {
-  min-height: 160px;
-  resize: vertical;
+    min-height: 160px;
+    resize: vertical;
 }
 
 /* Responsivo */
 @media (max-width: 900px) {
-  #view-create .desc-grid {
-    grid-template-columns: 1fr !important;
-  }
+    #view-create .desc-grid {
+        grid-template-columns: 1fr !important;
+    }
 }
 
 
 /* === FIX FLOW DE EVENTOS (KANBAN) === */
 
 /* Contêiner do flow: colunas alinhadas no topo, sem espaços estranhos */
-#flow-events, 
-#flow-eventos,             /* se houver esse id em algum lugar */
-.board-events {            /* se você estiver usando essa classe */
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  align-items: flex-start !important;
-  justify-content: flex-start !important; /* evita "space-between" que cria buracos */
-  gap: 16px !important;
-  overflow-x: auto;        /* scroll horizontal quando faltar espaço */
-  overflow-y: hidden;
-  padding-bottom: 8px;
+#flow-events,
+#flow-eventos,
+/* se houver esse id em algum lugar */
+.board-events {
+    /* se você estiver usando essa classe */
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    /* evita "space-between" que cria buracos */
+    gap: 16px !important;
+    overflow-x: auto;
+    /* scroll horizontal quando faltar espaço */
+    overflow-y: hidden;
+    padding-bottom: 8px;
 }
 
 /* Cada coluna (lane) com largura fixa confortável */
 #flow-events .lane,
 .board-events .lane {
-  flex: 0 0 380px;         /* largura da coluna ~380px */
-  max-width: 420px;
-  min-width: 320px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+    flex: 0 0 380px;
+    /* largura da coluna ~380px */
+    max-width: 420px;
+    min-width: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 /* Cabeçalho da coluna */
 #flow-events .lane .lane-head {
-  flex: 0 0 auto;
+    flex: 0 0 auto;
 }
 
 /* Lista de cards dentro da coluna */
 #flow-events .lane .cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex: 1 1 auto;          /* cresce conforme o conteúdo */
-  min-height: 140px;       /* área de drop mesmo vazia */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1 1 auto;
+    /* cresce conforme o conteúdo */
+    min-height: 140px;
+    /* área de drop mesmo vazia */
 }
 
 /* Placeholder de drop (drag-and-drop) — evita esticar a coluna */
 #flow-events .lane .cards .ghost,
 #flow-events .lane .cards .placeholder {
-  min-height: 64px;
-  border: 2px dashed rgba(148,163,184,.35);
-  border-radius: 14px;
-  background: rgba(15,23,42,.35);
+    min-height: 64px;
+    border: 2px dashed rgba(148, 163, 184, .35);
+    border-radius: 14px;
+    background: rgba(15, 23, 42, .35);
 }
 
 /* Evitar que alguma regra global estique as colunas */
-#flow-events .lane, 
+#flow-events .lane,
 #flow-events .lane .cards {
-  align-self: flex-start !important;
+    align-self: flex-start !important;
 }
+
+
+/* === Ticket Modal (visual limpo) === */
+#backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease;
+    z-index: 999;
+    /* atrás do painel */
+}
+
+#backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#ticketModal {
+    position: fixed !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: min(820px, 92vw);
+    max-height: 90vh;
+    z-index: 70;
+    display: none;
+    /* segue o padrão dos seus modais */
+    overflow: hidden;
+    grid-template-rows: auto 1fr auto;
+}
+
+#ticketModal.show {
+    display: grid;
+}
+
+#ticketBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, .6);
+    backdrop-filter: blur(4px);
+    z-index: 60;
+    display: none;
+}
+
+#ticketBackdrop.show {
+    display: block;
+}
+
+#ticketModal .modal-panel {
+    width: min(860px, 96vw);
+    max-height: min(88vh, 900px);
+    background: var(--card, #111);
+    color: var(--fg, #fff);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .35), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(8px);
+    opacity: 0;
+    transition: transform .18s ease, opacity .18s ease;
+}
+
+#ticketModal.show .modal-panel {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Cabeçalho */
+#ticketModal .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .04), transparent);
+}
+
+#ticketModal .modal-head h3 {
+    font-size: 16px;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1.2;
+}
+
+/* Botão fechar (X) */
+#ticket-close {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: currentColor;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+
+#ticket-close:hover {
+    background: rgba(255, 255, 255, .08);
+}
+
+/* Corpo com rolagem suave */
+#ticketModal .modal-body {
+    padding: 14px 16px;
+    overflow: auto;
+    flex: 1;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+}
+
+#ticketModal .modal-body .full {
+    grid-column: 1 / -1;
+}
+
+#ticketModal .modal-body label {
+    font-size: 12px;
+    opacity: .9;
+    display: block;
+    margin-bottom: 6px;
+}
+
+#ticketModal .modal-body input,
+#ticketModal .modal-body textarea,
+#ticketModal .modal-body select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .03);
+    color: inherit;
+    outline: none;
+}
+
+#ticketModal .modal-body textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* Rodapé */
+#ticketModal .modal-foot {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    background: linear-gradient(0deg, rgba(255, 255, 255, .04), transparent);
+}
+
+#tkt-msg {
+    font-size: 12px;
+    opacity: .9;
+}
+
+#tkt-msg.ok {
+    color: #22C55E;
+}
+
+#tkt-msg.err {
+    color: #EF4444;
+}
+
+/* Responsivo (stack) */
+@media (max-width: 720px) {
+    #ticketModal .modal-body {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Ticket modal: centralizado e responsivo, compatível com estilos existentes */
+#ticketModal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    /* .show liga */
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 1000;
+    /* acima do header/kanban */
+}
+
+#ticketModal.show {
+    display: flex;
+}
+
+#ticketModal .modal-panel {
+    width: min(860px, 96vw);
+    max-height: min(90vh, 900px);
+    background: var(--card, #111);
+    color: var(--fg, #fff);
+    border-radius: 14px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .35), 0 0 0 1px rgba(255, 255, 255, .06) inset;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transform: translateY(0);
+    /* evita ficar “fora” se algum reset aplicar translate */
+}
+
+#ticketModal .modal-head,
+#ticketModal .modal-foot {
+    padding: 12px 16px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .04), transparent);
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+#ticketModal .modal-foot {
+    border-top: 1px solid rgba(255, 255, 255, .08);
+    border-bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+#ticket-close {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+}
+
+#ticket-close:hover {
+    background: rgba(255, 255, 255, .08);
+}
+
+#ticketModal .modal-body {
+    padding: 14px 16px;
+    flex: 1;
+    overflow: auto;
+    display: grid;
+    gap: 12px;
+    grid-template-columns: 1fr 1fr;
+}
+
+#ticketModal .modal-body .full {
+    grid-column: 1 / -1;
+}
+
+#ticketModal .modal-body label {
+    font-size: 12px;
+    opacity: .9;
+    margin-bottom: 6px;
+    display: block;
+}
+
+#ticketModal .modal-body input,
+#ticketModal .modal-body textarea,
+#ticketModal .modal-body select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .03);
+    color: inherit;
+}
+
+#ticketModal .modal-body textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+@media (max-width: 720px) {
+    #ticketModal .modal-body {
+        grid-template-columns: 1fr;
+    }
+}
+

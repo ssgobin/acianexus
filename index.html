@@ -8,7 +8,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
-  <link rel="shortcut icon" type="image/png" href="img\WhatsApp Image 2025-10-10 at 15.39.08.jpeg" />
+  <!-- no index.html (uma vez) adicione o SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <link rel="icon" type="image/png" href="img\WhatsApp Image 2025-10-10 at 15.39.08.jpeg" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,17 +35,14 @@
 <body>
   <header>
     <nav class="nav">
-      <a href="#/" data-link><img id="logo" alt="ACIA Nexus" class="brand-logo"></a>
+      <a href="#/" data-link><img id="logo" alt="ACIA Nexus" class="brand-logo" src="img/logoacianexus.png"></a>
       <a href="#/agenda" data-link>Agenda</a>
       <a href="#/criar" data-link>Criar Tarefa</a>
       <a href="#/kanban" data-link>Kanban</a>
-      <a href="#/indicadores" data-link>Indicadores</a>
-      <a href="#/reportar" data-link>Suporte</a>
+      <a href="#/reportar">Abrir Ticket</a>
+      <a href="#/tickets" id="nav-tickets">Tickets</a>
       <button id="themeToggle" class="btn secondary" type="button">🌙</button>
       <div class="spacer"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <a id="members-open" class="hidden" href="#/membros" data-link>Membros</a>
-      </div>
       <span class="chip" id="authChip">Offline</span>
       <button id="btnLogin" class="btn secondary" type="button">Entrar</button>
       <button id="btnLogout" class="btn secondary hidden" type="button">Sair</button>
@@ -55,8 +55,10 @@
 
       <div id="mural-dropdown" class="dropdown" hidden>
         <div class="dropdown-head">
-          <strong>Comunicados</strong>
-          <button id="mural-marcar-lido" class="link">Marcar tudo como lido</button>
+          <div style="display:flex; gap:10px;">
+            <button id="mural-limpar" class="link">Limpar tudo</button>
+            <button id="mural-marcar-lido" class="link">Marcar tudo como lido</button>
+          </div>
         </div>
         <ul id="mural-dropdown-list" class="dropdown-list"></ul>
         <a id="mural-ver-tudo" href="#/mural" class="dropdown-foot">Ver tudo</a>
@@ -321,6 +323,26 @@
           </div>
     </section>
 
+    <section id="view-report" class="hidden">
+      <h2>Abrir Ticket de Suporte</h2>
+      <form id="formTicket">
+        <label>Título:</label>
+        <input type="text" id="ticketTitle" required />
+
+        <label>Descrição:</label>
+        <textarea id="ticketDesc" required></textarea>
+
+        <label class="hidden">Setor:</label>
+        <select class="hidden" id="ticketDept" required>
+          <option value="TI">TI</option>
+        </select>
+        <br><br>
+
+        <button class="btn" type="submit">Enviar Ticket</button>
+      </form>
+    </section>
+
+
     <!-- AGENDA / CALENDÁRIO -->
     <section id="view-calendar" class="hidden">
       <div class="card">
@@ -454,40 +476,6 @@
       </div>
     </section>
 
-
-    <!-- REPORTAR BUG -->
-    <section id="view-report" class="hidden">
-      <div class="card" style="max-width:780px;margin:0 auto">
-        <h1 style="margin:0 0 6px;font-size:24px">Reportar um Problema</h1>
-        <p class="muted" style="margin:0 0 16px">Explique com suas palavras. Leva menos de 1 minuto. 🙂</p>
-        <div id="msg-ok" class="msg ok">✅ Obrigado! Seu relato foi enviado ao time.</div>
-        <div id="msg-err" class="msg err">⚠️ Não foi possível enviar agora. Tente novamente.</div>
-        <form id="bugForm" novalidate>
-          <div class="row">
-            <div class="field"><label for="name">Seu nome</label><input id="name" type="text"
-                placeholder="Ex.: Maria Silva" /></div>
-            <div class="field"><label for="email">Seu e-mail</label><input id="email" type="email"
-                placeholder="Ex.: maria@empresa.com" /></div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="severity">Gravidade</label>
-              <select id="severity">
-                <option>Baixa</option>
-                <option>Média</option>
-                <option>Alta</option>
-              </select>
-            </div>
-            <div class="field"><label for="title">Título</label><input id="title" type="text" required /></div>
-          </div>
-          <div class="field"><label for="desc">Descrição</label><textarea id="desc" required></textarea></div>
-          <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
-            <button type="submit" id="sendBtn" class="btn">Enviar</button>
-            <button type="reset" class="btn secondary">Limpar</button>
-          </div>
-        </form>
-      </div>
-    </section>
     <!-- MEMBROS -->
     <section id="view-members" class="hidden">
       <div class="card" style="max-width:900px;margin:0 auto">
@@ -530,6 +518,85 @@
         </div>
       </div>
     </section>
+
+    <!-- ===== Tickets (somente TI/admin) ===== -->
+    <section id="view-tickets" class="view hidden">
+      <div class="toolbar"
+        style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;gap:8px;align-items:center">
+          <select id="tkt-filter">
+            <option value="ALL">Todos</option>
+            <option value="Aberto">Aberto</option>
+            <option value="Em andamento">Em andamento</option>
+            <option value="Resolvido">Resolvido</option>
+            <option value="Fechado">Fechado</option>
+          </select>
+          <input id="tkt-q" type="search" placeholder="Buscar por título ou autor…" />
+        </div>
+        <div id="tkt-counter" class="muted">0 tickets</div>
+      </div>
+
+      <div id="tickets-list" style="display:flex;flex-direction:column;gap:10px"></div>
+    </section>
+
+    <!-- Modal do ticket -->
+    <div id="ticketModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="ticket-title">
+      <div class="modal-panel">
+        <div class="modal-head">
+          <h3 id="ticket-title">Ticket</h3>
+          <button id="ticket-close" aria-label="Fechar" title="Fechar">
+            <!-- X simples (sem SVG) para compatibilidade -->
+            ✕
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <label>Autor
+              <input id="ticket-author" type="text" disabled />
+            </label>
+            <label>E-mail
+              <input id="ticket-email" type="text" disabled />
+            </label>
+          </div>
+
+          <label style="margin-top:8px">Descrição
+            <textarea id="ticket-desc" rows="5" disabled></textarea>
+          </label>
+
+          <div class="grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <label class="hidden">Severidade
+              <select class="hidden" id="ticket-severity" disabled>
+                <option>Baixa</option>
+                <option>Média</option>
+                <option>Alta</option>
+              </select>
+            </label>
+            <label>Status
+              <select id="ticket-status">
+                <option>Aberto</option>
+                <option>Em andamento</option>
+                <option>Resolvido</option>
+                <option>Fechado</option>
+              </select>
+            </label>
+          </div>
+
+          <label style="margin-top:8px">Feedback do TI
+            <textarea id="ticket-feedback" rows="4"
+              placeholder="Escreva um retorno objetivo para o solicitante…"></textarea>
+          </label>
+        </div>
+
+        <div class="modal-foot">
+          <span id="tkt-msg" class="msg"></span>
+          <button id="ticket-save" class="btn">Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Backdrop exclusivo dos tickets (o JS usa #backdrop) -->
+    <div id="backdrop" class="modal-backdrop hidden"></div>
+
 
   </main>
 
@@ -751,6 +818,48 @@
   </script>
   <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
 
+  <div id="dailyReportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="drp-title"
+    style="display:none">
+    <div class="modal-head">
+      <strong id="drp-title">Relatório de Tarefas Diárias</strong>
+    </div>
+
+    <div class="modal-body">
+      <p class="muted" id="drp-period-hint"></p>
+
+      <div id="drp-items" class="list-v"></div>
+
+      <!-- template de linha (clonado via JS) -->
+      <template id="drp-item-tpl">
+        <div class="card row gap-sm drp-item">
+          <div class="field">
+            <label>Hora início</label>
+            <input type="time" class="drp-start" required>
+          </div>
+          <div class="field">
+            <label>Hora final</label>
+            <input type="time" class="drp-end" required>
+          </div>
+          <div class="field grow">
+            <label>Título da tarefa</label>
+            <input type="text" class="drp-title" placeholder="Ex.: Atendimento, planilhas, ligações…" required>
+          </div>
+          <button type="button" class="btn danger ghost drp-remove" aria-label="Remover">✕</button>
+        </div>
+      </template>
+
+      <div class="row">
+        <button id="drp-add" class="btn secondary" type="button">Adicionar item</button>
+      </div>
+
+      <div id="drp-msg" class="msg"></div>
+    </div>
+
+    <div class="modal-foot">
+      <div class="spacer"></div>
+      <button id="drp-save" class="btn" type="button" disabled>Concluir</button>
+    </div>
+  </div>
 
 </body>
 
