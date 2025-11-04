@@ -2,6 +2,8 @@
 /* ===========================
    CONFIG & HELPERS
 ============================ */
+window._inboxItems = [];
+let cloudOk = false, app = null, db = null, auth = null, currentUser = null, currentRole = 'editor';
 
 
 
@@ -18,6 +20,11 @@ function playNotifySound() {
         console.warn('Erro ao tocar som:', e);
     }
 }
+
+document.body.addEventListener('click', () => {
+    try { notifySound.play().then(() => notifySound.pause()); } catch { }
+}, { once: true });
+
 
 // === Corrige coleta de membros de card ===
 function getSelectedMembers(rootEl) {
@@ -37,62 +44,99 @@ function getSelectedMembers(rootEl) {
 
 // === Notificações por usuário (responsável + membros) ===
 // === Envio de notificações de cards ===
-async function notifyUsers(userIds = [], payload = {}) {
-  if (!Array.isArray(userIds) || !userIds.length || !cloudOk) return;
-  const unique = [...new Set(userIds.filter(Boolean))];
-  const { collection, addDoc, serverTimestamp } =
-    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-  await Promise.all(unique.map(uid =>
-    addDoc(collection(db, 'users', uid, 'inbox'), {
-      ...payload,
-      read: false,
-      createdAt: serverTimestamp ? serverTimestamp() : new Date().toISOString()
-    })
-  ));
+// Implementação "visual only" – NÃO persiste nada
+// Implementação "visual only" – NÃO persiste nada
+async function sendCardNotification(type, rec) {
+    try {
+        if (type === 'CARD_CREATED') {
+            // Som (se você já tem notifySound global)
+            if (typeof notifySound !== 'undefined' && notifySound?.play) {
+                notifySound.currentTime = 0;
+                await notifySound.play().catch(() => { });
+            }
+            // Toast local (exemplo)
+            if (typeof setMsg === 'function') setMsg(null, 'ok', `Card criado: ${rec.title}`);
+            // Notificação do navegador (opcional)
+            if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                    new Notification('Novo card', { body: rec.title });
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission();
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('sendCardNotification visual-only falhou:', e);
+    }
 }
 
-async function sendCardNotification(type, card, extra = {}) {
-  const actorUid = currentUser?.uid || null;
-  const members = Array.isArray(card.members) ? card.members : [];
-  const targets = [card.respUid, ...members].filter(uid => uid && uid !== actorUid);
 
-  await notifyUsers(targets, {
-    kind: 'card',
-    type,
-    cardId: card.id,
-    title: card.title,
-    board: card.board,
-    status: card.status,
-    due: card.due || null,
-    actorUid,
-    actorName: currentUser?.displayName || currentUser?.email || 'Sistema',
-    ...extra
-  });
+
+async function notifyUsers(targetUids = [], payload = {}) {
+    if (!Array.isArray(targetUids) || !targetUids.length) return;
+
+    const createdAt = new Date().toISOString();
+
+    if (cloudOk && db) {
+        const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        await Promise.all(targetUids.map(uid => addDoc(collection(db, 'users', uid, 'inbox'), {
+            ...payload,
+            read: false,
+            createdAt
+        })));
+    }
+
+    // Se algum destinatário for o usuário atual, também empurra no efêmero local
+    try {
+        const me = currentUser?.uid;
+        if (me && targetUids.includes(me)) {
+            Ephemeral.push({
+                titulo: payload.title || payload.titulo || 'Notificação',
+                corpo: payload.board ? `[${payload.board}] ${payload.title || ''}` : (payload.body || payload.corpo || '')
+            });
+        }
+    } catch { /* silencioso */ }
 }
+
 
 
 // (opcional) som quando chegar algo novo na inbox do usuário logad
+// (re)liga o ouvidor de inbox do usuário logado e atualiza o sino
 function listenUserInbox() {
     if (!cloudOk || !currentUser?.uid) return;
+
     (async () => {
         const { collection, onSnapshot, orderBy, query, where } =
             await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
         const qRef = query(
             collection(db, 'users', currentUser.uid, 'inbox'),
             where('read', '==', false),
             orderBy('createdAt', 'desc')
         );
+
         onSnapshot(qRef, snap => {
             const unread = [];
             snap.forEach(d => unread.push({ id: d.id, ...d.data() }));
-            if (unread.length) { try { notifySound.play(); } catch { } }
-            // aqui você pode também atualizar um badge do sino (se quiser unificar com o mural)
+
+            // guarda em cache global para o renderer do sino
+            window._inboxItems = unread;
+
+            // toca som (com helper que reinicia currentTime e trata bloqueio)
+            try { playNotifySound(); } catch { }
+
+            // re-render do sino (usa o combinado)
+            if (typeof renderMuralCombined === 'function') {
+                renderMuralCombined(window._lastMuralItems || []);
+            }
         });
     })();
 }
+
 // reconecta quando logar
 document.addEventListener('auth:changed', listenUserInbox);
+
 
 // === Notificação nativa do sistema ===
 function showSystemNotification(title, body) {
@@ -431,31 +475,6 @@ const MuralService = (() => {
         })();
     }
 
-    // use a mesma assinatura para não quebrar chamadas existentes
-    // NOTIFICAÇÃO EFÊMERA: som + Notification API + badge do sino
-    async function notifyUser(uid, title, body) {
-        try {
-            playNotifySound(); // 🎵 toca o som
-
-            if ('Notification' in window) {
-                if (Notification.permission === 'granted') {
-                    new Notification(title || 'Notificação', { body: body || '' });
-                } else if (Notification.permission !== 'denied') {
-                    Notification.requestPermission().then(p => {
-                        if (p === 'granted') new Notification(title || 'Notificação', { body: body || '' });
-                    });
-                }
-            }
-
-            // Adiciona à área de notificações locais (sem salvar no mural)
-            Ephemeral.push({ titulo: title, corpo: body });
-            renderMuralCombined();
-        } catch (e) {
-            console.warn('notifyUser falhou:', e);
-        }
-    }
-
-
     async function add({ titulo, corpo }) {
         const rec = {
             titulo: titulo || '(sem título)',
@@ -487,39 +506,38 @@ const MuralService = (() => {
         }));
     }
 
+
+
     return { listOnce, listen, add, markAllRead };
 })();
 
-// use a mesma assinatura para não quebrar chamadas existentes
-// use a mesma assinatura para não quebrar chamadas existentes
-// NOTIFICAÇÃO EFÊMERA: som + Notification API + badge do sino
 async function notifyUser(uid, title, body) {
     try {
-        // 1) som (se existir)
+        // toca som
         if (typeof playNotifySound === 'function') playNotifySound();
 
-        // 2) notificação nativa do sistema
+        // notificação nativa
         if ('Notification' in window) {
             if (Notification.permission === 'granted') {
-                new Notification(title || 'Notificação', { body: body || '' });
+                new Notification(title || 'Notificação', {
+                    body: body || '',
+                    icon: 'img/logoacianexus.png'
+                });
             } else if (Notification.permission !== 'denied') {
                 Notification.requestPermission().then(p => {
-                    if (p === 'granted') new Notification(title || 'Notificação', { body: body || '' });
+                    if (p === 'granted')
+                        new Notification(title || 'Notificação', { body: body || '', icon: 'img/logoacianexus.png' });
                 });
             }
         }
 
-        // 3) badge do sino (efêmero, não grava no mural)
+        // badge do sino
         Ephemeral.push({ titulo: title, corpo: body });
-        // força re-render
-        renderMuralCombined();
+        renderMuralCombined(window._lastMuralItems || []);
     } catch (e) {
         console.warn('notifyUser falhou:', e);
     }
 }
-
-
-
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -550,7 +568,12 @@ function renderMuralCombined(muralItemsRaw) {
     const eph = Ephemeral.list();
     const unreadEph = eph.filter(x => !x.lido).length;
     const unreadMural = muralItems.filter(x => !(x.lidoBy || {})[uid]).length;
-    const unread = unreadEph + unreadMural;
+    const inbox = Array.isArray(window._inboxItems) ? window._inboxItems : [];
+    const unreadInbox = inbox.length; // já filtramos read==false no listener
+
+    const unread = unreadEph + unreadMural + unreadInbox;
+
+
 
     // badge
     if (muralUI.badge) {
@@ -576,6 +599,21 @@ function renderMuralCombined(muralItemsRaw) {
         ].join('')
         : '';
 
+    const inboxHtml = inbox.length
+        ? [
+            '<li class="muted" style="font-size:11px;margin:8px 0 6px">Minhas notificações</li>',
+            ...inbox.map(x => `
+          <li class="">
+            <div style="font-weight:700">${x.title || '(sem título)'}</div>
+            <div class="muted" style="font-size:12px;margin-top:4px">
+              ${x.board ? `[${x.board}] ` : ''}${x.type || ''}${x.actorName ? ` — por ${x.actorName}` : ''}
+            </div>
+          </li>
+        `)
+        ].join('')
+        : '';
+
+
     const muralHtml = muralItems.length
         ? [
             '<li class="muted" style="font-size:11px;margin:8px 0 6px">Comunicados</li>',
@@ -590,7 +628,7 @@ function renderMuralCombined(muralItemsRaw) {
         ].join('')
         : (!eph.length ? '<li class="muted">Sem comunicados</li>' : '');
 
-    muralUI.list.innerHTML = ephHtml + muralHtml;
+    muralUI.list.innerHTML = ephHtml + inboxHtml + muralHtml;
 }
 
 
@@ -647,11 +685,22 @@ function initMuralUI() {
         }
     });
 
+    async function markAllInboxRead() {
+        if (!cloudOk || !currentUser?.uid) return;
+        const { collection, getDocs, doc, updateDoc, where, query } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const qRef = query(collection(db, 'users', currentUser.uid, 'inbox'), where('read', '==', false));
+        const snap = await getDocs(qRef);
+        await Promise.all(snap.docs.map(d => updateDoc(doc(db, 'users', currentUser.uid, 'inbox', d.id), { read: true })));
+    }
+
+
     // marcar tudo como lido
     muralUI.btnAllRead?.addEventListener('click', async () => {
         const uid = currentUser?.uid || 'anon';
 
         await MuralService.markAllRead(uid);        // marca no Firestore/local
+        await markAllInboxRead();
         if (typeof Ephemeral?.markAllRead === 'function') Ephemeral.markAllRead(); // efêmero
 
         // atualiza cache para refletir lidos
@@ -670,31 +719,19 @@ function initMuralUI() {
         }
     });
 
-
-    muralUI.btnClear?.addEventListener('click', async () => {
-        const uid = currentUser?.uid || 'anon';
-
-        // 1) limpar efêmero (se você usa o Ephemeral)
+    muralUI.btnClear?.addEventListener('click', () => {
+        // limpa apenas notificações efêmeras locais
         if (typeof Ephemeral?.clear === 'function') Ephemeral.clear();
 
-        // 2) apagar TODOS os comunicados do mural (Firestore/local)
-        await MuralService.clearAll();
-
-        // 3) zera cache em memória para refletir imediatamente
-        window._lastMuralItems = [];
-
-        // 4) re-render e badge na hora
+        // mantém o mural; só re-renderiza a lista visível
+        window._lastMuralItems = window._lastMuralItems || [];
         if (typeof renderMuralCombined === 'function') {
             renderMuralCombined(window._lastMuralItems);
         } else if (typeof renderMural === 'function') {
             renderMural(window._lastMuralItems);
         }
     });
-
-
 }
-
-
 
 const ALL_RESP = ["João Vitor Sgobin", "ssgobin"];
 const FLOWS = {
@@ -732,8 +769,6 @@ const firebaseConfig = {
     appId: "1:633355141941:web:e65270fdabe95da64cc27c",
     measurementId: "G-LN9BEKHCD5"
 };
-
-let cloudOk = false, app = null, db = null, auth = null, currentUser = null, currentRole = 'editor';
 
 
 async function initFirebase() {
@@ -951,9 +986,6 @@ const LocalDB = {
 
 };
 
-/* ===========================
-   Data Access Layer (Firestore/Local)
-============================ */
 const Cards = {
 
     async add(card) {
@@ -982,11 +1014,16 @@ const Cards = {
             const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             const ref = collection(db, 'cards');
             const docRef = await addDoc(ref, base);
+
             try {
-                const users = base.members || [];
-                for (const m of users) {
-                    await notifyUser(m, `Novo card: ${base.title}`, `Você foi adicionado ao card "${base.title}" no board ${base.board}.`);
+                const users = [...(base.members || [])];
+                if (base.respUid && !users.includes(base.respUid)) users.push(base.respUid);
+
+                for (const uid of users.filter(Boolean)) {
+                    await notifyUser(uid, `Novo card: ${base.title}`,
+                        `Você foi adicionado ao card "${base.title}" no board ${base.board}.`);
                 }
+
             } catch (e) {
                 console.warn("Falha ao notificar membros do card:", e);
             }
@@ -996,49 +1033,33 @@ const Cards = {
             const rec = { id, ...base };
             LocalDB.upsert(rec); return rec;
         }
+
+
     },
     async update(id, patch) {
         if (cloudOk) {
             const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             await updateDoc(doc(db, 'cards', id), patch);
             // 🔔 Notifica atualização aos membros
-            if (patch && patch.title) {
+            if (patch && Object.keys(patch).length) {
                 const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
                 const snap = await getDoc(doc(db, "cards", id));
                 if (snap.exists()) {
                     const data = snap.data();
-                    for (const uid of (data.members || [])) {
-                        await notifyUser(uid, `Atualização no card: ${data.title}`, `O card "${data.title}" foi atualizado.`);
+                    const users = new Set([...(data.members || []), data.respUid].filter(Boolean));
+                    for (const uid of users) {
+                        await notifyUser(uid, `Atualização no card: ${data.title}`,
+                            `O card "${data.title}" foi alterado ou movido (${data.status}).`);
                     }
                 }
             }
+
+
 
         } else {
             const all = LocalDB.load();
             const i = all.cards.findIndex(c => String(c.id) === String(id));
             if (i >= 0) { all.cards[i] = { ...all.cards[i], ...patch }; LocalDB.save(all); }
-        }
-        async function updateCardWithNotice(prevCard, patch) {
-            const id = prevCard.id;
-            await Cards.update(id, patch);
-            const next = { ...prevCard, ...patch };
-
-            if (patch.status && patch.status !== prevCard.status) {
-                await sendCardNotification('CARD_STATUS_CHANGED', next, { oldStatus: prevCard.status });
-            }
-            if (patch.respUid && patch.respUid !== prevCard.respUid) {
-                await sendCardNotification('CARD_REASSIGNED', next, { oldResp: prevCard.respUid });
-            }
-            if (Array.isArray(patch.members)) {
-                const prev = new Set(prevCard.members || []);
-                const added = patch.members.filter(u => !prev.has(u));
-                if (added.length) {
-                    await notifyUsers(added, {
-                        kind: 'card', type: 'CARD_MEMBER_ADDED',
-                        cardId: id, title: next.title, board: next.board, status: next.status
-                    });
-                }
-            }
         }
 
     },
@@ -1825,7 +1846,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
     // ===== Criar card =====
     btnCreate.addEventListener('click', async () => {
-        const title = ((cTitle.value || '').trim()).toUpperCase();
+        const title = (cTitle.value || '').trim();
         if (!title) { setMsg(msg, 'err', 'Informe o título.'); return; }
 
         const dueIso = cDue.value ? new Date(cDue.value).toISOString() : null;
@@ -1841,76 +1862,100 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             return;
         }
 
-        const members = Array.from(document.querySelectorAll('#c-members input[name="c-member"]:checked')).map(ch => ch.value);
+        // membros (uma vez só)
+        const memberUids = getSelectedMembers(document);
 
-        const respLabel = cloudOk
-            ? (cResp.selectedOptions[0]?.dataset?.label || '')
-            : cResp.value;
+        // rótulo do responsável (usa no rec.resp)
+        const respUid = $('#c-resp')?.value || null;
+        const respLabel = $('#c-resp option:checked')?.dataset?.label || '';
 
+        // rotina (se quiser persistir)
         const routine = isRotinaOn
             ? { enabled: true, kind: rtKindSel?.value }
             : { enabled: false };
 
-        const gut = computeGut(cG.value, cU.value, cT.value);
-        const priority = computePriority(dueIso, gut);
-        const gutGrade = gutClass(gut);
+        // GUT e prioridade (usa os valores já na tela)
+        const gutVal = Number($('#c-gut')?.value) || 0;
+        const gutGrade = gutClass(gutVal);
+        const priority = computePriority(dueIso, gutVal);
 
-        // Descrição + checklist do buffer atual (IA ou básica)
+        // descrição + checklist do buffer atual (IA ou básica)
         const desc = cDesc.value || buildDescFromModel();
         const checklistItems = setDescAndPreview._buffer || basicChecklistFromModel();
 
-        const respUid = document.getElementById('c-resp').value || null;
-        const memberUids = getSelectedMembers(document);
-
+        // cria o card
         const rec = await Cards.add({
-            title: cTitle.value.trim() || '(sem título)',
-            desc: cDesc.value || '',
+            title,                              // usa o normalizado
+            desc,
             board: cBoard.value,
             status: FLOWS[cBoard.value][0],
-            resp: $('#c-resp option:checked')?.dataset?.label || '',
-            respUid: respUid,
-            due: cDue.value ? new Date(cDue.value).toISOString() : null,
+            resp: respLabel,                    // usa o label calculado
+            respUid,
+            due: dueIso,                        // usa o due já calculado
             members: memberUids,
-            gut: Number($('#c-gut').value) || 0,
-            gutGrade: gutClass(Number($('#c-gut').value) || 0),
-            priority: computePriority(cDue.value ? new Date(cDue.value).toISOString() : null, Number($('#c-gut').value) || 0),
-            gutG: Number($('#c-g').value) || 5, gutU: Number($('#c-u').value) || 5, gutT: Number($('#c-t').value) || 5
+            gut: gutVal,
+            gutGrade,
+            priority,
+            gutG: Number($('#c-g')?.value) || 5,
+            gutU: Number($('#c-u')?.value) || 5,
+            gutT: Number($('#c-t')?.value) || 5,
+            routine                             // se não quiser salvar, remova esta linha
         });
-        await sendCardNotification('CARD_CREATED', rec);
 
+        // --- coloque isso logo após o trecho que cria o card: ex: const r = await Cards.add(payload);
+        // 1) NO TOPO do arquivo (fora do handler), adicione/atualize a função:
+        async function notifyMembersAboutCard(cardId, cardTitle, members = [], respUid = null, createdByUid = null) {
+            // evita notificar o criador e remove duplicados (resp também pode estar em members)
+            const currentUid = createdByUid || (typeof auth !== 'undefined' && auth?.currentUser?.uid) || null;
+            const targetUids = Array.from(new Set([...(members || []), respUid].filter(Boolean)))
+                .filter(uid => uid && uid !== currentUid);
+            if (!targetUids.length) return;
+
+            const createdAt = Date.now();
+            const itemBase = {
+                type: 'card_created',
+                cardId,
+                titulo: `Nova tarefa: ${cardTitle}`,
+                corpo: `Você foi adicionado como responsável/membro na tarefa "${cardTitle}".`,
+                createdAt,
+                read: false
+            };
+
+            try {
+                if (typeof cloudOk !== 'undefined' && cloudOk && typeof db !== 'undefined') {
+                    const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+                    // **IMPORTANTE**: escrever em 'notifs' (e não 'mural')
+                    for (const uid of targetUids) {
+                        const docId = `${cardId}__${uid}__created`; // id determinístico p/ dedupe
+                        await setDoc(doc(db, 'notifs', docId), { ...itemBase, user: uid }, { merge: false });
+                    }
+                } else {
+                    // Sem Firestore: apenas um fallback local visível (não usa 'mural'!)
+                    if (typeof Ephemeral !== 'undefined' && Ephemeral.push) {
+                        for (const uid of targetUids) {
+                            Ephemeral.push({ titulo: itemBase.titulo, corpo: itemBase.corpo, user: uid, cardId });
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Falha ao notificar membros do card:', err);
+            }
+        }
+
+
+
+
+        // Exemplo de como chamar (substitua r.id / payload conforme o seu fluxo)
+        await notifyMembersAboutCard(rec.id, title, memberUids, respUid);
+
+
+        // checklist (em paralelo)
         if (checklistItems.length) {
-            for (const it of checklistItems) {
-                await Sub.addChecklistItem(rec.id, it.text, it.done);
-            }
+            await Promise.all(
+                checklistItems.map(it => Sub.addChecklistItem(rec.id, it.text, it.done))
+            );
         }
-
-        // depois do await Cards.add(...)
-        try {
-            const title = (cTitle?.value || '(sem título)').trim();
-            const board = cBoard?.value || 'PROJETOS';
-
-            // notifica o responsável (se houver)
-            const respOpt = cResp?.selectedOptions?.[0];
-            const respUid = respOpt?.value || null;
-            const respName = respOpt?.dataset?.label || respOpt?.textContent || '';
-
-            const prazo = cDue?.value ? new Date(cDue.value).toLocaleString() : 'sem prazo definido';
-            const body = `[${board}] ${title}\nPrazo: ${prazo}`;
-
-            // dispara para o responsável
-            if (respUid) await notifyUser(respUid, 'Novo card atribuído', body);
-
-            // dispara para cada membro marcado
-            const memberInputs = Array.from(document.querySelectorAll('#c-members input[name="c-member"]:checked'));
-            for (const inp of memberInputs) {
-                const uid = inp.value;
-                if (!uid || uid === respUid) continue;
-                await notifyUser(uid, 'Você foi marcado em um card', body);
-            }
-        } catch (e) {
-            console.warn('Falha ao notificar criação de card:', e);
-        }
-
 
         setMsg(msg, 'ok', '✅ Card criado!');
         // reset mínimos
@@ -1918,13 +1963,14 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         cDue.value = '';
         mdObj.value = ''; mdAco.value = ''; mdInf.value = '';
         setDescAndPreview._buffer = null;
-        renderModelPreview();                      // refaz preview vazio
+        renderModelPreview();
         selectBoardTab?.(rec.board);
         sessionStorage.setItem('openCardId', rec.id);
 
         // redireciona com o id correto do card
         location.hash = `#/kanban?card=${encodeURIComponent(rec.id)}`;
     });
+
 })();
 
 (function tuneKanbanColHeight() {
@@ -4469,29 +4515,20 @@ $('#evt-delete').addEventListener('click', async () => {
 // wire modal close button (in case not already wired)
 $('#cal-close')?.addEventListener('click', () => { $('#calendarModal').classList.remove('show'); __currentCalendarEventId = null; });
 
-// when '#cal-grid' clicked on empty area, open new modal for date? ignored for now
-
-// initial load when firebase ready — try to detect cloudOk or app ready
 (async function initCalendarIntegration() {
-
-    // wait a bit for firebase init to possibly run in the same module
     try { await new Promise(r => setTimeout(r, 500)); } catch (e) { }
     loadAndRenderCalendar();
-    // expose refresh
     window.refreshCalendar = loadAndRenderCalendar;
 })();
 
 document.addEventListener('auth:changed', loadAndRenderCalendar);
 
-
-// ==== TROCA AUTOMÁTICA DE LOGO POR TEMA ====
 const logo = document.getElementById('logo');
 
 function aplicarTema() {
     const tema = localStorage.getItem('theme') || 'dark';
     document.body.setAttribute('data-theme', tema);
 
-    // Troca o logo conforme o tema
     if (logo) {
         if (tema === 'light') {
             logo.src = 'img/8572256d-599f-44c3-86d9-40052c7a886c.jpeg'; // <- CAMINHO DA LOGO CLARA
@@ -4501,13 +4538,11 @@ function aplicarTema() {
     }
 }
 
-// Quando o usuário clica pra trocar o tema:
 document.getElementById('toggleTheme')?.addEventListener('click', () => {
     const atual = localStorage.getItem('theme') === 'light' ? 'dark' : 'light';
     localStorage.setItem('theme', atual);
     aplicarTema();
 });
 
-// Chama uma vez ao carregar a página
 aplicarTema();
 
