@@ -42,102 +42,6 @@ function getSelectedMembers(rootEl) {
 }
 
 
-// === Notificações por usuário (responsável + membros) ===
-// === Envio de notificações de cards ===
-
-// Implementação "visual only" – NÃO persiste nada
-// Implementação "visual only" – NÃO persiste nada
-async function sendCardNotification(type, rec) {
-    try {
-        if (type === 'CARD_CREATED') {
-            // Som (se você já tem notifySound global)
-            if (typeof notifySound !== 'undefined' && notifySound?.play) {
-                notifySound.currentTime = 0;
-                await notifySound.play().catch(() => { });
-            }
-            // Toast local (exemplo)
-            if (typeof setMsg === 'function') setMsg(null, 'ok', `Card criado: ${rec.title}`);
-            // Notificação do navegador (opcional)
-            if ('Notification' in window) {
-                if (Notification.permission === 'granted') {
-                    new Notification('Novo card', { body: rec.title });
-                } else if (Notification.permission !== 'denied') {
-                    Notification.requestPermission();
-                }
-            }
-        }
-    } catch (e) {
-        console.warn('sendCardNotification visual-only falhou:', e);
-    }
-}
-
-
-
-async function notifyUsers(targetUids = [], payload = {}) {
-    if (!Array.isArray(targetUids) || !targetUids.length) return;
-
-    const createdAt = new Date().toISOString();
-
-    if (cloudOk && db) {
-        const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-        await Promise.all(targetUids.map(uid => addDoc(collection(db, 'users', uid, 'inbox'), {
-            ...payload,
-            read: false,
-            createdAt
-        })));
-    }
-
-    // Se algum destinatário for o usuário atual, também empurra no efêmero local
-    try {
-        const me = currentUser?.uid;
-        if (me && targetUids.includes(me)) {
-            Ephemeral.push({
-                titulo: payload.title || payload.titulo || 'Notificação',
-                corpo: payload.board ? `[${payload.board}] ${payload.title || ''}` : (payload.body || payload.corpo || '')
-            });
-        }
-    } catch { /* silencioso */ }
-}
-
-
-
-// (opcional) som quando chegar algo novo na inbox do usuário logad
-// (re)liga o ouvidor de inbox do usuário logado e atualiza o sino
-function listenUserInbox() {
-    if (!cloudOk || !currentUser?.uid) return;
-
-    (async () => {
-        const { collection, onSnapshot, orderBy, query, where } =
-            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-        const qRef = query(
-            collection(db, 'users', currentUser.uid, 'inbox'),
-            where('read', '==', false),
-            orderBy('createdAt', 'desc')
-        );
-
-        onSnapshot(qRef, snap => {
-            const unread = [];
-            snap.forEach(d => unread.push({ id: d.id, ...d.data() }));
-
-            // guarda em cache global para o renderer do sino
-            window._inboxItems = unread;
-
-            // toca som (com helper que reinicia currentTime e trata bloqueio)
-            try { playNotifySound(); } catch { }
-
-            // re-render do sino (usa o combinado)
-            if (typeof renderMuralCombined === 'function') {
-                renderMuralCombined(window._lastMuralItems || []);
-            }
-        });
-    })();
-}
-
-// reconecta quando logar
-document.addEventListener('auth:changed', listenUserInbox);
-
-
 // === Notificação nativa do sistema ===
 function showSystemNotification(title, body) {
     if (!("Notification" in window)) return; // navegador não suporta
@@ -4546,3 +4450,138 @@ document.getElementById('toggleTheme')?.addEventListener('click', () => {
 
 aplicarTema();
 
+
+
+
+// === Notifications Hub (unificado) ===
+function getActor() {
+  const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) ? currentUser.uid :
+              (typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null);
+  const name = (typeof currentUser !== 'undefined' && currentUser && (currentUser.displayName || currentUser.email)) ? (currentUser.displayName || currentUser.email) :
+               (typeof auth !== 'undefined' && auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : '—');
+  return { uid, name };
+}
+
+function buildCardAudience(card, excludeUid) {
+  const items = [];
+  if (card && Array.isArray(card.members)) items.push(...card.members);
+  if (card && card.respUid) items.push(card.respUid);
+  const set = new Set(items.filter(Boolean));
+  if (excludeUid) set.delete(excludeUid);
+  return Array.from(set);
+}
+
+function makeCardPayload(type, card, extra) {
+  const actor = getActor();
+  return Object.assign({
+    type,
+    board: card && card.board || '',
+    cardId: card && (card.id || card.cardId) || '',
+    title: card && card.title || '(sem título)',
+    actorUid: actor.uid || null,
+    actorName: actor.name || '—',
+    status: card && card.status || '',
+    due: card && card.due || null,
+  }, (extra || {}));
+}
+
+async function notifyUsers(targetUids, payload) {
+  if (!Array.isArray(targetUids) || !targetUids.length) return;
+  const createdAt = new Date().toISOString();
+  try {
+    if (typeof cloudOk !== 'undefined' && cloudOk && typeof db !== 'undefined' && db) {
+      const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      await Promise.all(targetUids.map(uid => addDoc(collection(db, 'users', uid, 'inbox'), {
+        ...payload,
+        createdAt,
+        read: false
+      })));
+    }
+  } catch (err) {
+    console.warn('[notifyUsers] Firestore falhou:', err);
+  }
+  try {
+    const me = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : null;
+    if (me && targetUids.includes(me) && typeof Ephemeral !== 'undefined' && Ephemeral && typeof Ephemeral.push === 'function') {
+      Ephemeral.push({
+        titulo: payload.title || 'Notificação',
+        corpo: `${payload.type === 'card_updated' ? 'Atualização' : 'Novo'} — ${payload.board || ''} ${payload.title || ''}`
+      });
+    }
+    if (typeof playNotifySound === 'function') playNotifySound();
+  } catch {}
+}
+
+// Permissão de notificação e "destravar" o áudio
+(function primeBrowserNotification(){
+  try {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(()=>{});
+    }
+    document.body && document.body.addEventListener('click', () => {
+      try { if (typeof notifySound !== 'undefined' && notifySound && typeof notifySound.play === 'function') { notifySound.play().then(()=>notifySound.pause()); } } catch {}
+    }, { once: true });
+  } catch {}
+})();
+
+// ==== Shims de compatibilidade (se o restante do app ainda chamar funções antigas) ====
+async function sendCardNotification(card, type, extra) {
+  try {
+    const actor = getActor();
+    const audience = buildCardAudience(card, actor.uid);
+    if (!audience.length) return;
+    const payload = makeCardPayload(type || 'card_updated', card, extra);
+    await notifyUsers(audience, payload);
+  } catch (e) { console.warn('[sendCardNotification/shim]', e); }
+}
+
+async function notifyMembersAboutCard(cardId, message) {
+  try {
+    if (typeof db === 'undefined' || !db) return;
+    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const snap = await getDoc(doc(db, 'cards', cardId));
+    if (!snap.exists()) return;
+    const card = { id: cardId, ...snap.data() };
+    const actor = getActor();
+    const payload = makeCardPayload('card_updated', card, { message });
+    const audience = buildCardAudience(card, actor.uid);
+    if (audience.length) await notifyUsers(audience, payload);
+  } catch (e) { console.warn('[notifyMembersAboutCard/shim]', e); }
+}
+
+async function notifyCardParticipants(card, message) {
+  try {
+    const actor = getActor();
+    const payload = makeCardPayload('card_updated', card, { message });
+    const audience = buildCardAudience(card, actor.uid);
+    if (audience.length) await notifyUsers(audience, payload);
+  } catch (e) { console.warn('[notifyCardParticipants/shim]', e); }
+}
+
+// Listener de inbox (idempotente)
+let __inboxUnsub = null;
+async function listenUserInbox() {
+  try {
+    if (typeof cloudOk === 'undefined' || !cloudOk) return;
+    if (typeof currentUser === 'undefined' || !currentUser || !currentUser.uid) return;
+    if (__inboxUnsub) { try { __inboxUnsub(); } catch {} __inboxUnsub = null; }
+    const { collection, onSnapshot, orderBy, query, where } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const qRef = query(
+      collection(db, 'users', currentUser.uid, 'inbox'),
+      where('read', '==', false),
+      orderBy('createdAt', 'desc')
+    );
+    __inboxUnsub = onSnapshot(qRef, snap => {
+      try {
+        const unread = [];
+        snap.forEach(d => unread.push({ id: d.id, ...d.data() }));
+        window._inboxItems = unread;
+        if (typeof playNotifySound === 'function' && unread.length) playNotifySound();
+        if (typeof renderMuralCombined === 'function') renderMuralCombined(window._lastMuralItems || []);
+      } catch {}
+    });
+  } catch (e) { console.warn('[listenUserInbox]', e); }
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('auth:changed', listenUserInbox);
+}
