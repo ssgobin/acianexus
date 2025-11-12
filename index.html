@@ -57,7 +57,7 @@
         <div class="dropdown-head">
           <div style="display:flex; gap:10px;">
             <button id="mural-limpar" class="link hidden>Limpar tudo</button>
-            <button id="mural-marcar-lido" class="link">Marcar tudo como lido</button>
+            <button id=" mural-marcar-lido" class="link">Marcar tudo como lido</button>
           </div>
         </div>
         <ul id="mural-dropdown-list" class="dropdown-list"></ul>
@@ -186,7 +186,7 @@
 
         <div class="row">
           <div class="field">
-            <label for="c-resp">Responsável</label>
+            <label for="c-resp">Solicitante</label>
             <select id="c-resp"></select>
           </div>
           <div class="field">
@@ -222,7 +222,7 @@
           <!-- MEMBROS DO CARD -->
           <div class="row">
             <div class="field" style="grid-column: 1 / -1">
-              <label for="c-members">Responsável(eis) Envolvido(s)</label>
+              <label for="c-members">Envolvidos</label>
               <div id="c-members" class="c-members-list"></div>
               <!-- Tarefa linkada (subtarefa) -->
               <div class="row">
@@ -600,7 +600,50 @@
 
   </main>
 
-  <footer>ACIA Nexus — 2025</footer>
+  <footer class="footer">
+    <div class="footer-content">
+      <p>
+        © <span id="current-year"></span>
+        <strong>ACIANexus</strong> — Plataforma desenvolvida por
+        <a href="mailto:ssgobin.dev@gmail.com" target="_blank">João Vitor Sgobin</a>.
+      </p>
+      <p class="muted">
+        Sistema baseado na engine <strong>Nuvvo</strong>.
+        <a href="politica.html" target="_blank">Política de Privacidade</a>
+      </p>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById("current-year").textContent = new Date().getFullYear();
+  </script>
+
+  <style>
+    .footer {
+      margin-top: 40px;
+      padding: 20px 10px;
+      text-align: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 14px;
+      color: var(--muted-color, #bbb);
+    }
+
+    .footer a {
+      color: var(--accent-color, #0af);
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      text-decoration: underline;
+    }
+
+    .footer .muted {
+      font-size: 13px;
+      color: #999;
+    }
+  </style>
+
+
 
   <!-- MODAL: Novo Comunicado do Mural (apenas admin) -->
   <div id="muralModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="mu-title-h">
@@ -661,7 +704,7 @@
           <input id="m-title-in" type="text" />
         </div>
         <div class="field">
-          <label for="m-resp">Responsável</label>
+          <label for="m-resp">Solicitante</label>
           <!-- value = uid; data-label = nome/email p/ exibir em card.resp -->
           <select id="m-resp"></select>
         </div>
@@ -697,7 +740,7 @@
 
       <!-- Membros -->
       <div class="field">
-        <label for="m-members">Responsável(eis) Envolvido(s)</label>
+        <label for="m-members">Envolvidos</label>
         <div id="m-members" class="m-members-list"></div>
       </div>
       <!-- Tarefa linkada (subtarefa) — EDITAR -->
@@ -812,54 +855,54 @@
     </div>
   </div>
 
+  <!-- ===== POPUP DIÁRIO ===== -->
+  <div id="dailyModal">
+    <div class="modal-container">
+      <div class="modal-head">Relatório Diário</div>
+      <div class="modal-body" id="dailyBody">
+        <div class="field">
+          <label>Horário de Início</label>
+          <input type="time" class="start" />
+        </div>
+        <div class="field">
+          <label>Horário de Fim</label>
+          <input type="time" class="end" />
+        </div>
+        <div class="field">
+          <label>O que fez nesse intervalo?</label>
+          <textarea class="desc" placeholder="Descreva o que foi feito"></textarea>
+        </div>
+        <button id="addMore" class="btn secondary">+ Adicionar outro intervalo</button>
+      </div>
+      <div class="modal-foot">
+        <button id="saveDaily" class="btn">Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== POPUP DE POLÍTICA DE PRIVACIDADE ===== -->
+  <div id="privacyPopup" class="privacy-popup hidden">
+    <div class="privacy-box">
+      <h3>Política de Privacidade</h3>
+      <p>
+        Utilizamos este sistema conforme nossa <a href="politica.html" target="_blank">Política de
+          Privacidade</a>.
+        Ao continuar, você confirma que leu e concorda com o tratamento de seus dados conforme descrito.
+      </p>
+      <div class="privacy-actions">
+        <button id="acceptPrivacy" class="btn">Aceitar e continuar</button>
+      </div>
+    </div>
+  </div>
+
+
   <script type="module" src="script.js"></script>
   <script>
     UPLOADCARE_PUBLIC_KEY = 'bec8b0653d0455ca2d7d'; // substitua pela sua chave
   </script>
   <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
 
-  <div id="dailyReportModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="drp-title"
-    style="display:none">
-    <div class="modal-head">
-      <strong id="drp-title">Relatório de Tarefas Diárias</strong>
-    </div>
 
-    <div class="modal-body">
-      <p class="muted" id="drp-period-hint"></p>
-
-      <div id="drp-items" class="list-v"></div>
-
-      <!-- template de linha (clonado via JS) -->
-      <template id="drp-item-tpl">
-        <div class="card row gap-sm drp-item">
-          <div class="field">
-            <label>Hora início</label>
-            <input type="time" class="drp-start" required>
-          </div>
-          <div class="field">
-            <label>Hora final</label>
-            <input type="time" class="drp-end" required>
-          </div>
-          <div class="field grow">
-            <label>Título da tarefa</label>
-            <input type="text" class="drp-title" placeholder="Ex.: Atendimento, planilhas, ligações…" required>
-          </div>
-          <button type="button" class="btn danger ghost drp-remove" aria-label="Remover">✕</button>
-        </div>
-      </template>
-
-      <div class="row">
-        <button id="drp-add" class="btn secondary" type="button">Adicionar item</button>
-      </div>
-
-      <div id="drp-msg" class="msg"></div>
-    </div>
-
-    <div class="modal-foot">
-      <div class="spacer"></div>
-      <button id="drp-save" class="btn" type="button" disabled>Concluir</button>
-    </div>
-  </div>
 
 </body>
 

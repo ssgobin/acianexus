@@ -1748,6 +1748,62 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         setMsg(msg, 'ok', 'Checklist gerada pela IA.');
     });
 
+    // ===============================
+    // VALIDAÇÕES DE CARD (obrigatórios e conflitos)
+    // ===============================
+    async function validarCardAntesDeCriar({ title, desc, board, dueIso, respUid, gut, mdObj, mdAco, mdInf }) {
+        // 1️⃣ Campos obrigatórios
+        if (!title.trim()) throw new Error("Preencha o título da tarefa.");
+        if (!mdObj.trim()) throw new Error("Preencha o objetivo da tarefa.");
+        if (!mdAco.trim()) throw new Error("Preencha o descritivo da tarefa.");
+        if (!mdInf.trim()) throw new Error("Preencha as informações adicionais.");
+        if (!dueIso) throw new Error("Preencha a data e a hora do prazo.");
+
+        // 2️⃣ Verificação de conflitos de GUT e horário
+        const all = await (cloudOk ? getAllCardsFirestore() : LocalDB.list());
+
+        // pega só tarefas ativas do mesmo responsável
+        const conflitos = all.filter(c => (
+            c.respUid === respUid &&
+            c.status !== 'CONCLUÍDO' &&
+            c.status !== 'FINALIZADO'
+        ));
+
+        // 🔹 Conflito de GUT
+        const gutConflict = conflitos.find(c =>
+            Number(c.gut) === Number(gut) &&
+            (c.author === currentUser?.uid || c.authorEmail === currentUser?.email)
+        );
+        if (gutConflict) {
+            throw new Error(`⚠️ Você já atribuiu uma tarefa com esse mesmo grau de GUT (${gut}) para este responsável. Finalize-a antes de criar outra semelhante.`);
+        }
+
+        // 🔹 Conflito de data/hora
+        if (dueIso) {
+            const dueTs = new Date(dueIso).getTime();
+            const dateConflict = conflitos.find(c => {
+                if (!c.due) return false;
+                const cTs = new Date(c.due).getTime();
+                const diff = Math.abs(cTs - dueTs);
+                return diff < (15 * 60 * 1000); // intervalo de 15 minutos
+            });
+            if (dateConflict) {
+                throw new Error(`⚠️ Já existe uma tarefa para este responsável com prazo próximo (${new Date(dateConflict.due).toLocaleString('pt-BR')}).`);
+            }
+        }
+        return true;
+    }
+
+    // 🔹 Auxiliar para coletar todos os cards do Firestore
+    async function getAllCardsFirestore() {
+        const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const snap = await getDocs(collection(db, 'cards'));
+        const arr = [];
+        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        return arr;
+    }
+
+
     // ===== Criar card =====
     btnCreate.addEventListener('click', async () => {
         const title = (cTitle.value || '').trim();
@@ -1786,6 +1842,24 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         // descrição + checklist do buffer atual (IA ou básica)
         const desc = cDesc.value || buildDescFromModel();
         const checklistItems = setDescAndPreview._buffer || basicChecklistFromModel();
+
+        try {
+            await validarCardAntesDeCriar({
+                title,
+                desc: cDesc.value,
+                board: cBoard.value,
+                dueIso,
+                respUid,
+                gut: gutVal,
+                mdObj: mdObj.value,
+                mdAco: mdAco.value,
+                mdInf: mdInf.value
+            });
+        } catch (err) {
+            setMsg(msg, 'err', err.message || 'Erro ao validar card');
+            return; // interrompe o fluxo
+        }
+
 
         // cria o card
         const rec = await Cards.add({
@@ -1889,6 +1963,13 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
     window.addEventListener('resize', setColMax);
     document.addEventListener('auth:changed', setColMax); // se tua UI mexe com layout após login
 })();
+
+// Atualiza automaticamente o ano no rodapé
+(function updateFooterYear() {
+  const el = document.getElementById("current-year");
+  if (el) el.textContent = new Date().getFullYear();
+})();
+
 
 /* ===========================
    Kanbans (3 abas), KPIs, Modal, Drag
@@ -4455,133 +4536,287 @@ aplicarTema();
 
 // === Notifications Hub (unificado) ===
 function getActor() {
-  const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) ? currentUser.uid :
-              (typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null);
-  const name = (typeof currentUser !== 'undefined' && currentUser && (currentUser.displayName || currentUser.email)) ? (currentUser.displayName || currentUser.email) :
-               (typeof auth !== 'undefined' && auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : '—');
-  return { uid, name };
+    const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) ? currentUser.uid :
+        (typeof auth !== 'undefined' && auth.currentUser ? auth.currentUser.uid : null);
+    const name = (typeof currentUser !== 'undefined' && currentUser && (currentUser.displayName || currentUser.email)) ? (currentUser.displayName || currentUser.email) :
+        (typeof auth !== 'undefined' && auth.currentUser ? (auth.currentUser.displayName || auth.currentUser.email) : '—');
+    return { uid, name };
 }
 
 function buildCardAudience(card, excludeUid) {
-  const items = [];
-  if (card && Array.isArray(card.members)) items.push(...card.members);
-  if (card && card.respUid) items.push(card.respUid);
-  const set = new Set(items.filter(Boolean));
-  if (excludeUid) set.delete(excludeUid);
-  return Array.from(set);
+    const items = [];
+    if (card && Array.isArray(card.members)) items.push(...card.members);
+    if (card && card.respUid) items.push(card.respUid);
+    const set = new Set(items.filter(Boolean));
+    if (excludeUid) set.delete(excludeUid);
+    return Array.from(set);
 }
 
 function makeCardPayload(type, card, extra) {
-  const actor = getActor();
-  return Object.assign({
-    type,
-    board: card && card.board || '',
-    cardId: card && (card.id || card.cardId) || '',
-    title: card && card.title || '(sem título)',
-    actorUid: actor.uid || null,
-    actorName: actor.name || '—',
-    status: card && card.status || '',
-    due: card && card.due || null,
-  }, (extra || {}));
+    const actor = getActor();
+    return Object.assign({
+        type,
+        board: card && card.board || '',
+        cardId: card && (card.id || card.cardId) || '',
+        title: card && card.title || '(sem título)',
+        actorUid: actor.uid || null,
+        actorName: actor.name || '—',
+        status: card && card.status || '',
+        due: card && card.due || null,
+    }, (extra || {}));
 }
 
 async function notifyUsers(targetUids, payload) {
-  if (!Array.isArray(targetUids) || !targetUids.length) return;
-  const createdAt = new Date().toISOString();
-  try {
-    if (typeof cloudOk !== 'undefined' && cloudOk && typeof db !== 'undefined' && db) {
-      const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      await Promise.all(targetUids.map(uid => addDoc(collection(db, 'users', uid, 'inbox'), {
-        ...payload,
-        createdAt,
-        read: false
-      })));
+    if (!Array.isArray(targetUids) || !targetUids.length) return;
+    const createdAt = new Date().toISOString();
+    try {
+        if (typeof cloudOk !== 'undefined' && cloudOk && typeof db !== 'undefined' && db) {
+            const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            await Promise.all(targetUids.map(uid => addDoc(collection(db, 'users', uid, 'inbox'), {
+                ...payload,
+                createdAt,
+                read: false
+            })));
+        }
+    } catch (err) {
+        console.warn('[notifyUsers] Firestore falhou:', err);
     }
-  } catch (err) {
-    console.warn('[notifyUsers] Firestore falhou:', err);
-  }
-  try {
-    const me = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : null;
-    if (me && targetUids.includes(me) && typeof Ephemeral !== 'undefined' && Ephemeral && typeof Ephemeral.push === 'function') {
-      Ephemeral.push({
-        titulo: payload.title || 'Notificação',
-        corpo: `${payload.type === 'card_updated' ? 'Atualização' : 'Novo'} — ${payload.board || ''} ${payload.title || ''}`
-      });
-    }
-    if (typeof playNotifySound === 'function') playNotifySound();
-  } catch {}
+    try {
+        const me = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : null;
+        if (me && targetUids.includes(me) && typeof Ephemeral !== 'undefined' && Ephemeral && typeof Ephemeral.push === 'function') {
+            Ephemeral.push({
+                titulo: payload.title || 'Notificação',
+                corpo: `${payload.type === 'card_updated' ? 'Atualização' : 'Novo'} — ${payload.board || ''} ${payload.title || ''}`
+            });
+        }
+        if (typeof playNotifySound === 'function') playNotifySound();
+    } catch { }
 }
 
 // Permissão de notificação e "destravar" o áudio
-(function primeBrowserNotification(){
-  try {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().catch(()=>{});
-    }
-    document.body && document.body.addEventListener('click', () => {
-      try { if (typeof notifySound !== 'undefined' && notifySound && typeof notifySound.play === 'function') { notifySound.play().then(()=>notifySound.pause()); } } catch {}
-    }, { once: true });
-  } catch {}
+(function primeBrowserNotification() {
+    try {
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission().catch(() => { });
+        }
+        document.body && document.body.addEventListener('click', () => {
+            try { if (typeof notifySound !== 'undefined' && notifySound && typeof notifySound.play === 'function') { notifySound.play().then(() => notifySound.pause()); } } catch { }
+        }, { once: true });
+    } catch { }
 })();
+
+// ===============================
+// POPUP DIÁRIO (11h e 17h) — persistente + visual melhorado
+// ===============================
+(function initDailyPopup() {
+  const modal = document.getElementById("dailyModal");
+  const body = document.getElementById("dailyBody");
+  const btnAdd = document.getElementById("addMore");
+  const btnSave = document.getElementById("saveDaily");
+
+  // === Helpers ===
+  function todayKey() {
+    return new Date().toISOString().slice(0, 10);
+  }
+  function getKey(period) {
+    return `dailySent:${todayKey()}:${period}`;
+  }
+
+  // 🧹 Limpa registros antigos
+  function resetDailyKeys() {
+    const today = todayKey();
+    Object.keys(localStorage)
+      .filter(k => k.startsWith("dailySent:") && !k.includes(today))
+      .forEach(k => localStorage.removeItem(k));
+  }
+  resetDailyKeys();
+
+  // === UI ===
+  function addIntervalRow() {
+    const wrap = document.createElement("div");
+    wrap.className = "daily-row";
+    wrap.innerHTML = `
+      <div class="row">
+        <div class="field">
+          <label>Início</label>
+          <input type="time" class="start" />
+        </div>
+        <div class="field">
+          <label>Fim</label>
+          <input type="time" class="end" />
+        </div>
+      </div>
+      <div class="field">
+        <label>O que fez nesse intervalo?</label>
+        <textarea class="desc" placeholder="Descreva o que foi feito"></textarea>
+      </div>
+    `;
+    body.insertBefore(wrap, btnAdd);
+  }
+
+  btnAdd.addEventListener("click", addIntervalRow);
+
+  // === Salvar ===
+  async function saveToFirebase(filled, period) {
+    try {
+      if (!cloudOk || !currentUser?.uid || !db) {
+        const prev = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+        prev.push({ date: todayKey(), period, entries: filled });
+        localStorage.setItem("dailyReports", JSON.stringify(prev));
+        return;
+      }
+      const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+      const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+      await addDoc(colRef, {
+        date: todayKey(),
+        createdAt: new Date().toISOString(),
+        period,
+        entries: filled
+      });
+    } catch (e) {
+      console.warn("Erro ao salvar relatório diário:", e);
+    }
+  }
+
+  function openPopup(period) {
+    body.querySelectorAll(".daily-row").forEach(c => c.remove());
+    addIntervalRow();
+    modal.dataset.period = period;
+    modal.classList.add("show");
+  }
+
+  btnSave.addEventListener("click", async () => {
+    const rows = Array.from(body.querySelectorAll(".daily-row"));
+    const filled = rows.map(r => ({
+      start: r.querySelector(".start").value.trim(),
+      end: r.querySelector(".end").value.trim(),
+      desc: r.querySelector(".desc").value.trim()
+    })).filter(r => r.start && r.end && r.desc);
+
+    if (!filled.length) {
+      alert("⚠️ Você precisa preencher pelo menos um intervalo antes de fechar.");
+      return;
+    }
+
+    const period = modal.dataset.period || "geral";
+    await saveToFirebase(filled, period);
+    localStorage.setItem(getKey(period), "true");
+    modal.classList.remove("show");
+  });
+
+  // === Lógica de verificação ===
+  function shouldShow(period) {
+    const h = new Date().getHours();
+    if (period === "11h") return h >= 11 && h < 12;
+    if (period === "17h") return h >= 17 && h < 18;
+    return false;
+  }
+
+  function checkPopup() {
+    resetDailyKeys();
+    const sent11 = localStorage.getItem(getKey("11h"));
+    const sent17 = localStorage.getItem(getKey("17h"));
+
+    if (!sent11 && shouldShow("11h")) {
+      openPopup("11h");
+      return;
+    }
+    if (!sent17 && shouldShow("17h")) {
+      openPopup("17h");
+      return;
+    }
+  }
+
+  // 💡 Verifica assim que abre a página
+  window.addEventListener("load", checkPopup);
+  // 💡 E repete a checagem a cada minuto
+  setInterval(checkPopup, 60 * 1000);
+})();
+
+// === POPUP DE POLÍTICA DE PRIVACIDADE ===
+(function initPrivacyPopup() {
+  const popup = document.getElementById("privacyPopup");
+  const btn = document.getElementById("acceptPrivacy");
+  const key = "privacyAccepted";
+
+  // se já aceitou, não mostra mais
+  const accepted = localStorage.getItem(key);
+  if (accepted === "true") {
+    popup.classList.add("hidden");
+    return;
+  }
+
+  // mostra o popup
+  popup.classList.remove("hidden");
+
+  // ao clicar em aceitar
+  btn.addEventListener("click", () => {
+    localStorage.setItem(key, "true");
+    popup.classList.add("hidden");
+  });
+})();
+
+
 
 // ==== Shims de compatibilidade (se o restante do app ainda chamar funções antigas) ====
 async function sendCardNotification(card, type, extra) {
-  try {
-    const actor = getActor();
-    const audience = buildCardAudience(card, actor.uid);
-    if (!audience.length) return;
-    const payload = makeCardPayload(type || 'card_updated', card, extra);
-    await notifyUsers(audience, payload);
-  } catch (e) { console.warn('[sendCardNotification/shim]', e); }
+    try {
+        const actor = getActor();
+        const audience = buildCardAudience(card, actor.uid);
+        if (!audience.length) return;
+        const payload = makeCardPayload(type || 'card_updated', card, extra);
+        await notifyUsers(audience, payload);
+    } catch (e) { console.warn('[sendCardNotification/shim]', e); }
 }
 
 async function notifyMembersAboutCard(cardId, message) {
-  try {
-    if (typeof db === 'undefined' || !db) return;
-    const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    const snap = await getDoc(doc(db, 'cards', cardId));
-    if (!snap.exists()) return;
-    const card = { id: cardId, ...snap.data() };
-    const actor = getActor();
-    const payload = makeCardPayload('card_updated', card, { message });
-    const audience = buildCardAudience(card, actor.uid);
-    if (audience.length) await notifyUsers(audience, payload);
-  } catch (e) { console.warn('[notifyMembersAboutCard/shim]', e); }
+    try {
+        if (typeof db === 'undefined' || !db) return;
+        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const snap = await getDoc(doc(db, 'cards', cardId));
+        if (!snap.exists()) return;
+        const card = { id: cardId, ...snap.data() };
+        const actor = getActor();
+        const payload = makeCardPayload('card_updated', card, { message });
+        const audience = buildCardAudience(card, actor.uid);
+        if (audience.length) await notifyUsers(audience, payload);
+    } catch (e) { console.warn('[notifyMembersAboutCard/shim]', e); }
 }
 
 async function notifyCardParticipants(card, message) {
-  try {
-    const actor = getActor();
-    const payload = makeCardPayload('card_updated', card, { message });
-    const audience = buildCardAudience(card, actor.uid);
-    if (audience.length) await notifyUsers(audience, payload);
-  } catch (e) { console.warn('[notifyCardParticipants/shim]', e); }
+    try {
+        const actor = getActor();
+        const payload = makeCardPayload('card_updated', card, { message });
+        const audience = buildCardAudience(card, actor.uid);
+        if (audience.length) await notifyUsers(audience, payload);
+    } catch (e) { console.warn('[notifyCardParticipants/shim]', e); }
 }
 
 // Listener de inbox (idempotente)
 let __inboxUnsub = null;
 async function listenUserInbox() {
-  try {
-    if (typeof cloudOk === 'undefined' || !cloudOk) return;
-    if (typeof currentUser === 'undefined' || !currentUser || !currentUser.uid) return;
-    if (__inboxUnsub) { try { __inboxUnsub(); } catch {} __inboxUnsub = null; }
-    const { collection, onSnapshot, orderBy, query, where } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-    const qRef = query(
-      collection(db, 'users', currentUser.uid, 'inbox'),
-      where('read', '==', false),
-      orderBy('createdAt', 'desc')
-    );
-    __inboxUnsub = onSnapshot(qRef, snap => {
-      try {
-        const unread = [];
-        snap.forEach(d => unread.push({ id: d.id, ...d.data() }));
-        window._inboxItems = unread;
-        if (typeof playNotifySound === 'function' && unread.length) playNotifySound();
-        if (typeof renderMuralCombined === 'function') renderMuralCombined(window._lastMuralItems || []);
-      } catch {}
-    });
-  } catch (e) { console.warn('[listenUserInbox]', e); }
+    try {
+        if (typeof cloudOk === 'undefined' || !cloudOk) return;
+        if (typeof currentUser === 'undefined' || !currentUser || !currentUser.uid) return;
+        if (__inboxUnsub) { try { __inboxUnsub(); } catch { } __inboxUnsub = null; }
+        const { collection, onSnapshot, orderBy, query, where } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const qRef = query(
+            collection(db, 'users', currentUser.uid, 'inbox'),
+            where('read', '==', false),
+            orderBy('createdAt', 'desc')
+        );
+        __inboxUnsub = onSnapshot(qRef, snap => {
+            try {
+                const unread = [];
+                snap.forEach(d => unread.push({ id: d.id, ...d.data() }));
+                window._inboxItems = unread;
+                if (typeof playNotifySound === 'function' && unread.length) playNotifySound();
+                if (typeof renderMuralCombined === 'function') renderMuralCombined(window._lastMuralItems || []);
+            } catch { }
+        });
+    } catch (e) { console.warn('[listenUserInbox]', e); }
 }
 if (typeof document !== 'undefined') {
-  document.addEventListener('auth:changed', listenUserInbox);
+    document.addEventListener('auth:changed', listenUserInbox);
 }
+
