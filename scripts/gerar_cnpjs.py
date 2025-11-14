@@ -1,67 +1,55 @@
 import requests
-import csv
 import json
 import os
 from datetime import datetime
-import zipfile
-import io
+import time
 
 DEST_FOLDER = "prospeccao"
 CITY = "AMERICANA"
 UF = "SP"
 
-URL = "https://dadosabertos.rfb.gov.br/CNPJ/Estabelecimentos.zip"
+BASE_URL = "https://jucesp-sp-api.vercel.app/empresas"
 
 
-def baixar_e_filtrar():
-    print("📥 Baixando base oficial da Receita (ZIP)...")
-    r = requests.get(URL, stream=True)
-    r.raise_for_status()
+def listar_todas():
+    pagina = 1
+    todas = []
 
-    print("📦 Extraindo arquivo ZIP em memória...")
-    z = zipfile.ZipFile(io.BytesIO(r.content))
+    while True:
+        print(f"🔎 Página {pagina}...")
 
-    nome_csv = [n for n in z.namelist() if n.endswith(".csv")][0]
+        r = requests.get(BASE_URL, params={
+            "municipio": CITY,
+            "uf": UF,
+            "page": pagina
+        })
 
-    print("🔍 Processando CSV... Isso pode levar alguns segundos.")
-    empresas = []
+        if r.status_code != 200:
+            print("⚠️ Erro HTTP:", r.status_code)
+            print(r.text)
+            break
 
-    with z.open(nome_csv) as f:
-        reader = csv.reader(io.TextIOWrapper(f, "latin1"), delimiter=';')
+        data = r.json()
 
-        for row in reader:
-            try:
-                municipio = row[15].upper()
-                uf = row[16].upper()
+        empresas = data.get("empresas", [])
+        if not empresas:
+            break
 
-                if municipio == CITY and uf == UF:
-                    cnpj = row[0]
-                    razao = row[4]
-                    fantasia = row[5]
-                    situacao = row[6]
-                    abertura = row[10]
-                    cnae = row[17]
+        todas.extend(empresas)
 
-                    empresas.append({
-                        "cnpj": cnpj,
-                        "razao_social": razao,
-                        "nome_fantasia": fantasia,
-                        "situacao": situacao,
-                        "data_abertura": abertura,
-                        "cnae_principal": cnae,
-                        "municipio": municipio,
-                        "uf": uf
-                    })
+        if not data.get("hasMore"):
+            break
 
-            except:
-                continue
+        pagina += 1
+        time.sleep(0.1)
 
-    print(f"🏙️ Empresas encontradas em Americana/SP: {len(empresas)}")
-    return empresas
+    print(f"📦 Total de empresas encontradas: {len(todas)}")
+    return todas
 
 
 def gerar_json():
-    empresas = baixar_e_filtrar()
+    empresas = listar_todas()
+
     os.makedirs(DEST_FOLDER, exist_ok=True)
 
     hoje = datetime.now().strftime("%Y-%m")
