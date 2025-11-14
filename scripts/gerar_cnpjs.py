@@ -1,55 +1,53 @@
 import requests
+import csv
 import json
 import os
 from datetime import datetime
-import time
 
 DEST_FOLDER = "prospeccao"
 CITY = "AMERICANA"
 UF = "SP"
 
-BASE_URL = "https://jucesp-sp-api.vercel.app/empresas"
+URL = f"https://ab2csv.com/v1/cnpj/estabelecimentos/{UF}.csv"
 
 
-def listar_todas():
-    pagina = 1
-    todas = []
+def baixar_e_filtrar():
+    print("📥 Baixando base de SP da AB2CSV...")
+    r = requests.get(URL, stream=True)
+    r.raise_for_status()
 
-    while True:
-        print(f"🔎 Página {pagina}...")
+    empresas = []
+    print("🔍 Filtrando Americana/SP...")
 
-        r = requests.get(BASE_URL, params={
-            "municipio": CITY,
-            "uf": UF,
-            "page": pagina
-        })
+    for line in r.iter_lines(decode_unicode=True):
+        if not line:
+            continue
 
-        if r.status_code != 200:
-            print("⚠️ Erro HTTP:", r.status_code)
-            print(r.text)
-            break
+        cols = line.split(";")
+        try:
+            municipio = cols[15].upper()
+            uf = cols[16].upper()
 
-        data = r.json()
+            if municipio == CITY and uf == UF:
+                empresas.append({
+                    "cnpj": cols[0],
+                    "razao_social": cols[4],
+                    "nome_fantasia": cols[5],
+                    "situacao": cols[6],
+                    "data_abertura": cols[10],
+                    "cnae_principal": cols[17],
+                    "municipio": municipio,
+                    "uf": uf
+                })
+        except:
+            continue
 
-        empresas = data.get("empresas", [])
-        if not empresas:
-            break
-
-        todas.extend(empresas)
-
-        if not data.get("hasMore"):
-            break
-
-        pagina += 1
-        time.sleep(0.1)
-
-    print(f"📦 Total de empresas encontradas: {len(todas)}")
-    return todas
+    print(f"🏙️ Empresas encontradas em Americana/SP: {len(empresas)}")
+    return empresas
 
 
 def gerar_json():
-    empresas = listar_todas()
-
+    empresas = baixar_e_filtrar()
     os.makedirs(DEST_FOLDER, exist_ok=True)
 
     hoje = datetime.now().strftime("%Y-%m")
@@ -58,7 +56,7 @@ def gerar_json():
     with open(destino, "w", encoding="utf8") as f:
         json.dump(empresas, f, ensure_ascii=False, indent=2)
 
-    print(f"💾 JSON salvo em: {destino}")
+    print(f"💾 JSON salvo: {destino}")
 
 
 if __name__ == "__main__":
