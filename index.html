@@ -41,6 +41,7 @@
       <a href="#/kanban" data-link>Kanban</a>
       <a href="#/reportar">Abrir Ticket</a>
       <a href="#/tickets" id="nav-tickets">Tickets</a>
+      <a href="#/prospeccao">Prospecção</a>
       <button id="themeToggle" class="btn secondary" type="button">🌙</button>
       <div class="spacer"></div>
       <span class="chip" id="authChip">Offline</span>
@@ -56,7 +57,7 @@
       <div id="mural-dropdown" class="dropdown" hidden>
         <div class="dropdown-head">
           <div style="display:flex; gap:10px;">
-            <button id="mural-limpar" class="link hidden>Limpar tudo</button>
+            <button id="mural-limpar" class="link hidden">Limpar tudo</button>
             <button id=" mural-marcar-lido" class="link">Marcar tudo como lido</button>
           </div>
         </div>
@@ -427,6 +428,78 @@
         </div>
       </div>
     </section>
+
+    <!-- PROSPECÇÃO -->
+    <section id="view-prospec" class="hidden">
+      <div class="card">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+          <div>
+            <h2 style="margin:0">Prospecção — CNPJs de Americana</h2>
+            <p class="muted" style="margin:2px 0 0;font-size:13px">
+              Esta aba carrega automaticamente, 1x por mês, a base de CNPJs de Americana
+              a partir de um arquivo JSON no Firebase Storage.
+            </p>
+          </div>
+          <div class="spacer"></div>
+          <button id="pros-sync" class="btn secondary" type="button">
+            Forçar atualização
+          </button>
+        </div>
+
+        <div id="pros-msg" class="msg" style="margin-bottom:8px"></div>
+
+        <div class="toolbar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <div style="display:flex;gap:6px;align-items:center">
+            <button id="pros-filter-all" class="btn small active" type="button">
+              Todos os CNPJs
+            </button>
+            <button id="pros-filter-new" class="btn small secondary" type="button">
+              Apenas novos do mês
+            </button>
+          </div>
+
+          <input id="pros-q" type="search" placeholder="Buscar por nome, razão social ou CNPJ…"
+            style="flex:1 1 220px;min-width:160px" />
+
+          <select id="pros-activity" style="min-width:180px">
+            <option value="">Todas as atividades</option>
+          </select>
+
+          <select id="pros-situacao" style="min-width:140px">
+            <option value="">Situação: todas</option>
+            <option value="ATIVA">Somente ativas</option>
+            <option value="BAIXADA">Somente baixadas</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:13px">
+          <div id="pros-count" class="muted">0 registros</div>
+          <div id="pros-last-sync" class="muted">Última atualização: —</div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="min-width:120px">CNPJ</th>
+                <th style="min-width:160px">Nome Fantasia</th>
+                <th style="min-width:200px">Razão Social</th>
+                <th style="min-width:110px">Abertura</th>
+                <th style="min-width:160px">Atividade principal</th>
+                <th style="min-width:90px">Situação</th>
+                <th style="min-width:200px">Contato</th>
+              </tr>
+            </thead>
+            <tbody id="pros-tbody">
+              <tr>
+                <td colspan="7" class="muted">Nenhum dado carregado ainda.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
 
     <!-- INDICADORES -->
     <section id="view-metrics" class="hidden">

@@ -2088,3 +2088,53 @@ html.light .icon-btn {
 }
 
 
+/* ===== Tabela Prospecção ===== */
+.table-wrap {
+    width: 100%;
+    max-height: 520px;
+    overflow: auto;
+    border-radius: 12px;
+    border: 1px solid rgba(148, 163, 184, .35);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.data-table th,
+.data-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(148, 163, 184, .25);
+    text-align: left;
+}
+
+.data-table th {
+    position: sticky;
+    top: 0;
+    background: rgba(15, 23, 42, .96);
+    z-index: 1;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--text-muted);
+}
+
+html.light .data-table th {
+    background: #f8fafc;
+}
+
+.data-table tr:hover td {
+    background: rgba(59, 130, 246, .06);
+}
+
+.btn.small {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.btn.small.active {
+    box-shadow: 0 0 0 1px rgba(59, 130, 246, .9);
+}

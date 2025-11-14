@@ -668,7 +668,7 @@ const firebaseConfig = {
     apiKey: "AIzaSyA7l0LovQnLdv9obeR3YSH6MTdR2d6xcug",
     authDomain: "hubacia-407c1.firebaseapp.com",
     projectId: "hubacia-407c1",
-    storageBucket: "hubacia-407c1.firebasestorage.app",
+    storageBucket: "hubacia-407c1.appspot.app",
     messagingSenderId: "633355141941",
     appId: "1:633355141941:web:e65270fdabe95da64cc27c",
     measurementId: "G-LN9BEKHCD5"
@@ -1392,6 +1392,295 @@ async function isChecklistComplete(cardId) {
     }
 })();
 
+;(function initProspection() {
+  const view = document.querySelector('#view-prospec');
+  if (!view) return;
+
+  const btnAll = document.querySelector('#pros-filter-all');
+  const btnNew = document.querySelector('#pros-filter-new');
+  const inputQ = document.querySelector('#pros-q');
+  const selActivity = document.querySelector('#pros-activity');
+  const selStatus = document.querySelector('#pros-situacao');
+  const tbody = document.querySelector('#pros-tbody');
+  const lblCount = document.querySelector('#pros-count');
+  const lblSync = document.querySelector('#pros-last-sync');
+  const btnSync = document.querySelector('#pros-sync');
+  const msg = document.querySelector('#pros-msg');
+
+  // 🔹 PASTA LOCAL/REMOTA ONDE VOCÊ VAI COLOCAR OS JSONs
+  // Ex.: /prospeccao/cnpjs-americana-2025-11.json
+const BASE_PROS_URL = "https://raw.githubusercontent.com/ssgobin/acianexus/main/prospeccao";
+
+  const CITY = 'AMERICANA';
+  const UF = 'SP';
+
+  let currentYm = null; // "2025-11"
+  let rows = [];
+  let filterMode = 'ALL';
+
+  const setMsg = (type, text) => {
+    if (!msg) return;
+    msg.className = 'msg';
+    if (type) msg.classList.add(type);
+    if (text) msg.classList.add('show');
+    else msg.classList.remove('show');
+    msg.textContent = text || '';
+  };
+
+  function ymNow() {
+    const d = new Date();
+    const z = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}`;
+  }
+
+  function formatDate(d) {
+    if (!d) return '';
+    const s = String(d);
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      const [y, m, dd] = s.split('T')[0].split('-');
+      return `${dd}/${m}/${y}`;
+    }
+    const dt = new Date(s);
+    return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('pt-BR');
+  }
+
+  function formatCnpj(c) {
+    let s = String(c || '').replace(/\D+/g, '');
+    if (s.length !== 14) return c || '';
+    return s.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  }
+
+  function normalize(raw, ym) {
+    const city = (raw.municipio || raw.cidade || '').toString().trim().toUpperCase();
+    const uf = (raw.uf || raw.estado || '').toString().trim().toUpperCase();
+
+    if (city && city !== CITY) return null;
+    if (uf && uf !== UF) return null;
+
+    const abertura = raw.data_abertura || raw.abertura || raw.aberturaData || '';
+    const aberturaYm = abertura ? String(abertura).slice(0, 7) : null;
+    const isNew = aberturaYm === ym;
+
+    return {
+      cnpj: raw.cnpj || raw.CNPJ || '',
+      razao: raw.razao_social || raw.razao || raw.nome || '',
+      fantasia: raw.nome_fantasia || raw.fantasia || '',
+      situacao: (raw.situacao || raw.sit || '').toString().toUpperCase() || 'ATIVA',
+      abertura,
+      cnae: raw.cnae_principal || raw.cnae || '',
+      cnae_desc: raw.cnae_principal_descricao || raw.cnae_descricao || '',
+      cidade: city || CITY,
+      uf: uf || UF,
+      telefone: raw.telefone || raw.telefones || '',
+      email: raw.email || (Array.isArray(raw.emails) ? raw.emails.join(', ') : ''),
+      _isNew: !!isNew
+    };
+  }
+
+  // 🔹 ESCAPE BÁSICO PRA EVITAR BUG VISUAL / XSS
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+    }[c] || c));
+  }
+
+  function renderTable(list) {
+    if (!tbody) return;
+    if (!Array.isArray(list) || !list.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="7" class="muted">Nenhum CNPJ encontrado com os filtros atuais.</td></tr>';
+      if (lblCount) lblCount.textContent = '0 registros';
+      return;
+    }
+
+    const html = list.map(r => `
+      <tr>
+        <td>${formatCnpj(r.cnpj)}</td>
+        <td>${escapeHtml(r.fantasia || '—')}</td>
+        <td>${escapeHtml(r.razao || '—')}</td>
+        <td>${formatDate(r.abertura)}</td>
+        <td>${escapeHtml(r.cnae || r.cnae_desc || '—')}</td>
+        <td>${escapeHtml(r.situacao || '—')}</td>
+        <td>
+          ${escapeHtml(r.telefone || '')}
+          ${r.telefone && r.email ? ' · ' : ''}
+          ${escapeHtml(r.email || '')}
+        </td>
+      </tr>
+    `).join('');
+    tbody.innerHTML = html;
+
+    if (lblCount) {
+      const newCount = list.filter(r => r._isNew).length;
+      lblCount.textContent = `${list.length} registros (${newCount} novos no mês)`;
+    }
+  }
+
+  function buildFilters() {
+    if (!selActivity) return;
+    const set = new Set();
+    rows.forEach(r => {
+      if (r.cnae) set.add(r.cnae);
+      else if (r.cnae_desc) set.add(r.cnae_desc);
+    });
+    const opts = ['<option value="">Todas as atividades</option>']
+      .concat(Array.from(set).sort().map(v =>
+        `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`));
+    selActivity.innerHTML = opts.join('');
+  }
+
+  function applyFilters() {
+    let list = rows.slice();
+    const term = (inputQ?.value || '').trim().toLowerCase();
+    const act = selActivity?.value || '';
+    const sit = selStatus?.value || '';
+
+    if (filterMode === 'NEW') list = list.filter(r => r._isNew);
+
+    if (term) {
+      list = list.filter(r =>
+        (r.cnpj && r.cnpj.toLowerCase().includes(term)) ||
+        (r.razao && r.razao.toLowerCase().includes(term)) ||
+        (r.fantasia && r.fantasia.toLowerCase().includes(term))
+      );
+    }
+
+    if (act) {
+      const a = act.toLowerCase();
+      list = list.filter(r =>
+        (r.cnae || '').toLowerCase() === a ||
+        (r.cnae_desc || '').toLowerCase() === a
+      );
+    }
+
+    if (sit) {
+      const s = sit.toUpperCase();
+      list = list.filter(r => (r.situacao || '').toUpperCase() === s);
+    }
+
+    renderTable(list);
+  }
+
+  // 🔹 Agora NÃO usa Storage. Busca direto de um arquivo estático.
+  async function fetchMonthFile(ym) {
+    const [year, month] = ym.split('-');
+    const url = `${BASE_PROS_URL}/cnpjs-americana-${year}-${month}.json`;
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ao buscar ${url}`);
+    }
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.items || []);
+  }
+
+  function updateSyncLabel(iso, total) {
+    if (!lblSync) return;
+    if (!iso) {
+      lblSync.textContent = 'Última atualização: —';
+      return;
+    }
+    const dt = new Date(iso);
+    const when = Number.isNaN(dt.getTime()) ? iso : dt.toLocaleString('pt-BR');
+    lblSync.textContent = `Última atualização: ${when} (${total ?? rows.length} registros)`;
+  }
+
+  async function loadForCurrentMonth(force) {
+    currentYm = ymNow();
+    const localKey = `prospec-cnpjs-${currentYm}`;
+    const metaKey = `prospec-meta-${currentYm}`;
+    const lastYm = localStorage.getItem('prospec-last-month-sync') || '';
+
+    const canUseCache = !force && lastYm === currentYm;
+
+    setMsg('', '');
+
+    if (canUseCache) {
+      const cached = localStorage.getItem(localKey);
+      if (cached) {
+        try {
+          rows = JSON.parse(cached) || [];
+          const meta = JSON.parse(localStorage.getItem(metaKey) || 'null');
+          updateSyncLabel(meta?.syncedAt, meta?.total || rows.length);
+          buildFilters();
+          applyFilters();
+          return;
+        } catch {
+          // se cache quebrar, ignora e baixa de novo
+        }
+      }
+    }
+
+    try {
+      setMsg('ok', 'Carregando base de CNPJs de Americana deste mês…');
+      const raw = await fetchMonthFile(currentYm);
+      rows = raw.map(r => normalize(r, currentYm)).filter(Boolean);
+
+      const meta = {
+        ym: currentYm,
+        syncedAt: new Date().toISOString(),
+        total: rows.length
+      };
+
+      localStorage.setItem(localKey, JSON.stringify(rows));
+      localStorage.setItem(metaKey, JSON.stringify(meta));
+      localStorage.setItem('prospec-last-month-sync', currentYm);
+
+      updateSyncLabel(meta.syncedAt, meta.total);
+      buildFilters();
+      applyFilters();
+      setMsg('ok', `Base carregada com sucesso (${rows.length} registros).`);
+    } catch (e) {
+      console.error('Erro ao carregar base de prospecção', e);
+      const cached = localStorage.getItem(localKey);
+      if (cached) {
+        try {
+          rows = JSON.parse(cached) || [];
+          const meta = JSON.parse(localStorage.getItem(metaKey) || 'null');
+          updateSyncLabel(meta?.syncedAt, meta?.total || rows.length);
+          buildFilters();
+          applyFilters();
+          setMsg('err', 'Não foi possível atualizar, usando a base em cache.');
+          return;
+        } catch { }
+      }
+      rows = [];
+      updateSyncLabel(null, 0);
+      renderTable([]);
+      setMsg('err', 'Não foi possível carregar a base deste mês. Verifique se o JSON existe na pasta /prospeccao.');
+    }
+  }
+
+  // Eventos UI
+  btnAll?.addEventListener('click', () => {
+    filterMode = 'ALL';
+    btnAll.classList.add('active');
+    btnNew?.classList.remove('active');
+    applyFilters();
+  });
+
+  btnNew?.addEventListener('click', () => {
+    filterMode = 'NEW';
+    btnNew.classList.add('active');
+    btnAll?.classList.remove('active');
+    applyFilters();
+  });
+
+  inputQ?.addEventListener('input', applyFilters);
+  selActivity?.addEventListener('change', applyFilters);
+  selStatus?.addEventListener('change', applyFilters);
+  btnSync?.addEventListener('click', () => loadForCurrentMonth(true));
+
+  function maybeBoot() {
+    if (location.hash.startsWith('#/prospeccao')) {
+      if (!rows.length) loadForCurrentMonth(false);
+    }
+  }
+
+  window.addEventListener('hashchange', maybeBoot);
+  // Se abriu direto na rota
+  maybeBoot();
+})();
+
 
 
 ; (function initMural() {
@@ -1966,8 +2255,8 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
 // Atualiza automaticamente o ano no rodapé
 (function updateFooterYear() {
-  const el = document.getElementById("current-year");
-  if (el) el.textContent = new Date().getFullYear();
+    const el = document.getElementById("current-year");
+    if (el) el.textContent = new Date().getFullYear();
 })();
 
 
@@ -3871,7 +4160,7 @@ function renderRoute() {
     const views = [
         '#view-home', '#view-create', '#view-kanban', '#view-members',
         '#view-metrics', '#view-auth', '#view-calendar',
-        '#view-report', '#view-tickets'
+        '#view-report', '#view-tickets', '#view-prospec'
     ];
     views.forEach(id => { const el = document.querySelector(id); el && el.classList.add('hidden'); });
 
@@ -3890,6 +4179,8 @@ function renderRoute() {
         document.querySelector('#view-metrics')?.classList.remove('hidden');
     } else if (hash.startsWith('#/entrar')) {
         document.querySelector('#view-auth')?.classList.remove('hidden');
+    } else if (hash.startsWith('#/view-prospec')) {
+        document.querySelector('#view-prospec')?.classList.remove('hidden');
     } else if (hash.startsWith('#/agenda')) {
         document.querySelector('#view-calendar')?.classList.remove('hidden');
         try { loadAndRenderCalendar(); } catch { }
@@ -4609,33 +4900,33 @@ async function notifyUsers(targetUids, payload) {
 // POPUP DIÁRIO (11h e 17h) — persistente + visual melhorado
 // ===============================
 (function initDailyPopup() {
-  const modal = document.getElementById("dailyModal");
-  const body = document.getElementById("dailyBody");
-  const btnAdd = document.getElementById("addMore");
-  const btnSave = document.getElementById("saveDaily");
+    const modal = document.getElementById("dailyModal");
+    const body = document.getElementById("dailyBody");
+    const btnAdd = document.getElementById("addMore");
+    const btnSave = document.getElementById("saveDaily");
 
-  // === Helpers ===
-  function todayKey() {
-    return new Date().toISOString().slice(0, 10);
-  }
-  function getKey(period) {
-    return `dailySent:${todayKey()}:${period}`;
-  }
+    // === Helpers ===
+    function todayKey() {
+        return new Date().toISOString().slice(0, 10);
+    }
+    function getKey(period) {
+        return `dailySent:${todayKey()}:${period}`;
+    }
 
-  // 🧹 Limpa registros antigos
-  function resetDailyKeys() {
-    const today = todayKey();
-    Object.keys(localStorage)
-      .filter(k => k.startsWith("dailySent:") && !k.includes(today))
-      .forEach(k => localStorage.removeItem(k));
-  }
-  resetDailyKeys();
+    // 🧹 Limpa registros antigos
+    function resetDailyKeys() {
+        const today = todayKey();
+        Object.keys(localStorage)
+            .filter(k => k.startsWith("dailySent:") && !k.includes(today))
+            .forEach(k => localStorage.removeItem(k));
+    }
+    resetDailyKeys();
 
-  // === UI ===
-  function addIntervalRow() {
-    const wrap = document.createElement("div");
-    wrap.className = "daily-row";
-    wrap.innerHTML = `
+    // === UI ===
+    function addIntervalRow() {
+        const wrap = document.createElement("div");
+        wrap.className = "daily-row";
+        wrap.innerHTML = `
       <div class="row">
         <div class="field">
           <label>Início</label>
@@ -4651,109 +4942,109 @@ async function notifyUsers(targetUids, payload) {
         <textarea class="desc" placeholder="Descreva o que foi feito"></textarea>
       </div>
     `;
-    body.insertBefore(wrap, btnAdd);
-  }
-
-  btnAdd.addEventListener("click", addIntervalRow);
-
-  // === Salvar ===
-  async function saveToFirebase(filled, period) {
-    try {
-      if (!cloudOk || !currentUser?.uid || !db) {
-        const prev = JSON.parse(localStorage.getItem("dailyReports") || "[]");
-        prev.push({ date: todayKey(), period, entries: filled });
-        localStorage.setItem("dailyReports", JSON.stringify(prev));
-        return;
-      }
-      const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-      const colRef = collection(db, "users", currentUser.uid, "dailyReports");
-      await addDoc(colRef, {
-        date: todayKey(),
-        createdAt: new Date().toISOString(),
-        period,
-        entries: filled
-      });
-    } catch (e) {
-      console.warn("Erro ao salvar relatório diário:", e);
-    }
-  }
-
-  function openPopup(period) {
-    body.querySelectorAll(".daily-row").forEach(c => c.remove());
-    addIntervalRow();
-    modal.dataset.period = period;
-    modal.classList.add("show");
-  }
-
-  btnSave.addEventListener("click", async () => {
-    const rows = Array.from(body.querySelectorAll(".daily-row"));
-    const filled = rows.map(r => ({
-      start: r.querySelector(".start").value.trim(),
-      end: r.querySelector(".end").value.trim(),
-      desc: r.querySelector(".desc").value.trim()
-    })).filter(r => r.start && r.end && r.desc);
-
-    if (!filled.length) {
-      alert("⚠️ Você precisa preencher pelo menos um intervalo antes de fechar.");
-      return;
+        body.insertBefore(wrap, btnAdd);
     }
 
-    const period = modal.dataset.period || "geral";
-    await saveToFirebase(filled, period);
-    localStorage.setItem(getKey(period), "true");
-    modal.classList.remove("show");
-  });
+    btnAdd.addEventListener("click", addIntervalRow);
 
-  // === Lógica de verificação ===
-  function shouldShow(period) {
-    const h = new Date().getHours();
-    if (period === "11h") return h >= 11 && h < 12;
-    if (period === "17h") return h >= 17 && h < 18;
-    return false;
-  }
-
-  function checkPopup() {
-    resetDailyKeys();
-    const sent11 = localStorage.getItem(getKey("11h"));
-    const sent17 = localStorage.getItem(getKey("17h"));
-
-    if (!sent11 && shouldShow("11h")) {
-      openPopup("11h");
-      return;
+    // === Salvar ===
+    async function saveToFirebase(filled, period) {
+        try {
+            if (!cloudOk || !currentUser?.uid || !db) {
+                const prev = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+                prev.push({ date: todayKey(), period, entries: filled });
+                localStorage.setItem("dailyReports", JSON.stringify(prev));
+                return;
+            }
+            const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+            const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+            await addDoc(colRef, {
+                date: todayKey(),
+                createdAt: new Date().toISOString(),
+                period,
+                entries: filled
+            });
+        } catch (e) {
+            console.warn("Erro ao salvar relatório diário:", e);
+        }
     }
-    if (!sent17 && shouldShow("17h")) {
-      openPopup("17h");
-      return;
-    }
-  }
 
-  // 💡 Verifica assim que abre a página
-  window.addEventListener("load", checkPopup);
-  // 💡 E repete a checagem a cada minuto
-  setInterval(checkPopup, 60 * 1000);
+    function openPopup(period) {
+        body.querySelectorAll(".daily-row").forEach(c => c.remove());
+        addIntervalRow();
+        modal.dataset.period = period;
+        modal.classList.add("show");
+    }
+
+    btnSave.addEventListener("click", async () => {
+        const rows = Array.from(body.querySelectorAll(".daily-row"));
+        const filled = rows.map(r => ({
+            start: r.querySelector(".start").value.trim(),
+            end: r.querySelector(".end").value.trim(),
+            desc: r.querySelector(".desc").value.trim()
+        })).filter(r => r.start && r.end && r.desc);
+
+        if (!filled.length) {
+            alert("⚠️ Você precisa preencher pelo menos um intervalo antes de fechar.");
+            return;
+        }
+
+        const period = modal.dataset.period || "geral";
+        await saveToFirebase(filled, period);
+        localStorage.setItem(getKey(period), "true");
+        modal.classList.remove("show");
+    });
+
+    // === Lógica de verificação ===
+    function shouldShow(period) {
+        const h = new Date().getHours();
+        if (period === "11h") return h >= 11 && h < 12;
+        if (period === "17h") return h >= 17 && h < 18;
+        return false;
+    }
+
+    function checkPopup() {
+        resetDailyKeys();
+        const sent11 = localStorage.getItem(getKey("11h"));
+        const sent17 = localStorage.getItem(getKey("17h"));
+
+        if (!sent11 && shouldShow("11h")) {
+            openPopup("11h");
+            return;
+        }
+        if (!sent17 && shouldShow("17h")) {
+            openPopup("17h");
+            return;
+        }
+    }
+
+    // 💡 Verifica assim que abre a página
+    window.addEventListener("load", checkPopup);
+    // 💡 E repete a checagem a cada minuto
+    setInterval(checkPopup, 60 * 1000);
 })();
 
 // === POPUP DE POLÍTICA DE PRIVACIDADE ===
 (function initPrivacyPopup() {
-  const popup = document.getElementById("privacyPopup");
-  const btn = document.getElementById("acceptPrivacy");
-  const key = "privacyAccepted";
+    const popup = document.getElementById("privacyPopup");
+    const btn = document.getElementById("acceptPrivacy");
+    const key = "privacyAccepted";
 
-  // se já aceitou, não mostra mais
-  const accepted = localStorage.getItem(key);
-  if (accepted === "true") {
-    popup.classList.add("hidden");
-    return;
-  }
+    // se já aceitou, não mostra mais
+    const accepted = localStorage.getItem(key);
+    if (accepted === "true") {
+        popup.classList.add("hidden");
+        return;
+    }
 
-  // mostra o popup
-  popup.classList.remove("hidden");
+    // mostra o popup
+    popup.classList.remove("hidden");
 
-  // ao clicar em aceitar
-  btn.addEventListener("click", () => {
-    localStorage.setItem(key, "true");
-    popup.classList.add("hidden");
-  });
+    // ao clicar em aceitar
+    btn.addEventListener("click", () => {
+        localStorage.setItem(key, "true");
+        popup.classList.add("hidden");
+    });
 })();
 
 
