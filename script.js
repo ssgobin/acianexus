@@ -7,25 +7,6 @@ let cloudOk = false, app = null, db = null, auth = null, currentUser = null, cur
 
 
 
-// === Som de notificação ===
-const notifySound = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
-function playNotifySound() {
-    try {
-        notifySound.currentTime = 0; // reinicia o áudio se já estiver tocando
-        notifySound.play().catch(() => {
-            // fallback se o autoplay for bloqueado
-            console.warn('Navegador bloqueou o som de notificação (interaja com a página primeiro)');
-        });
-    } catch (e) {
-        console.warn('Erro ao tocar som:', e);
-    }
-}
-
-document.body.addEventListener('click', () => {
-    try { notifySound.play().then(() => notifySound.pause()); } catch { }
-}, { once: true });
-
-
 // === Corrige coleta de membros de card ===
 function getSelectedMembers(rootEl) {
     // checkboxes
@@ -41,18 +22,6 @@ function getSelectedMembers(rootEl) {
     return [];
 }
 
-
-// === Notificação nativa do sistema ===
-function showSystemNotification(title, body) {
-    if (!("Notification" in window)) return; // navegador não suporta
-    if (Notification.permission === "granted") {
-        new Notification(title, { body, icon: "img/logoacianexus.png" });
-    } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(p => {
-            if (p === "granted") new Notification(title, { body, icon: "img/logoacianexus.png" });
-        });
-    }
-}
 
 
 
@@ -194,18 +163,6 @@ const Tickets = {
         if (cloudOk) {
             const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             await updateDoc(doc(db, 'tickets', id), data);
-            // 🔔 Notifica o autor sobre feedback do TI
-            if (patch.feedback) {
-                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-                const snap = await getDoc(doc(db, "tickets", id));
-                if (snap.exists()) {
-                    const t = snap.data();
-                    const authorUid = t.authorUid || t.authorEmail || null;
-                    if (authorUid) {
-                        await notifyUser(authorUid, `Feedback no seu ticket`, `O ticket "${t.title}" recebeu um feedback do TI.`);
-                    }
-                }
-            }
 
         } else {
             const all = LocalDB.load();
@@ -388,7 +345,6 @@ const MuralService = (() => {
         };
         if (!cloudOk) {
             LocalMural.upsert({ id: String(Date.now() + Math.random()), ...rec });
-            notifyUser(null, "Novo comunicado", "Há um novo comunicado no ACIANexus.");
             return;
         }
         const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
@@ -415,33 +371,6 @@ const MuralService = (() => {
     return { listOnce, listen, add, markAllRead };
 })();
 
-async function notifyUser(uid, title, body) {
-    try {
-        // toca som
-        if (typeof playNotifySound === 'function') playNotifySound();
-
-        // notificação nativa
-        if ('Notification' in window) {
-            if (Notification.permission === 'granted') {
-                new Notification(title || 'Notificação', {
-                    body: body || '',
-                    icon: 'img/logoacianexus.png'
-                });
-            } else if (Notification.permission !== 'denied') {
-                Notification.requestPermission().then(p => {
-                    if (p === 'granted')
-                        new Notification(title || 'Notificação', { body: body || '', icon: 'img/logoacianexus.png' });
-                });
-            }
-        }
-
-        // badge do sino
-        Ephemeral.push({ titulo: title, corpo: body });
-        renderMuralCombined(window._lastMuralItems || []);
-    } catch (e) {
-        console.warn('notifyUser falhou:', e);
-    }
-}
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -503,20 +432,6 @@ function renderMuralCombined(muralItemsRaw) {
         ].join('')
         : '';
 
-    const inboxHtml = inbox.length
-        ? [
-            '<li class="muted" style="font-size:11px;margin:8px 0 6px">Minhas notificações</li>',
-            ...inbox.map(x => `
-          <li class="">
-            <div style="font-weight:700">${x.title || '(sem título)'}</div>
-            <div class="muted" style="font-size:12px;margin-top:4px">
-              ${x.board ? `[${x.board}] ` : ''}${x.type || ''}${x.actorName ? ` — por ${x.actorName}` : ''}
-            </div>
-          </li>
-        `)
-        ].join('')
-        : '';
-
 
     const muralHtml = muralItems.length
         ? [
@@ -532,7 +447,7 @@ function renderMuralCombined(muralItemsRaw) {
         ].join('')
         : (!eph.length ? '<li class="muted">Sem comunicados</li>' : '');
 
-    muralUI.list.innerHTML = ephHtml + inboxHtml + muralHtml;
+    muralUI.list.innerHTML = ephHtml + muralHtml;
 }
 
 
@@ -541,15 +456,6 @@ async function startMuralLive() {
     // ainda não logado? escuta local
     muralUI.unsub = await MuralService.listen((items) => {
         const currIds = new Set(items.map(x => x.id));
-        if (_muralSeen.size > 0) {
-            for (const id of currIds) {
-                if (!_muralSeen.has(id)) {
-                    notifyUser(null, "Novo comunicado", "Há um novo comunicado no ACIANexus.");
-                    playNotifySound(); // 🎺 toca o bugle_tune
-                    break;
-                }
-            }
-        }
         _muralSeen = currIds;
         window._lastMuralItems = items;
         renderMuralCombined(items);
@@ -623,18 +529,6 @@ function initMuralUI() {
         }
     });
 
-    muralUI.btnClear?.addEventListener('click', () => {
-        // limpa apenas notificações efêmeras locais
-        if (typeof Ephemeral?.clear === 'function') Ephemeral.clear();
-
-        // mantém o mural; só re-renderiza a lista visível
-        window._lastMuralItems = window._lastMuralItems || [];
-        if (typeof renderMuralCombined === 'function') {
-            renderMuralCombined(window._lastMuralItems);
-        } else if (typeof renderMural === 'function') {
-            renderMural(window._lastMuralItems);
-        }
-    });
 }
 
 const ALL_RESP = ["João Vitor Sgobin", "ssgobin"];
@@ -890,6 +784,452 @@ const LocalDB = {
 
 };
 
+// ==============================
+// CHAT GLOBAL – DEBUG MODE 😈
+// ==============================
+
+(function () {
+    console.log("[ChatGlobal] Script carregado");
+
+    const $id = (id) => {
+        const el = document.getElementById(id);
+        if (!el) console.warn(`[ChatGlobal] Elemento #${id} NÃO encontrado`);
+        return el;
+    };
+
+    // ------------------------------
+    // OBJETO PRINCIPAL DO CHAT
+    // ------------------------------
+    const ChatGlobal = {
+        async send(text) {
+            console.log("[ChatGlobal] send() chamado com:", text);
+            try {
+                if (!cloudOk) {
+                    console.warn("[ChatGlobal] cloudOk = false");
+                    alert("Firebase offline");
+                    return;
+                }
+                if (!db) {
+                    console.error("[ChatGlobal] db ainda não foi inicializado");
+                    alert("DB não disponível");
+                    return;
+                }
+                if (!currentUser) {
+                    console.warn("[ChatGlobal] currentUser = null");
+                    alert("Você precisa estar logado para enviar mensagens.");
+                    return;
+                }
+
+                const { collection, addDoc } = await import(
+                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+                );
+
+                const payload = {
+                    text,
+                    author: currentUser.uid,
+                    authorName:
+                        currentUser.displayName || currentUser.email || "Usuário",
+                    createdAt: new Date().toISOString(),
+                    pinned: false,
+                    reactions: {},
+                };
+
+                console.log("[ChatGlobal] Enviando payload para Firestore:", payload);
+
+                const ref = await addDoc(collection(db, "chatGlobal"), payload);
+                console.log("[ChatGlobal] Mensagem salva com ID:", ref.id);
+            } catch (e) {
+                console.error("[ChatGlobal] Erro em send():", e);
+                alert("Erro ao enviar mensagem: " + (e.message || e));
+            }
+        },
+
+        async react(msgId, emoji) {
+            console.log("[ChatGlobal] react() msgId:", msgId, "emoji:", emoji);
+            if (!cloudOk || !db || !currentUser) {
+                console.warn(
+                    "[ChatGlobal] react() abortado: cloudOk/db/currentUser inválidos"
+                );
+                return;
+            }
+
+            try {
+                const { doc, updateDoc, getDoc } = await import(
+                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+                );
+                const ref = doc(db, "chatGlobal", msgId);
+                const snap = await getDoc(ref);
+                if (!snap.exists()) {
+                    console.warn("[ChatGlobal] Documento de mensagem não existe:", msgId);
+                    return;
+                }
+
+                const data = snap.data() || {};
+                const reactions = data.reactions || {};
+                reactions[currentUser.uid] = emoji;
+
+                console.log("[ChatGlobal] Salvando reactions:", reactions);
+                await updateDoc(ref, { reactions });
+            } catch (e) {
+                console.error("[ChatGlobal] Erro em react():", e);
+            }
+        },
+
+        async togglePin(msgId, value) {
+            console.log("[ChatGlobal] togglePin()", msgId, value);
+            if (!cloudOk || !db) return;
+
+            try {
+                const { doc, updateDoc } = await import(
+                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+                );
+                await updateDoc(doc(db, "chatGlobal", msgId), { pinned: value });
+            } catch (e) {
+                console.error("[ChatGlobal] Erro em togglePin():", e);
+            }
+        },
+    };
+
+    window.ChatGlobal = ChatGlobal; // só pra garantir acesso no console
+
+    // ------------------------------
+    // PRESENÇA / ONLINE
+    // ------------------------------
+    async function initPresence() {
+        console.log("[ChatGlobal] initPresence() chamado. cloudOk:", cloudOk, "db:", !!db, "user:", currentUser?.email);
+        if (!cloudOk || !currentUser || !db) {
+            console.warn("[ChatGlobal] initPresence() abortado – sem cloudOk/db/user");
+            return;
+        }
+
+        const { doc, setDoc, onSnapshot, collection } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        try {
+            await setDoc(
+                doc(db, "presence", currentUser.uid),
+                {
+                    online: true,
+                    lastSeen: new Date().toISOString(),
+                    typing: false,
+                    name: currentUser.displayName || currentUser.email || "Usuário",
+                },
+                { merge: true }
+            );
+            console.log("[ChatGlobal] Presença marcada como online.");
+        } catch (e) {
+            console.error("[ChatGlobal] Erro ao setar presença:", e);
+        }
+
+        const list = $id("online-list");
+        const labelOnline = $id("chat-online");
+
+        onSnapshot(collection(db, "presence"), (snap) => {
+            console.log("[ChatGlobal] Snapshot presence, docs:", snap.size);
+            const onlineUsers = [];
+            if (list) list.innerHTML = "";
+
+            snap.forEach((d) => {
+                const data = d.data();
+                if (data.online) {
+                    onlineUsers.push(data.name || "Usuário");
+                    if (list) {
+                        const li = document.createElement("li");
+                        li.textContent = "🟢 " + (data.name || "Usuário");
+                        list.appendChild(li);
+                    }
+                }
+            });
+
+            if (labelOnline) {
+                labelOnline.textContent =
+                    "🔵 Online: " +
+                    (onlineUsers.length ? onlineUsers.join(", ") : "Ninguém online");
+            }
+        });
+    }
+
+    // ------------------------------
+    // TYPING INDICATOR
+    // ------------------------------
+    let typingTimeout;
+
+    async function setTyping(isTyping) {
+        console.log("[ChatGlobal] setTyping(", isTyping, ")");
+        if (!cloudOk || !currentUser || !db) {
+            console.warn("[ChatGlobal] setTyping() abortado – cloudOk/db/user faltando");
+            return;
+        }
+
+        const { doc, updateDoc } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        try {
+            await updateDoc(doc(db, "presence", currentUser.uid), { typing: isTyping });
+        } catch (e) {
+            console.warn("[ChatGlobal] setTyping() falhou:", e.message || e);
+        }
+    }
+
+    async function initTypingIndicator() {
+        console.log("[ChatGlobal] initTypingIndicator() chamado");
+        if (!db) {
+            console.warn("[ChatGlobal] initTypingIndicator() abortado – db inexistente");
+            return;
+        }
+
+        const typingEl = $id("typing-indicator");
+        if (!typingEl) return;
+
+        const { collection, onSnapshot } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        onSnapshot(collection(db, "presence"), (snap) => {
+            let someoneTyping = false;
+
+            snap.forEach((d) => {
+                const uid = d.id;
+                if (uid !== currentUser?.uid && d.data().typing) {
+                    someoneTyping = true;
+                }
+            });
+
+            if (someoneTyping) {
+                typingEl.innerHTML = `
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+  `;
+                typingEl.style.display = "flex";
+            } else {
+                typingEl.style.display = "none";
+            }
+
+        });
+    }
+
+    // ------------------------------
+    // RECEBER MENSAGENS
+    // ------------------------------
+    async function initChatGlobal() {
+        console.log("[ChatGlobal] initChatGlobal() chamado. cloudOk:", cloudOk, "db:", !!db);
+        const chatBox = $id("chat-box");
+        if (!chatBox) {
+            console.warn("[ChatGlobal] #chat-box não encontrado");
+            return;
+        }
+
+        if (!cloudOk || !db) {
+            console.warn("[ChatGlobal] initChatGlobal() abortado – cloudOk/db faltando");
+            return;
+        }
+
+        const { collection, onSnapshot, orderBy, query } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        const q = query(collection(db, "chatGlobal"), orderBy("createdAt", "asc"));
+
+        onSnapshot(
+            q,
+            (snap) => {
+                console.log("[ChatGlobal] Snapshot chatGlobal, docs:", snap.size);
+                chatBox.innerHTML = "";
+
+                snap.forEach((d) => {
+                    const msg = d.data();
+                    const id = d.id;
+
+                    const div = document.createElement("div");
+                    div.className = "chat-msg" + (msg.pinned ? " chat-pinned" : "");
+
+                    // hora
+                    const when = msg.createdAt ? new Date(msg.createdAt) : new Date();
+                    const timeStr = when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+                    // contador de reações
+                    const reactions = msg.reactions || {};
+                    const reactionCounts = {};
+                    Object.values(reactions).forEach((emoji) => {
+                        reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
+                    });
+
+                    // HTML profissional
+                    div.innerHTML = `
+  <div class="chat-header-top">
+    <div class="chat-avatar">${(msg.authorName || "U")[0]}</div>
+    <div>
+      <strong>${msg.authorName}</strong>
+      <span class="chat-time">${timeStr}</span>
+    </div>
+  </div>
+
+  <div class="chat-text">${msg.text}</div>
+
+  <div class="reactions-wrapper">
+    ${Object.entries(reactionCounts)
+                            .map(([emoji, count]) => `
+          <div class="reaction-bubble">${emoji} ${count}</div>
+      `)
+                            .join("")}
+  </div>
+
+  <div class="chat-actions">
+      <button class="chat-action-btn react-btn">😊</button>
+      <button class="chat-action-btn pin-btn">${msg.pinned ? "📌" : "📍"}</button>
+      <button class="chat-action-btn more-btn">⋮</button>
+  </div>
+`;
+
+                    // ===============================
+                    // MENU FLUTUANTE DE REAÇÕES
+                    // ===============================
+                    const reactBtn = div.querySelector(".react-btn");
+                    reactBtn.onclick = () => {
+                        const menu = document.createElement("div");
+                        menu.className = "reaction-menu";
+                        menu.innerHTML = `
+    <button>👍</button>
+    <button>❤️</button>
+    <button>😂</button>
+    <button>😮</button>
+    <button>👀</button>
+  `;
+
+                        div.appendChild(menu);
+
+                        menu.querySelectorAll("button").forEach((b) => {
+                            b.onclick = () => {
+                                ChatGlobal.react(id, b.textContent);
+                                menu.remove();
+                            };
+                        });
+                    };
+
+                    // fixar
+                    div.querySelector(".pin-btn").onclick = () => {
+                        ChatGlobal.togglePin(id, !msg.pinned);
+                    };
+
+
+                    chatBox.appendChild(div);
+                });
+
+                chatBox.scrollTop = chatBox.scrollHeight;
+            },
+            (err) => {
+                console.error("[ChatGlobal] Erro no onSnapshot chatGlobal:", err);
+            }
+        );
+    }
+
+    // ------------------------------
+    // INPUT / ENVIO
+    // ------------------------------
+    function initChatInput() {
+        console.log("[ChatGlobal] initChatInput() chamado");
+        const input = $id("chat-input");
+        const sendBtn = $id("chat-send");
+
+        if (!input || !sendBtn) {
+            console.warn("[ChatGlobal] input ou botão de envio não encontrados");
+            return;
+        }
+
+        sendBtn.addEventListener("click", async () => {
+            const txt = input.value.trim();
+            console.log("[ChatGlobal] Clique em ENVIAR. Texto:", txt);
+            if (!txt) return;
+            await ChatGlobal.send(txt);
+            input.value = "";
+            setTyping(false);
+        });
+
+        input.addEventListener("keydown", async (ev) => {
+            if (ev.key === "Enter" && !ev.shiftKey) {
+                ev.preventDefault();
+                const txt = input.value.trim();
+                console.log("[ChatGlobal] Enter pressionado. Texto:", txt);
+                if (!txt) return;
+                await ChatGlobal.send(txt);
+                input.value = "";
+                setTyping(false);
+            }
+        });
+
+        input.addEventListener("input", () => {
+            clearTimeout(typingTimeout);
+            setTyping(true);
+            typingTimeout = setTimeout(() => setTyping(false), 1200);
+        });
+    }
+
+    // ------------------------------
+    // BOTÃO FLUTUANTE / ABRIR / FECHAR
+    // ------------------------------
+    function initChatToggle() {
+        console.log("[ChatGlobal] initChatToggle() chamado");
+        const chatBtn = $id("chat-toggle-btn");
+        const chatPanel = $id("chat-panel");
+        const chatClose = $id("chat-close");
+
+        if (!chatBtn || !chatPanel) {
+            console.warn(
+                "[ChatGlobal] Botão flutuante ou painel não encontrados, toggle não inicializado"
+            );
+            return;
+        }
+
+        let isOpen = false;
+
+        const openChat = () => {
+            console.log("[ChatGlobal] Abrindo painel do chat");
+            chatPanel.style.display = "flex";
+            chatBtn.innerHTML = "✖";
+            isOpen = true;
+        };
+
+        const closeChat = () => {
+            console.log("[ChatGlobal] Fechando painel do chat");
+            chatPanel.style.display = "none";
+            chatBtn.innerHTML = "💬";
+            isOpen = false;
+        };
+
+        chatBtn.onclick = () => {
+            isOpen ? closeChat() : openChat();
+        };
+
+        if (chatClose) {
+            chatClose.onclick = () => closeChat();
+        }
+    }
+
+    // ------------------------------
+    // HOOKS GLOBAIS
+    // ------------------------------
+    document.addEventListener("DOMContentLoaded", () => {
+        console.log("[ChatGlobal] DOMContentLoaded");
+        initChatInput();
+        initChatToggle();
+    });
+
+    document.addEventListener("auth:changed", () => {
+        console.log("[ChatGlobal] auth:changed. currentUser:", currentUser?.email);
+        if (currentUser && cloudOk) {
+            initPresence();
+            initTypingIndicator();
+            initChatGlobal();
+        } else {
+            console.warn("[ChatGlobal] Usuário deslogado ou cloudOk = false");
+        }
+    });
+})();
+
+
 const Cards = {
 
     async add(card) {
@@ -918,19 +1258,6 @@ const Cards = {
             const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             const ref = collection(db, 'cards');
             const docRef = await addDoc(ref, base);
-
-            try {
-                const users = [...(base.members || [])];
-                if (base.respUid && !users.includes(base.respUid)) users.push(base.respUid);
-
-                for (const uid of users.filter(Boolean)) {
-                    await notifyUser(uid, `Novo card: ${base.title}`,
-                        `Você foi adicionado ao card "${base.title}" no board ${base.board}.`);
-                }
-
-            } catch (e) {
-                console.warn("Falha ao notificar membros do card:", e);
-            }
             return { id: docRef.id, ...base };
         } else {
             const id = String(Date.now() + Math.random());
@@ -942,31 +1269,33 @@ const Cards = {
     },
     async update(id, patch) {
         if (cloudOk) {
-            const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-            await updateDoc(doc(db, 'cards', id), patch);
-            // 🔔 Notifica atualização aos membros
-            if (patch && Object.keys(patch).length) {
-                const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-                const snap = await getDoc(doc(db, "cards", id));
-                if (snap.exists()) {
-                    const data = snap.data();
-                    const users = new Set([...(data.members || []), data.respUid].filter(Boolean));
-                    for (const uid of users) {
-                        await notifyUser(uid, `Atualização no card: ${data.title}`,
-                            `O card "${data.title}" foi alterado ou movido (${data.status}).`);
-                    }
-                }
+
+            // 🔹 Garante startAt e finishAt ANTES de salvar
+            if (patch.status === "EXECUÇÃO" && !patch.startAt) {
+                patch.startAt = new Date().toISOString();
             }
 
+            if (patch.status === "CONCLUÍDO" && !patch.finishAt) {
+                patch.finishAt = new Date().toISOString();
+            }
+
+            const { doc, updateDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+            // 🔹 Salva no Firestore já com o patch corrigido
+            await updateDoc(doc(db, 'cards', id), patch);
 
 
         } else {
+            // LocalDB fallback
             const all = LocalDB.load();
             const i = all.cards.findIndex(c => String(c.id) === String(id));
-            if (i >= 0) { all.cards[i] = { ...all.cards[i], ...patch }; LocalDB.save(all); }
+            if (i >= 0) {
+                all.cards[i] = { ...all.cards[i], ...patch };
+                LocalDB.save(all);
+            }
         }
-
     },
+
     listen(cb) {
         if (cloudOk) {
             import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js").then(({ collection, onSnapshot, orderBy, query }) => {
@@ -1199,6 +1528,8 @@ async function saveChecklist(cardId, list) {
     for (const it of list) { await addDoc(col, it); }
 }
 
+
+
 /* ===========================
    IA Checklist (Groq + fallback)
 ============================ */
@@ -1392,108 +1723,108 @@ async function isChecklistComplete(cardId) {
     }
 })();
 
-;(function initProspection() {
-  const view = document.querySelector('#view-prospec');
-  if (!view) return;
+; (function initProspection() {
+    const view = document.querySelector('#view-prospec');
+    if (!view) return;
 
-  const btnAll = document.querySelector('#pros-filter-all');
-  const btnNew = document.querySelector('#pros-filter-new');
-  const inputQ = document.querySelector('#pros-q');
-  const selActivity = document.querySelector('#pros-activity');
-  const selStatus = document.querySelector('#pros-situacao');
-  const tbody = document.querySelector('#pros-tbody');
-  const lblCount = document.querySelector('#pros-count');
-  const lblSync = document.querySelector('#pros-last-sync');
-  const btnSync = document.querySelector('#pros-sync');
-  const msg = document.querySelector('#pros-msg');
+    const btnAll = document.querySelector('#pros-filter-all');
+    const btnNew = document.querySelector('#pros-filter-new');
+    const inputQ = document.querySelector('#pros-q');
+    const selActivity = document.querySelector('#pros-activity');
+    const selStatus = document.querySelector('#pros-situacao');
+    const tbody = document.querySelector('#pros-tbody');
+    const lblCount = document.querySelector('#pros-count');
+    const lblSync = document.querySelector('#pros-last-sync');
+    const btnSync = document.querySelector('#pros-sync');
+    const msg = document.querySelector('#pros-msg');
 
-  // 🔹 PASTA LOCAL/REMOTA ONDE VOCÊ VAI COLOCAR OS JSONs
-  // Ex.: /prospeccao/cnpjs-americana-2025-11.json
-const BASE_PROS_URL = "https://raw.githubusercontent.com/ssgobin/acianexus/main/prospeccao";
+    // 🔹 PASTA LOCAL/REMOTA ONDE VOCÊ VAI COLOCAR OS JSONs
+    // Ex.: /prospeccao/cnpjs-americana-2025-11.json
+    const BASE_PROS_URL = "https://raw.githubusercontent.com/ssgobin/acianexus/main/prospeccao";
 
-  const CITY = 'AMERICANA';
-  const UF = 'SP';
+    const CITY = 'AMERICANA';
+    const UF = 'SP';
 
-  let currentYm = null; // "2025-11"
-  let rows = [];
-  let filterMode = 'ALL';
+    let currentYm = null; // "2025-11"
+    let rows = [];
+    let filterMode = 'ALL';
 
-  const setMsg = (type, text) => {
-    if (!msg) return;
-    msg.className = 'msg';
-    if (type) msg.classList.add(type);
-    if (text) msg.classList.add('show');
-    else msg.classList.remove('show');
-    msg.textContent = text || '';
-  };
-
-  function ymNow() {
-    const d = new Date();
-    const z = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${z(d.getMonth() + 1)}`;
-  }
-
-  function formatDate(d) {
-    if (!d) return '';
-    const s = String(d);
-    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-      const [y, m, dd] = s.split('T')[0].split('-');
-      return `${dd}/${m}/${y}`;
-    }
-    const dt = new Date(s);
-    return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('pt-BR');
-  }
-
-  function formatCnpj(c) {
-    let s = String(c || '').replace(/\D+/g, '');
-    if (s.length !== 14) return c || '';
-    return s.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
-  }
-
-  function normalize(raw, ym) {
-    const city = (raw.municipio || raw.cidade || '').toString().trim().toUpperCase();
-    const uf = (raw.uf || raw.estado || '').toString().trim().toUpperCase();
-
-    if (city && city !== CITY) return null;
-    if (uf && uf !== UF) return null;
-
-    const abertura = raw.data_abertura || raw.abertura || raw.aberturaData || '';
-    const aberturaYm = abertura ? String(abertura).slice(0, 7) : null;
-    const isNew = aberturaYm === ym;
-
-    return {
-      cnpj: raw.cnpj || raw.CNPJ || '',
-      razao: raw.razao_social || raw.razao || raw.nome || '',
-      fantasia: raw.nome_fantasia || raw.fantasia || '',
-      situacao: (raw.situacao || raw.sit || '').toString().toUpperCase() || 'ATIVA',
-      abertura,
-      cnae: raw.cnae_principal || raw.cnae || '',
-      cnae_desc: raw.cnae_principal_descricao || raw.cnae_descricao || '',
-      cidade: city || CITY,
-      uf: uf || UF,
-      telefone: raw.telefone || raw.telefones || '',
-      email: raw.email || (Array.isArray(raw.emails) ? raw.emails.join(', ') : ''),
-      _isNew: !!isNew
+    const setMsg = (type, text) => {
+        if (!msg) return;
+        msg.className = 'msg';
+        if (type) msg.classList.add(type);
+        if (text) msg.classList.add('show');
+        else msg.classList.remove('show');
+        msg.textContent = text || '';
     };
-  }
 
-  // 🔹 ESCAPE BÁSICO PRA EVITAR BUG VISUAL / XSS
-  function escapeHtml(s) {
-    return String(s || '').replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
-    }[c] || c));
-  }
-
-  function renderTable(list) {
-    if (!tbody) return;
-    if (!Array.isArray(list) || !list.length) {
-      tbody.innerHTML =
-        '<tr><td colspan="7" class="muted">Nenhum CNPJ encontrado com os filtros atuais.</td></tr>';
-      if (lblCount) lblCount.textContent = '0 registros';
-      return;
+    function ymNow() {
+        const d = new Date();
+        const z = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${z(d.getMonth() + 1)}`;
     }
 
-    const html = list.map(r => `
+    function formatDate(d) {
+        if (!d) return '';
+        const s = String(d);
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+            const [y, m, dd] = s.split('T')[0].split('-');
+            return `${dd}/${m}/${y}`;
+        }
+        const dt = new Date(s);
+        return Number.isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('pt-BR');
+    }
+
+    function formatCnpj(c) {
+        let s = String(c || '').replace(/\D+/g, '');
+        if (s.length !== 14) return c || '';
+        return s.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+    }
+
+    function normalize(raw, ym) {
+        const city = (raw.municipio || raw.cidade || '').toString().trim().toUpperCase();
+        const uf = (raw.uf || raw.estado || '').toString().trim().toUpperCase();
+
+        if (city && city !== CITY) return null;
+        if (uf && uf !== UF) return null;
+
+        const abertura = raw.data_abertura || raw.abertura || raw.aberturaData || '';
+        const aberturaYm = abertura ? String(abertura).slice(0, 7) : null;
+        const isNew = aberturaYm === ym;
+
+        return {
+            cnpj: raw.cnpj || raw.CNPJ || '',
+            razao: raw.razao_social || raw.razao || raw.nome || '',
+            fantasia: raw.nome_fantasia || raw.fantasia || '',
+            situacao: (raw.situacao || raw.sit || '').toString().toUpperCase() || 'ATIVA',
+            abertura,
+            cnae: raw.cnae_principal || raw.cnae || '',
+            cnae_desc: raw.cnae_principal_descricao || raw.cnae_descricao || '',
+            cidade: city || CITY,
+            uf: uf || UF,
+            telefone: raw.telefone || raw.telefones || '',
+            email: raw.email || (Array.isArray(raw.emails) ? raw.emails.join(', ') : ''),
+            _isNew: !!isNew
+        };
+    }
+
+    // 🔹 ESCAPE BÁSICO PRA EVITAR BUG VISUAL / XSS
+    function escapeHtml(s) {
+        return String(s || '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'
+        }[c] || c));
+    }
+
+    function renderTable(list) {
+        if (!tbody) return;
+        if (!Array.isArray(list) || !list.length) {
+            tbody.innerHTML =
+                '<tr><td colspan="7" class="muted">Nenhum CNPJ encontrado com os filtros atuais.</td></tr>';
+            if (lblCount) lblCount.textContent = '0 registros';
+            return;
+        }
+
+        const html = list.map(r => `
       <tr>
         <td>${formatCnpj(r.cnpj)}</td>
         <td>${escapeHtml(r.fantasia || '—')}</td>
@@ -1508,177 +1839,177 @@ const BASE_PROS_URL = "https://raw.githubusercontent.com/ssgobin/acianexus/main/
         </td>
       </tr>
     `).join('');
-    tbody.innerHTML = html;
+        tbody.innerHTML = html;
 
-    if (lblCount) {
-      const newCount = list.filter(r => r._isNew).length;
-      lblCount.textContent = `${list.length} registros (${newCount} novos no mês)`;
-    }
-  }
-
-  function buildFilters() {
-    if (!selActivity) return;
-    const set = new Set();
-    rows.forEach(r => {
-      if (r.cnae) set.add(r.cnae);
-      else if (r.cnae_desc) set.add(r.cnae_desc);
-    });
-    const opts = ['<option value="">Todas as atividades</option>']
-      .concat(Array.from(set).sort().map(v =>
-        `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`));
-    selActivity.innerHTML = opts.join('');
-  }
-
-  function applyFilters() {
-    let list = rows.slice();
-    const term = (inputQ?.value || '').trim().toLowerCase();
-    const act = selActivity?.value || '';
-    const sit = selStatus?.value || '';
-
-    if (filterMode === 'NEW') list = list.filter(r => r._isNew);
-
-    if (term) {
-      list = list.filter(r =>
-        (r.cnpj && r.cnpj.toLowerCase().includes(term)) ||
-        (r.razao && r.razao.toLowerCase().includes(term)) ||
-        (r.fantasia && r.fantasia.toLowerCase().includes(term))
-      );
-    }
-
-    if (act) {
-      const a = act.toLowerCase();
-      list = list.filter(r =>
-        (r.cnae || '').toLowerCase() === a ||
-        (r.cnae_desc || '').toLowerCase() === a
-      );
-    }
-
-    if (sit) {
-      const s = sit.toUpperCase();
-      list = list.filter(r => (r.situacao || '').toUpperCase() === s);
-    }
-
-    renderTable(list);
-  }
-
-  // 🔹 Agora NÃO usa Storage. Busca direto de um arquivo estático.
-  async function fetchMonthFile(ym) {
-    const [year, month] = ym.split('-');
-    const url = `${BASE_PROS_URL}/cnpjs-americana-${year}-${month}.json`;
-    const res = await fetch(url, { cache: 'no-cache' });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ao buscar ${url}`);
-    }
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data.items || []);
-  }
-
-  function updateSyncLabel(iso, total) {
-    if (!lblSync) return;
-    if (!iso) {
-      lblSync.textContent = 'Última atualização: —';
-      return;
-    }
-    const dt = new Date(iso);
-    const when = Number.isNaN(dt.getTime()) ? iso : dt.toLocaleString('pt-BR');
-    lblSync.textContent = `Última atualização: ${when} (${total ?? rows.length} registros)`;
-  }
-
-  async function loadForCurrentMonth(force) {
-    currentYm = ymNow();
-    const localKey = `prospec-cnpjs-${currentYm}`;
-    const metaKey = `prospec-meta-${currentYm}`;
-    const lastYm = localStorage.getItem('prospec-last-month-sync') || '';
-
-    const canUseCache = !force && lastYm === currentYm;
-
-    setMsg('', '');
-
-    if (canUseCache) {
-      const cached = localStorage.getItem(localKey);
-      if (cached) {
-        try {
-          rows = JSON.parse(cached) || [];
-          const meta = JSON.parse(localStorage.getItem(metaKey) || 'null');
-          updateSyncLabel(meta?.syncedAt, meta?.total || rows.length);
-          buildFilters();
-          applyFilters();
-          return;
-        } catch {
-          // se cache quebrar, ignora e baixa de novo
+        if (lblCount) {
+            const newCount = list.filter(r => r._isNew).length;
+            lblCount.textContent = `${list.length} registros (${newCount} novos no mês)`;
         }
-      }
     }
 
-    try {
-      setMsg('ok', 'Carregando base de CNPJs de Americana deste mês…');
-      const raw = await fetchMonthFile(currentYm);
-      rows = raw.map(r => normalize(r, currentYm)).filter(Boolean);
+    function buildFilters() {
+        if (!selActivity) return;
+        const set = new Set();
+        rows.forEach(r => {
+            if (r.cnae) set.add(r.cnae);
+            else if (r.cnae_desc) set.add(r.cnae_desc);
+        });
+        const opts = ['<option value="">Todas as atividades</option>']
+            .concat(Array.from(set).sort().map(v =>
+                `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`));
+        selActivity.innerHTML = opts.join('');
+    }
 
-      const meta = {
-        ym: currentYm,
-        syncedAt: new Date().toISOString(),
-        total: rows.length
-      };
+    function applyFilters() {
+        let list = rows.slice();
+        const term = (inputQ?.value || '').trim().toLowerCase();
+        const act = selActivity?.value || '';
+        const sit = selStatus?.value || '';
 
-      localStorage.setItem(localKey, JSON.stringify(rows));
-      localStorage.setItem(metaKey, JSON.stringify(meta));
-      localStorage.setItem('prospec-last-month-sync', currentYm);
+        if (filterMode === 'NEW') list = list.filter(r => r._isNew);
 
-      updateSyncLabel(meta.syncedAt, meta.total);
-      buildFilters();
-      applyFilters();
-      setMsg('ok', `Base carregada com sucesso (${rows.length} registros).`);
-    } catch (e) {
-      console.error('Erro ao carregar base de prospecção', e);
-      const cached = localStorage.getItem(localKey);
-      if (cached) {
+        if (term) {
+            list = list.filter(r =>
+                (r.cnpj && r.cnpj.toLowerCase().includes(term)) ||
+                (r.razao && r.razao.toLowerCase().includes(term)) ||
+                (r.fantasia && r.fantasia.toLowerCase().includes(term))
+            );
+        }
+
+        if (act) {
+            const a = act.toLowerCase();
+            list = list.filter(r =>
+                (r.cnae || '').toLowerCase() === a ||
+                (r.cnae_desc || '').toLowerCase() === a
+            );
+        }
+
+        if (sit) {
+            const s = sit.toUpperCase();
+            list = list.filter(r => (r.situacao || '').toUpperCase() === s);
+        }
+
+        renderTable(list);
+    }
+
+    // 🔹 Agora NÃO usa Storage. Busca direto de um arquivo estático.
+    async function fetchMonthFile(ym) {
+        const [year, month] = ym.split('-');
+        const url = `${BASE_PROS_URL}/cnpjs-americana-${year}-${month}.json`;
+        const res = await fetch(url, { cache: 'no-cache' });
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status} ao buscar ${url}`);
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : (data.items || []);
+    }
+
+    function updateSyncLabel(iso, total) {
+        if (!lblSync) return;
+        if (!iso) {
+            lblSync.textContent = 'Última atualização: —';
+            return;
+        }
+        const dt = new Date(iso);
+        const when = Number.isNaN(dt.getTime()) ? iso : dt.toLocaleString('pt-BR');
+        lblSync.textContent = `Última atualização: ${when} (${total ?? rows.length} registros)`;
+    }
+
+    async function loadForCurrentMonth(force) {
+        currentYm = ymNow();
+        const localKey = `prospec-cnpjs-${currentYm}`;
+        const metaKey = `prospec-meta-${currentYm}`;
+        const lastYm = localStorage.getItem('prospec-last-month-sync') || '';
+
+        const canUseCache = !force && lastYm === currentYm;
+
+        setMsg('', '');
+
+        if (canUseCache) {
+            const cached = localStorage.getItem(localKey);
+            if (cached) {
+                try {
+                    rows = JSON.parse(cached) || [];
+                    const meta = JSON.parse(localStorage.getItem(metaKey) || 'null');
+                    updateSyncLabel(meta?.syncedAt, meta?.total || rows.length);
+                    buildFilters();
+                    applyFilters();
+                    return;
+                } catch {
+                    // se cache quebrar, ignora e baixa de novo
+                }
+            }
+        }
+
         try {
-          rows = JSON.parse(cached) || [];
-          const meta = JSON.parse(localStorage.getItem(metaKey) || 'null');
-          updateSyncLabel(meta?.syncedAt, meta?.total || rows.length);
-          buildFilters();
-          applyFilters();
-          setMsg('err', 'Não foi possível atualizar, usando a base em cache.');
-          return;
-        } catch { }
-      }
-      rows = [];
-      updateSyncLabel(null, 0);
-      renderTable([]);
-      setMsg('err', 'Não foi possível carregar a base deste mês. Verifique se o JSON existe na pasta /prospeccao.');
+            setMsg('ok', 'Carregando base de CNPJs de Americana deste mês…');
+            const raw = await fetchMonthFile(currentYm);
+            rows = raw.map(r => normalize(r, currentYm)).filter(Boolean);
+
+            const meta = {
+                ym: currentYm,
+                syncedAt: new Date().toISOString(),
+                total: rows.length
+            };
+
+            localStorage.setItem(localKey, JSON.stringify(rows));
+            localStorage.setItem(metaKey, JSON.stringify(meta));
+            localStorage.setItem('prospec-last-month-sync', currentYm);
+
+            updateSyncLabel(meta.syncedAt, meta.total);
+            buildFilters();
+            applyFilters();
+            setMsg('ok', `Base carregada com sucesso (${rows.length} registros).`);
+        } catch (e) {
+            console.error('Erro ao carregar base de prospecção', e);
+            const cached = localStorage.getItem(localKey);
+            if (cached) {
+                try {
+                    rows = JSON.parse(cached) || [];
+                    const meta = JSON.parse(localStorage.getItem(metaKey) || 'null');
+                    updateSyncLabel(meta?.syncedAt, meta?.total || rows.length);
+                    buildFilters();
+                    applyFilters();
+                    setMsg('err', 'Não foi possível atualizar, usando a base em cache.');
+                    return;
+                } catch { }
+            }
+            rows = [];
+            updateSyncLabel(null, 0);
+            renderTable([]);
+            setMsg('err', 'Não foi possível carregar a base deste mês. Verifique se o JSON existe na pasta /prospeccao.');
+        }
     }
-  }
 
-  // Eventos UI
-  btnAll?.addEventListener('click', () => {
-    filterMode = 'ALL';
-    btnAll.classList.add('active');
-    btnNew?.classList.remove('active');
-    applyFilters();
-  });
+    // Eventos UI
+    btnAll?.addEventListener('click', () => {
+        filterMode = 'ALL';
+        btnAll.classList.add('active');
+        btnNew?.classList.remove('active');
+        applyFilters();
+    });
 
-  btnNew?.addEventListener('click', () => {
-    filterMode = 'NEW';
-    btnNew.classList.add('active');
-    btnAll?.classList.remove('active');
-    applyFilters();
-  });
+    btnNew?.addEventListener('click', () => {
+        filterMode = 'NEW';
+        btnNew.classList.add('active');
+        btnAll?.classList.remove('active');
+        applyFilters();
+    });
 
-  inputQ?.addEventListener('input', applyFilters);
-  selActivity?.addEventListener('change', applyFilters);
-  selStatus?.addEventListener('change', applyFilters);
-  btnSync?.addEventListener('click', () => loadForCurrentMonth(true));
+    inputQ?.addEventListener('input', applyFilters);
+    selActivity?.addEventListener('change', applyFilters);
+    selStatus?.addEventListener('change', applyFilters);
+    btnSync?.addEventListener('click', () => loadForCurrentMonth(true));
 
-  function maybeBoot() {
-    if (location.hash.startsWith('#/prospeccao')) {
-      if (!rows.length) loadForCurrentMonth(false);
+    function maybeBoot() {
+        if (location.hash.startsWith('#/prospeccao')) {
+            if (!rows.length) loadForCurrentMonth(false);
+        }
     }
-  }
 
-  window.addEventListener('hashchange', maybeBoot);
-  // Se abriu direto na rota
-  maybeBoot();
+    window.addEventListener('hashchange', maybeBoot);
+    // Se abriu direto na rota
+    maybeBoot();
 })();
 
 
@@ -2169,52 +2500,6 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             routine                             // se não quiser salvar, remova esta linha
         });
 
-        // --- coloque isso logo após o trecho que cria o card: ex: const r = await Cards.add(payload);
-        // 1) NO TOPO do arquivo (fora do handler), adicione/atualize a função:
-        async function notifyMembersAboutCard(cardId, cardTitle, members = [], respUid = null, createdByUid = null) {
-            // evita notificar o criador e remove duplicados (resp também pode estar em members)
-            const currentUid = createdByUid || (typeof auth !== 'undefined' && auth?.currentUser?.uid) || null;
-            const targetUids = Array.from(new Set([...(members || []), respUid].filter(Boolean)))
-                .filter(uid => uid && uid !== currentUid);
-            if (!targetUids.length) return;
-
-            const createdAt = Date.now();
-            const itemBase = {
-                type: 'card_created',
-                cardId,
-                titulo: `Nova tarefa: ${cardTitle}`,
-                corpo: `Você foi adicionado como responsável/membro na tarefa "${cardTitle}".`,
-                createdAt,
-                read: false
-            };
-
-            try {
-                if (typeof cloudOk !== 'undefined' && cloudOk && typeof db !== 'undefined') {
-                    const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-                    // **IMPORTANTE**: escrever em 'notifs' (e não 'mural')
-                    for (const uid of targetUids) {
-                        const docId = `${cardId}__${uid}__created`; // id determinístico p/ dedupe
-                        await setDoc(doc(db, 'notifs', docId), { ...itemBase, user: uid }, { merge: false });
-                    }
-                } else {
-                    // Sem Firestore: apenas um fallback local visível (não usa 'mural'!)
-                    if (typeof Ephemeral !== 'undefined' && Ephemeral.push) {
-                        for (const uid of targetUids) {
-                            Ephemeral.push({ titulo: itemBase.titulo, corpo: itemBase.corpo, user: uid, cardId });
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error('Falha ao notificar membros do card:', err);
-            }
-        }
-
-
-
-
-        // Exemplo de como chamar (substitua r.id / payload conforme o seu fluxo)
-        await notifyMembersAboutCard(rec.id, title, memberUids, respUid);
 
 
         // checklist (em paralelo)
@@ -2260,6 +2545,8 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 })();
 
 
+
+
 /* ===========================
    Kanbans (3 abas), KPIs, Modal, Drag
 ============================ */
@@ -2267,6 +2554,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
     const tabs = $('#kb-tabs');
     const columnsEl = $('#columns');
     const kpiWrap = $('#kpis');
+    const riskPanel = $('#risk-panel');
     const kResp = $('#k-resp');
     const kQ = $('#k-q');
     const kRefresh = $('#k-refresh');
@@ -2730,6 +3018,104 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         kpiWrap.innerHTML = card('Total', total) + card('Vencidos', overdue) + card('Em execução', exec) + card('Pendentes', pend) + card('Concluídos', concl);
     }
 
+    function renderRisks(allCards) {
+        if (!riskPanel) return;
+
+        if (!allCards || !allCards.length) {
+            riskPanel.innerHTML = '';
+            return;
+        }
+
+        const now = Date.now();
+        const byResp = new Map();
+        const overdueHigh = [];
+        const reopened = [];
+
+        for (const c of allCards) {
+            const uid = c.respUid || null;
+            const name = (uid && userDir.get(uid)) || c.resp || '—';
+            const key = name;
+
+            byResp.set(key, (byResp.get(key) || 0) + 1);
+
+            if (c.due) {
+                const d = Date.parse(c.due);
+                const gut = Number(c.gut) || 0;
+                if (Number.isFinite(d) && d < now && gut >= 60 && c.status !== 'CONCLUÍDO') {
+                    overdueHigh.push(c);
+                }
+            }
+
+            if ((c.reopened || 0) > 0) {
+                reopened.push(c);
+            }
+        }
+
+        const overloaded = [];
+        for (const [key, count] of byResp.entries()) {
+            if (count > 7 && key !== '—') {
+                overloaded.push({ resp: key, count });
+            }
+        }
+
+        const cards = [];
+
+        if (overdueHigh.length) {
+            cards.push(`
+      <div class="risk-card risk-danger">
+        <div class="risk-title">⚠️ Tarefas críticas atrasadas</div>
+        <div class="risk-value">${overdueHigh.length}</div>
+        <ul class="risk-list">
+          ${overdueHigh.slice(0, 3).map(c => `<li>${c.title}</li>`).join('')}
+          ${overdueHigh.length > 3 ? '<li>…</li>' : ''}
+        </ul>
+      </div>
+    `);
+        }
+
+        if (overloaded.length) {
+            cards.push(`
+      <div class="risk-card risk-warn">
+        <div class="risk-title">📌 Sobrecarga por responsável</div>
+        <div class="risk-value">${overloaded.length}</div>
+        <ul class="risk-list">
+          ${overloaded.map(o => `
+            <li>${o.resp}: ${o.count} tarefas</li>
+          `).join('')}
+        </ul>
+      </div>
+    `);
+        }
+
+        if (reopened.length) {
+            cards.push(`
+      <div class="risk-card risk-warn">
+        <div class="risk-title">🔁 Cards reabertos</div>
+        <div class="risk-value">${reopened.length}</div>
+        <ul class="risk-list">
+          ${reopened.slice(0, 3).map(c => `<li>${c.title}</li>`).join('')}
+          ${reopened.length > 3 ? '<li>…</li>' : ''}
+        </ul>
+      </div>
+    `);
+        }
+
+        if (!cards.length) {
+            cards.push(`
+      <div class="risk-card risk-ok">
+        <div class="risk-title">🟢 Nenhum risco detectado</div>
+        <div class="risk-value">OK</div>
+        <div style="font-size:13px;color:var(--muted);margin-top:4px">
+          Nenhuma anomalia significativa nas tarefas filtradas.
+        </div>
+      </div>
+    `);
+        }
+
+        riskPanel.innerHTML = cards.join('');
+    }
+
+
     function ensureCardEl(card) {
         let el = cache.get(String(card.id));
         if (!el) {
@@ -2843,12 +3229,166 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             });
     }
 
+    function renderActivityHeatmap(list) {
+        const heatmap = document.getElementById("heatmap");
+        if (!heatmap) return;
+
+        // matriz [7 dias][24 horas]
+        const matrix = Array.from({ length: 7 }, () =>
+            Array.from({ length: 24 }, () => 0)
+        );
+
+        list.forEach(c => {
+            if (!c.finishAt) return;
+            const d = new Date(c.finishAt);
+            const dow = d.getDay(); // 0 dom – 6 sab
+            const hour = d.getHours();
+            matrix[dow][hour]++;
+        });
+
+        // encontra máximo
+        const max = Math.max(...matrix.flat(), 1);
+
+        // render
+        let html = "";
+
+        // linha de cabeçalho
+        html += `<div class="h-label"></div>`;
+        for (let h = 0; h < 24; h++) html += `<div class="h-label">${h}</div>`;
+
+        const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
+
+        matrix.forEach((row, dow) => {
+            html += `<div class="h-label">${dias[dow]}</div>`;
+            row.forEach(val => {
+                const lvl = Math.min(5, Math.ceil((val / max) * 5));
+                html += `<div class="heat-block heat-level-${lvl}">${val || ""}</div>`;
+            });
+        });
+
+        heatmap.innerHTML = html;
+    }
+
+
+
+    function renderProdCharts(list) {
+        const byHour = Array(24).fill(0);
+        const byDay = Array(7).fill(0);
+
+        list.forEach(c => {
+            if (!c.finishAt) return;
+            const d = new Date(c.finishAt);
+            byHour[d.getHours()]++;
+            byDay[d.getDay()]++;
+        });
+
+        // Gráfico por hora
+        new Chart(document.getElementById("prodHourChart"), {
+            type: "bar",
+            data: {
+                labels: [...Array(24).keys()],
+                datasets: [{
+                    label: "Concluídos",
+                    data: byHour
+                }]
+            },
+            options: { responsive: true, color: "#fff" }
+        });
+
+        // Gráfico por dia
+        new Chart(document.getElementById("prodDayChart"), {
+            type: "bar",
+            data: {
+                labels: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"],
+                datasets: [{
+                    label: "Concluídos",
+                    data: byDay
+                }]
+            },
+            options: { responsive: true, color: "#fff" }
+        });
+    }
+
+    async function renderRanking(allCards) {
+        const wrap = document.getElementById("ranking-list");
+        if (!wrap) return;
+
+        // MENSAL — início do mês
+        const now = new Date();
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        const finished = allCards.filter(c =>
+            c.finishAt && new Date(c.finishAt) >= monthStart
+        );
+
+        // agrupar por responsável
+        const ranking = new Map();
+
+        finished.forEach(c => {
+
+            const envolvidos = c.members || [];
+
+            if (!Array.isArray(envolvidos)) return;
+
+            const gut = Number(c.gut) || 0;
+            const points = 10 + Math.round(gut / 10);
+
+            // cada envolvido recebe a mesma pontuação
+            envolvidos.forEach(uid => {
+                ranking.set(uid, (ranking.get(uid) || 0) + points);
+            });
+
+        });
+
+
+        // buscar nomes do userDir
+        const rows = [];
+        for (const [uid, pts] of ranking.entries()) {
+            const name = userDir.get(uid) || uid;
+            rows.push({ uid, name, pts });
+        }
+
+        // ordenar
+        rows.sort((a, b) => b.pts - a.pts);
+
+        if (!rows.length) {
+            wrap.innerHTML = `<div class="muted">Nenhuma tarefa concluída neste mês.</div>`;
+            return;
+        }
+
+        const medals = ["🥇", "🥈", "🥉"];
+        const maxPts = rows[0].pts;
+
+        let html = "";
+
+        rows.forEach((r, i) => {
+            const medal = medals[i] || "⚪";
+            const pct = Math.round((r.pts / maxPts) * 100);
+
+            html += `
+      <div class="ranking-row">
+        <div class="rank-medal">${medal}</div>
+        <div class="rank-avatar">${r.name.charAt(0)}</div>
+        <div class="rank-name">${r.name}</div>
+        <div class="rank-bar-wrap"><div class="rank-bar" style="width:${pct}%"></div></div>
+        <div class="rank-points">${r.pts} pts</div>
+      </div>
+    `;
+        });
+
+        wrap.innerHTML = html;
+    }
+
     function paint(all) {
         lastAll = all;
         const flow = boardFlow(currentBoard);
         buildCols(flow);
         const rows = applyFilters(all);
         renderKPIs(rows);
+        renderRisks(rows);
+        renderActivityHeatmap(rows);
+        //renderProdCharts(rows);
+        renderRanking(all);
         const seen = new Set();
         rows.forEach(c => { const el = ensureCardEl(c); mount(el, c.status); seen.add(String(c.id)); });
         for (const [id, el] of cache.entries()) {
@@ -4857,45 +5397,6 @@ function makeCardPayload(type, card, extra) {
     }, (extra || {}));
 }
 
-async function notifyUsers(targetUids, payload) {
-    if (!Array.isArray(targetUids) || !targetUids.length) return;
-    const createdAt = new Date().toISOString();
-    try {
-        if (typeof cloudOk !== 'undefined' && cloudOk && typeof db !== 'undefined' && db) {
-            const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-            await Promise.all(targetUids.map(uid => addDoc(collection(db, 'users', uid, 'inbox'), {
-                ...payload,
-                createdAt,
-                read: false
-            })));
-        }
-    } catch (err) {
-        console.warn('[notifyUsers] Firestore falhou:', err);
-    }
-    try {
-        const me = (typeof currentUser !== 'undefined' && currentUser) ? currentUser.uid : null;
-        if (me && targetUids.includes(me) && typeof Ephemeral !== 'undefined' && Ephemeral && typeof Ephemeral.push === 'function') {
-            Ephemeral.push({
-                titulo: payload.title || 'Notificação',
-                corpo: `${payload.type === 'card_updated' ? 'Atualização' : 'Novo'} — ${payload.board || ''} ${payload.title || ''}`
-            });
-        }
-        if (typeof playNotifySound === 'function') playNotifySound();
-    } catch { }
-}
-
-// Permissão de notificação e "destravar" o áudio
-(function primeBrowserNotification() {
-    try {
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission().catch(() => { });
-        }
-        document.body && document.body.addEventListener('click', () => {
-            try { if (typeof notifySound !== 'undefined' && notifySound && typeof notifySound.play === 'function') { notifySound.play().then(() => notifySound.pause()); } } catch { }
-        }, { once: true });
-    } catch { }
-})();
-
 // ===============================
 // POPUP DIÁRIO (11h e 17h) — persistente + visual melhorado
 // ===============================
@@ -5048,41 +5549,6 @@ async function notifyUsers(targetUids, payload) {
 })();
 
 
-
-// ==== Shims de compatibilidade (se o restante do app ainda chamar funções antigas) ====
-async function sendCardNotification(card, type, extra) {
-    try {
-        const actor = getActor();
-        const audience = buildCardAudience(card, actor.uid);
-        if (!audience.length) return;
-        const payload = makeCardPayload(type || 'card_updated', card, extra);
-        await notifyUsers(audience, payload);
-    } catch (e) { console.warn('[sendCardNotification/shim]', e); }
-}
-
-async function notifyMembersAboutCard(cardId, message) {
-    try {
-        if (typeof db === 'undefined' || !db) return;
-        const { doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-        const snap = await getDoc(doc(db, 'cards', cardId));
-        if (!snap.exists()) return;
-        const card = { id: cardId, ...snap.data() };
-        const actor = getActor();
-        const payload = makeCardPayload('card_updated', card, { message });
-        const audience = buildCardAudience(card, actor.uid);
-        if (audience.length) await notifyUsers(audience, payload);
-    } catch (e) { console.warn('[notifyMembersAboutCard/shim]', e); }
-}
-
-async function notifyCardParticipants(card, message) {
-    try {
-        const actor = getActor();
-        const payload = makeCardPayload('card_updated', card, { message });
-        const audience = buildCardAudience(card, actor.uid);
-        if (audience.length) await notifyUsers(audience, payload);
-    } catch (e) { console.warn('[notifyCardParticipants/shim]', e); }
-}
-
 // Listener de inbox (idempotente)
 let __inboxUnsub = null;
 async function listenUserInbox() {
@@ -5101,7 +5567,6 @@ async function listenUserInbox() {
                 const unread = [];
                 snap.forEach(d => unread.push({ id: d.id, ...d.data() }));
                 window._inboxItems = unread;
-                if (typeof playNotifySound === 'function' && unread.length) playNotifySound();
                 if (typeof renderMuralCombined === 'function') renderMuralCombined(window._lastMuralItems || []);
             } catch { }
         });

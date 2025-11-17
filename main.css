@@ -2138,3 +2138,478 @@ html.light .data-table th {
 .btn.small.active {
     box-shadow: 0 0 0 1px rgba(59, 130, 246, .9);
 }
+
+/* ================================
+   RiskWatcher – Layout e Estilo
+================================= */
+
+#risk-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  animation: fadeIn .25s ease;
+}
+
+.risk-card {
+  flex: 1 1 260px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.10);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: .2s ease;
+}
+
+.risk-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.18);
+}
+
+/* Título */
+.risk-title {
+  font-size: 14px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Valor grande */
+.risk-value {
+  font-size: 26px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+/* Lista pequena */
+.risk-list {
+  margin-top: 4px;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.risk-ok {
+  border-left: 4px solid var(--green);
+}
+
+.risk-warn {
+  border-left: 4px solid var(--yellow);
+}
+
+.risk-danger {
+  border-left: 4px solid var(--red);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.heatmap {
+  display: grid;
+  grid-template-columns: 40px repeat(24, 1fr);
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.heatmap div {
+  text-align: center;
+  font-size: 11px;
+  padding: 6px 4px;
+  border-radius: 6px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
+
+.heatmap .h-label {
+  background: none;
+  border: none;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.heat-block {
+  transition: .3s ease;
+}
+
+.heat-level-0 { background: #1e1e1e; }
+.heat-level-1 { background: #264653; }
+.heat-level-2 { background: #2a9d8f; }
+.heat-level-3 { background: #e9c46a; }
+.heat-level-4 { background: #f4a261; }
+.heat-level-5 { background: #e76f51; }
+
+.ranking-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+  border-radius: 14px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.14);
+  transition: .2s ease;
+}
+
+.ranking-row:hover {
+  transform: translateY(-2px);
+}
+
+.rank-medal {
+  font-size: 22px;
+  width: 32px;
+  text-align: center;
+}
+
+.rank-avatar {
+  width: 40px;
+  height: 40px;
+  background: var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--primary-color);
+  font-size: 18px;
+}
+
+.rank-name {
+  flex: 1;
+  font-weight: 600;
+}
+
+.rank-points {
+  font-weight: 800;
+  font-size: 16px;
+}
+
+.rank-bar-wrap {
+  width: 120px;
+  height: 6px;
+  background: #222;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.rank-bar {
+  height: 100%;
+  background: var(--primary-color);
+  transition: width .4s ease;
+}
+
+.rank-tab {
+  padding: 8px 14px;
+  background: rgba(59,130,246,.15);
+  border: 1px solid rgba(96,165,250,.25);
+  color: var(--text);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: .2s ease;
+}
+
+.rank-tab:hover {
+  background: rgba(59,130,246,.25);
+}
+
+.rank-tab.active {
+  background: rgba(59,130,246,.35);
+  border-color: rgba(96,165,250,.45);
+  font-weight: 700;
+}
+/* ===========================================
+   TEMA DO CHAT (CLARO / ESCURO)
+=========================================== */
+:root {
+  --chat-bg: rgba(15, 23, 42, 0.92);
+  --chat-card: rgba(255,255,255,0.05);
+  --chat-border: rgba(255,255,255,0.12);
+  --chat-hover: rgba(255,255,255,0.1);
+  --chat-text: #fff;
+  --chat-muted: #a8b3cf;
+}
+
+html.light {
+  --chat-bg: #ffffff;
+  --chat-card: #f3f3f3;
+  --chat-border: #ddd;
+  --chat-hover: #e7e7e7;
+  --chat-text: #111;
+  --chat-muted: #555;
+}
+
+/* ===========================================
+   PAINEL
+=========================================== */
+.chat-panel {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  width: 420px;
+  height: 520px;
+  background: var(--chat-bg);
+  color: var(--chat-text);
+  border-radius: 18px;
+  border: 1px solid var(--chat-border);
+  box-shadow: 0 10px 40px rgba(0,0,0,.35);
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  backdrop-filter: blur(14px);
+  animation: fadeUp .35s ease;
+  z-index: 99999;
+}
+
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(10px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* HEADER */
+.chat-header {
+  padding: 12px 16px;
+  background: var(--chat-card);
+  border-bottom: 1px solid var(--chat-border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* BOTÕES */
+.chat-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--chat-text);
+  cursor: pointer;
+}
+
+/* LAYOUT */
+.chat-layout {
+  display: flex;
+  height: 100%;
+}
+
+/* SIDEBAR */
+.chat-sidebar-global {
+  width: 130px;
+  border-right: 1px solid var(--chat-border);
+  padding: 10px;
+  overflow-y: auto;
+}
+
+/* CONTEÚDO */
+.chat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+/* ===========================================
+   MENSAGEM PROFISSIONAL
+=========================================== */
+.chat-msg {
+  background: var(--chat-card);
+  border: 1px solid var(--chat-border);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+  animation: fadeMsg .3s ease;
+  position: relative;
+  transition: background .2s ease;
+}
+
+.chat-msg:hover {
+  background: var(--chat-hover);
+}
+
+@keyframes fadeMsg {
+  from { opacity:.2; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* HEAD */
+.chat-header-top {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.chat-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* ===========================================
+   AÇÕES NO HOVER (DISCORD STYLE)
+=========================================== */
+.chat-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  gap: 6px;
+}
+
+.chat-msg:hover .chat-actions {
+  display: flex;
+}
+
+.chat-action-btn {
+  background: var(--chat-card);
+  border: 1px solid var(--chat-border);
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.chat-action-btn:hover {
+  background: var(--chat-hover);
+}
+
+/* ===========================================
+   REAÇÕES ESTILO WHATSAPP
+=========================================== */
+.reactions-wrapper {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.reaction-bubble {
+  background: var(--chat-card);
+  border: 1px solid var(--chat-border);
+  padding: 2px 8px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 14px;
+  animation: pop .25s ease;
+}
+
+@keyframes pop {
+  0%   { transform: scale(0.4); opacity: 0; }
+  80%  { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); }
+}
+
+/* MENU FLUTUANTE DE REAÇÕES */
+.reaction-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 30px;
+  background: var(--chat-card);
+  border: 1px solid var(--chat-border);
+  padding: 6px 10px;
+  border-radius: 30px;
+  display: flex;
+  gap: 10px;
+  animation: fadeUp .2s ease;
+  z-index: 9999;
+}
+
+.reaction-menu button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 20px;
+}
+
+/* PINNED */
+.chat-pinned {
+  border-left: 4px solid var(--primary);
+}
+
+/* ===========================================
+   Typing animado estilo Messenger
+=========================================== */
+
+#typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding-left: 4px;
+  color: var(--chat-muted);
+}
+
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  background: var(--chat-muted);
+  border-radius: 50%;
+  animation: typingBounce 1.2s infinite ease-in-out;
+  opacity: 0.6;
+}
+
+.typing-dot:nth-child(1) { animation-delay: 0ms; }
+.typing-dot:nth-child(2) { animation-delay: 150ms; }
+.typing-dot:nth-child(3) { animation-delay: 300ms; }
+
+@keyframes typingBounce {
+  0%   { transform: translateY(0); opacity: 0.4; }
+  50%  { transform: translateY(-4px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0.4; }
+}
+
+/* ===========================================
+   BOTÃO DO CHAT SUPER PROFISSIONAL
+=========================================== */
+
+.chat-fab {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  width: 62px;
+  height: 62px;
+  background: var(--primary);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 28px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 6px 15px rgba(0,0,0,.35),
+    0 0 0px rgba(99,102,241,0.0);
+  transition: 0.25s ease;
+  z-index: 999999;
+  animation: chatPulse 2.8s infinite ease-in-out;
+}
+
+.chat-fab:hover {
+  transform: scale(1.07);
+  box-shadow:
+    0 10px 22px rgba(0,0,0,.38),
+    0 0 12px rgba(99,102,241,0.45);
+}
+
+@keyframes chatPulse {
+  0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.35); }
+  50% { box-shadow: 0 0 0 15px rgba(99,102,241,0); }
+  100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+}
+
+/* TEMA CLARO – botão mais escuro */
+html.light .chat-fab {
+  background: #3b82f6;
+}

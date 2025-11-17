@@ -7,6 +7,7 @@
   <title>ACIANexus • Kanban</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- no index.html (uma vez) adicione o SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -41,7 +42,8 @@
       <a href="#/kanban" data-link>Kanban</a>
       <a href="#/reportar">Abrir Ticket</a>
       <a href="#/tickets" id="nav-tickets">Tickets</a>
-      <a href="#/prospeccao">Prospecção</a>
+      <a hidden href="#/prospeccao">Prospecção</a>
+      <a href="#/indicadores" data-link>Indicadores</a>
       <button id="themeToggle" class="btn secondary" type="button">🌙</button>
       <div class="spacer"></div>
       <span class="chip" id="authChip">Offline</span>
@@ -49,7 +51,7 @@
       <button id="btnLogout" class="btn secondary hidden" type="button">Sair</button>
 
       <!-- Sino de notificações -->
-      <button id="mural-bell" class="icon-button" aria-label="Notificações do mural">
+      <button class="hidden" id="mural-bell" class="icon-button" aria-label="Notificações do mural">
         🔔
         <span id="mural-badge" hidden class="badge"></span>
       </button>
@@ -423,9 +425,11 @@
 
         <div class="kpis" id="kpis"></div>
 
+
         <div class="kanban-wrap" style="margin-top:12px">
           <div id="columns" class="columns"></div>
         </div>
+
       </div>
     </section>
 
@@ -505,6 +509,15 @@
     <section id="view-metrics" class="hidden">
       <div class="card">
         <h2 style="margin:0 0 10px">Indicadores</h2>
+        <section id="ranking-section" style="margin-top:30px">
+
+          <h2>🏆 Ranking</h2>
+
+          <div id="ranking-list"></div>
+
+        </section>
+
+
 
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
           <select id="m-board" title="Board">
@@ -528,6 +541,19 @@
         </div>
 
         <div id="m-kpis" class="kpis"></div>
+        <div id="risk-panel" class="kpis" style="margin-top:8px"></div>
+        <section class="hidden" id="activity-section" style="margin-top:20px">
+          <h2 style="margin-bottom:8px">Mapa de Atividade</h2>
+
+          <div id="heatmap" class="heatmap"></div>
+
+          <h3 class="hidden" style="margin-top:20px">Produtividade por horário</h3>
+          <canvas id="prodHourChart" width="600" height="200"></canvas>
+
+          <h3 hidden style="margin-top:20px">Produtividade por dia</h3>
+          <canvas hidden id="prodDayChart" width="600" height="200"></canvas>
+        </section>
+
 
         <div class="grid" style="grid-template-columns:1fr 1fr;gap:14px;margin-top:12px">
           <div class="card">
@@ -957,13 +983,46 @@
     </div>
   </div>
 
+  <!-- PAINEL FLUTUANTE DO CHAT -->
+  <div id="chat-panel" class="chat-panel">
 
+    <div class="chat-header">
+      <strong>💬 Chat Global</strong>
+    </div>
+
+    <!-- Sidebar + Chat lado a lado -->
+    <div class="chat-layout">
+
+      <!-- SIDEBAR DO CHAT GLOBAL (ID EXCLUSIVO) -->
+      <div id="chat-global-sidebar" class="chat-sidebar-global">
+        <h3>🟢 Online</h3>
+        <ul id="online-list"></ul>
+      </div>
+
+      <div class="chat-content">
+        <div id="chat-box" class="chat-box"></div>
+
+        <div id="typing-indicator" class="muted" style="display:none;font-size:12px;margin:6px 0;">
+          Alguém está digitando...
+        </div>
+
+        <div class="chat-input">
+          <input id="chat-input" type="text" placeholder="Digite..." />
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BOTÃO FLUTUANTE -->
+  <button id="chat-toggle-btn" class="chat-fab">💬</button>
+
+  </div>
   <script type="module" src="script.js"></script>
   <script>
     UPLOADCARE_PUBLIC_KEY = 'bec8b0653d0455ca2d7d'; // substitua pela sua chave
   </script>
   <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
-
 
 
 </body>
