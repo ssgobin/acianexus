@@ -924,79 +924,88 @@ const LocalDB = {
     // PRESENÇA / ONLINE
     // ------------------------------
     async function initPresence() {
-        console.log("[ChatGlobal] initPresence() chamado. cloudOk:", cloudOk, "db:", !!db, "user:", currentUser?.email);
+        console.log("[ChatGlobal] initPresence iniciado");
+
         if (!cloudOk || !currentUser || !db) {
-            console.warn("[ChatGlobal] initPresence() abortado – sem cloudOk/db/user");
+            console.warn("[ChatGlobal] sem cloudOk/db/user — presença abortada");
             return;
         }
 
-        const { doc, setDoc, onSnapshot, collection, updateDoc } = await import(
-            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-        );
+        const {
+            doc,
+            setDoc,
+            onSnapshot,
+            collection,
+            updateDoc
+        } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-        try {
-            await setDoc(
-                doc(db, "presence", currentUser.uid),
-                {
-                    online: true,
-                    lastSeen: new Date().toISOString(),
-                    typing: false,
-                    name: currentUser.displayName || currentUser.email || "Usuário",
-                },
-                { merge: true }
-            );
-            console.log("[ChatGlobal] Presença marcada como online.");
-        } catch (e) {
-            console.error("[ChatGlobal] Erro ao setar presença:", e);
-        }
+        const ref = doc(db, "presence", currentUser.uid);
 
-        // marcar offline ao fechar a aba
-        window.addEventListener("beforeunload", async () => {
+        // marcar online
+        await setDoc(ref, {
+            online: true,
+            typing: false,
+            name: currentUser.displayName || currentUser.email,
+            lastSeen: Date.now()
+        }, { merge: true });
+
+        console.log("[ChatGlobal] marcado como online.");
+
+        // HEARTBEAT a cada 15s — mantém o usuário online
+        setInterval(async () => {
             try {
-                await updateDoc(doc(db, "presence", currentUser.uid), {
-                    online: false,
-                    lastSeen: new Date().toISOString(),
-                    typing: false
+                await updateDoc(ref, {
+                    online: true,
+                    lastSeen: Date.now()
                 });
             } catch (e) {
-                console.warn("[ChatGlobal] beforeunload update falhou:", e.message || e);
+                console.warn("[ChatGlobal] heartbeat falhou", e);
             }
+        }, 15000);
+
+        // marcar offline ao fechar aba
+        window.addEventListener("beforeunload", async () => {
+            try {
+                await updateDoc(ref, {
+                    online: false,
+                    lastSeen: Date.now()
+                });
+            } catch (e) { }
         });
 
-        const list = $id("online-list");
-        const labelOnline = $id("chat-online");
+        // LISTENER -> atualiza a UL com usuários online
+        const onlineList = document.getElementById("online-list");
 
-        onSnapshot(collection(db, "presence"), (snap) => {
-            const list = document.getElementById("online-list");
-            if (!list) return;
-            list.innerHTML = "";
+        onSnapshot(collection(db, "presence"), snap => {
 
-            snap.forEach((d) => {
+            if (!onlineList) return;
+            onlineList.innerHTML = ""; // limpa lista
+
+            snap.forEach(d => {
                 const data = d.data();
+
+                // só mostra quem está online
                 if (!data.online) return;
 
-                // avatar simples com primeira letra
                 const first = (data.name || "U")[0].toUpperCase();
 
-                const user = document.createElement("div");
-                user.className = "online-user";
+                const li = document.createElement("li");
+                li.className = "online-user";
 
-                user.innerHTML = `
-            <div class="online-avatar">
-                ${first}
-                <div class="online-dot"></div>
-            </div>
+                li.innerHTML = `
+                <div class="online-avatar">
+                    ${first}
+                    <div class="online-dot"></div>
+                </div>
+                <div class="online-name">${data.name}</div>
+                ${data.typing ? `<div class="online-typing">digitando...</div>` : ""}
+            `;
 
-            <div class="online-name">${data.name}</div>
-
-            ${data.typing ? `<div class="online-typing">digitando...</div>` : ""}
-        `;
-
-                list.appendChild(user);
+                onlineList.appendChild(li);
             });
         });
-
     }
+
 
     // ------------------------------
     // TYPING INDICATOR
@@ -1115,7 +1124,6 @@ const LocalDB = {
                     // HTML profissional
                     div.innerHTML = `
       <div class="chat-header-top">
-        <div class="chat-avatar">${(msg.authorName || "U")[0]}</div>
         <div>
           <strong>${msg.authorName || "Usuário"}</strong>
           <span class="chat-time">${timeStr}</span>
