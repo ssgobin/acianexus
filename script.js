@@ -5,6 +5,34 @@
 window._inboxItems = [];
 let cloudOk = false, app = null, db = null, auth = null, currentUser = null, currentRole = 'editor';
 
+const emojiCategories = {
+    "😀 Smileys": [
+        "\u{1F600}", "\u{1F603}", "\u{1F604}", "\u{1F601}", "\u{1F606}", "\u{1F605}",
+        "\u{1F923}", "\u{1F602}", "\u{1F642}", "\u{1F643}", "\u{1F609}", "\u{1F60A}",
+        "\u{1F60D}", "\u{1F618}", "\u{1F617}", "\u{1F619}", "\u{1F61A}"
+    ],
+
+    "❤️ Corações": [
+        "\u2764\uFE0F", "\u{1F49B}", "\u{1F49A}", "\u{1F499}", "\u{1F49C}",
+        "\u{1F90E}", "\u{1F5A4}", "\u{1F9E1}", "\u{1F493}", "\u{1F494}"
+    ],
+
+    "🔥 Ações": [
+        "\u{1F525}", "\u{1F4AF}", "\u{1F4A5}", "\u{1F4A8}", "\u{1F92A}",
+        "\u{1F44D}", "\u{1F44E}", "\u{1F64C}", "\u{1F64F}", "\u{1F64B}"
+    ],
+
+    "🐶 Animais": [
+        "\u{1F436}", "\u{1F431}", "\u{1F981}", "\u{1F42F}", "\u{1F43C}",
+        "\u{1F439}", "\u{1F428}", "\u{1F99D}", "\u{1F43A}", "\u{1F984}"
+    ],
+
+    "🍔 Comida": [
+        "\u{1F354}", "\u{1F35F}", "\u{1F355}", "\u{1F32D}", "\u{1F363}",
+        "\u{1F366}", "\u{1F367}", "\u{1F382}", "\u{1F370}", "\u{1F95A}"
+    ]
+};
+
 
 
 // === Corrige coleta de membros de card ===
@@ -890,7 +918,7 @@ const LocalDB = {
         },
     };
 
-    window.ChatGlobal = ChatGlobal; // só pra garantir acesso no console
+    window.ChatGlobal = ChatGlobal; // pra debugar no console
 
     // ------------------------------
     // PRESENÇA / ONLINE
@@ -902,7 +930,7 @@ const LocalDB = {
             return;
         }
 
-        const { doc, setDoc, onSnapshot, collection } = await import(
+        const { doc, setDoc, onSnapshot, collection, updateDoc } = await import(
             "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
         );
 
@@ -922,32 +950,52 @@ const LocalDB = {
             console.error("[ChatGlobal] Erro ao setar presença:", e);
         }
 
+        // marcar offline ao fechar a aba
+        window.addEventListener("beforeunload", async () => {
+            try {
+                await updateDoc(doc(db, "presence", currentUser.uid), {
+                    online: false,
+                    lastSeen: new Date().toISOString(),
+                    typing: false
+                });
+            } catch (e) {
+                console.warn("[ChatGlobal] beforeunload update falhou:", e.message || e);
+            }
+        });
+
         const list = $id("online-list");
         const labelOnline = $id("chat-online");
 
         onSnapshot(collection(db, "presence"), (snap) => {
-            console.log("[ChatGlobal] Snapshot presence, docs:", snap.size);
-            const onlineUsers = [];
-            if (list) list.innerHTML = "";
+            const list = document.getElementById("online-list");
+            if (!list) return;
+            list.innerHTML = "";
 
             snap.forEach((d) => {
                 const data = d.data();
-                if (data.online) {
-                    onlineUsers.push(data.name || "Usuário");
-                    if (list) {
-                        const li = document.createElement("li");
-                        li.textContent = "🟢 " + (data.name || "Usuário");
-                        list.appendChild(li);
-                    }
-                }
-            });
+                if (!data.online) return;
 
-            if (labelOnline) {
-                labelOnline.textContent =
-                    "🔵 Online: " +
-                    (onlineUsers.length ? onlineUsers.join(", ") : "Ninguém online");
-            }
+                // avatar simples com primeira letra
+                const first = (data.name || "U")[0].toUpperCase();
+
+                const user = document.createElement("div");
+                user.className = "online-user";
+
+                user.innerHTML = `
+            <div class="online-avatar">
+                ${first}
+                <div class="online-dot"></div>
+            </div>
+
+            <div class="online-name">${data.name}</div>
+
+            ${data.typing ? `<div class="online-typing">digitando...</div>` : ""}
+        `;
+
+                list.appendChild(user);
+            });
         });
+
     }
 
     // ------------------------------
@@ -967,7 +1015,7 @@ const LocalDB = {
         );
 
         try {
-            await updateDoc(doc(db, "presence", currentUser.uid), { typing: isTyping });
+            await updateDoc(doc(db, "presence", currentUser.uid), { typing: isTyping, lastSeen: new Date().toISOString() });
         } catch (e) {
             console.warn("[ChatGlobal] setTyping() falhou:", e.message || e);
         }
@@ -999,10 +1047,10 @@ const LocalDB = {
 
             if (someoneTyping) {
                 typingEl.innerHTML = `
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-    <div class="typing-dot"></div>
-  `;
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+        <div class="typing-dot"></div>
+      `;
                 typingEl.style.display = "flex";
             } else {
                 typingEl.style.display = "none";
@@ -1057,63 +1105,77 @@ const LocalDB = {
                         reactionCounts[emoji] = (reactionCounts[emoji] || 0) + 1;
                     });
 
+                    // conteúdo: texto ou GIF
+                    let contentHtml = msg.text || "";
+                    if (contentHtml.startsWith("[GIF]")) {
+                        const url = contentHtml.replace("[GIF]", "");
+                        contentHtml = `<img src="${url}" class="chat-gif" />`;
+                    }
+
                     // HTML profissional
                     div.innerHTML = `
-  <div class="chat-header-top">
-    <div class="chat-avatar">${(msg.authorName || "U")[0]}</div>
-    <div>
-      <strong>${msg.authorName}</strong>
-      <span class="chat-time">${timeStr}</span>
-    </div>
-  </div>
+      <div class="chat-header-top">
+        <div class="chat-avatar">${(msg.authorName || "U")[0]}</div>
+        <div>
+          <strong>${msg.authorName || "Usuário"}</strong>
+          <span class="chat-time">${timeStr}</span>
+        </div>
+      </div>
 
-  <div class="chat-text">${msg.text}</div>
+      <div class="chat-text">${contentHtml}</div>
 
-  <div class="reactions-wrapper">
-    ${Object.entries(reactionCounts)
+      <div class="reactions-wrapper">
+        ${Object.entries(reactionCounts)
                             .map(([emoji, count]) => `
-          <div class="reaction-bubble">${emoji} ${count}</div>
-      `)
+            <div class="reaction-bubble">${emoji} ${count}</div>
+        `)
                             .join("")}
-  </div>
+      </div>
 
-  <div class="chat-actions">
-      <button class="chat-action-btn react-btn">😊</button>
-      <button class="chat-action-btn pin-btn">${msg.pinned ? "📌" : "📍"}</button>
-      <button class="chat-action-btn more-btn">⋮</button>
-  </div>
-`;
+      <div class="chat-actions">
+      <br>
+          <button class="chat-action-btn react-btn">😊</button>
+          <button class="chat-action-btn pin-btn">${msg.pinned ? "📌" : "📍"}</button>
+          <button class="chat-action-btn more-btn">⋮</button>
+      </div>
+    `;
 
-                    // ===============================
                     // MENU FLUTUANTE DE REAÇÕES
-                    // ===============================
                     const reactBtn = div.querySelector(".react-btn");
-                    reactBtn.onclick = () => {
-                        const menu = document.createElement("div");
-                        menu.className = "reaction-menu";
-                        menu.innerHTML = `
-    <button>👍</button>
-    <button>❤️</button>
-    <button>😂</button>
-    <button>😮</button>
-    <button>👀</button>
-  `;
+                    if (reactBtn) {
+                        reactBtn.onclick = () => {
+                            // se já existir um menu nesse card, remove
+                            const existing = div.querySelector(".reaction-menu");
+                            if (existing) existing.remove();
 
-                        div.appendChild(menu);
+                            const menu = document.createElement("div");
+                            menu.className = "reaction-menu";
+                            menu.innerHTML = `
+          <button>👍</button>
+          <button>❤️</button>
+          <button>😂</button>
+          <button>😮</button>
+          <button>👀</button>
+        `;
 
-                        menu.querySelectorAll("button").forEach((b) => {
-                            b.onclick = () => {
-                                ChatGlobal.react(id, b.textContent);
-                                menu.remove();
-                            };
-                        });
-                    };
+                            div.appendChild(menu);
 
-                    // fixar
-                    div.querySelector(".pin-btn").onclick = () => {
-                        ChatGlobal.togglePin(id, !msg.pinned);
-                    };
+                            menu.querySelectorAll("button").forEach((b) => {
+                                b.onclick = () => {
+                                    ChatGlobal.react(id, b.textContent);
+                                    menu.remove();
+                                };
+                            });
+                        };
+                    }
 
+                    // FIXAR
+                    const pinBtn = div.querySelector(".pin-btn");
+                    if (pinBtn) {
+                        pinBtn.onclick = () => {
+                            ChatGlobal.togglePin(id, !msg.pinned);
+                        };
+                    }
 
                     chatBox.appendChild(div);
                 });
@@ -1127,12 +1189,109 @@ const LocalDB = {
     }
 
     // ------------------------------
+    // GIF PICKER (Tenor)
+    // ------------------------------
+    async function openGifPicker() {
+        console.log("[ChatGlobal] openGifPicker() chamado");
+
+        // 1 — Buscar termo com SweetAlert
+        const { value: searchTerm } = await Swal.fire({
+            title: "Buscar GIF",
+            input: "text",
+            inputPlaceholder: "Pesquisar (ex: cat, dance, meme)…",
+            showCancelButton: true,
+            confirmButtonText: "Buscar",
+            background: "var(--chat-bg)",
+            color: "var(--chat-text)",
+            confirmButtonColor: "#3b82f6",
+            cancelButtonColor: "#555",
+        });
+
+        if (!searchTerm) return;
+
+        Swal.fire({
+            title: "Carregando…",
+            didOpen: () => Swal.showLoading(),
+            background: "var(--chat-bg)",
+            color: "var(--chat-text)",
+        });
+
+        try {
+            // 2 — Buscar no Tenor
+            const res = await fetch(
+                `https://g.tenor.com/v1/search?q=${encodeURIComponent(
+                    searchTerm
+                )}&key=LIVDSRZULELA&limit=24`
+            );
+            const data = await res.json();
+
+            const urls = data.results.map((r) => r.media[0].gif.url);
+
+            if (!urls.length) {
+                Swal.fire({
+                    icon: "error",
+                    title: "Nenhum GIF encontrado",
+                    background: "var(--chat-bg)",
+                    color: "var(--chat-text)",
+                });
+                return;
+            }
+
+            // 3 — HTML da grid
+            const gifHTML = `
+            <div class="gif-grid">
+                ${urls.map((url) => `<img class="gif-item" src="${url}" data-url="${url}"/>`).join("")}
+            </div>
+        `;
+
+            // 4 — Abrir modal com GIFs
+            await Swal.fire({
+                title: "Escolha um GIF",
+                html: gifHTML,
+                width: 650,
+                background: "var(--chat-bg)",
+                color: "var(--chat-text)",
+                showConfirmButton: false,
+                showCloseButton: true,
+
+                // ⭐⭐ AQUI É A PARTE IMPORTANTE ⭐⭐
+                didOpen: () => {
+                    document.querySelectorAll(".gif-item").forEach((img) => {
+                        img.addEventListener("click", () => {
+                            console.log("[ChatGlobal] GIF clicado:", img.dataset.url);
+
+                            // Envia a mensagem
+                            ChatGlobal.send(`[GIF]${img.dataset.url}`);
+
+                            // Fecha o modal
+                            Swal.close();
+                        });
+                    });
+                }
+            });
+
+        } catch (err) {
+            console.error("[ChatGlobal] Erro ao carregar GIF:", err);
+
+            Swal.fire({
+                icon: "error",
+                title: "Erro ao carregar GIFs",
+                background: "var(--chat-bg)",
+                color: "var(--chat-text)",
+            });
+        }
+    }
+
+
+
+    // ------------------------------
     // INPUT / ENVIO
     // ------------------------------
     function initChatInput() {
         console.log("[ChatGlobal] initChatInput() chamado");
         const input = $id("chat-input");
         const sendBtn = $id("chat-send");
+        const gifBtn = $id("gif-btn"); // opcional, se você criar no HTML
 
         if (!input || !sendBtn) {
             console.warn("[ChatGlobal] input ou botão de envio não encontrados");
@@ -1165,6 +1324,10 @@ const LocalDB = {
             setTyping(true);
             typingTimeout = setTimeout(() => setTyping(false), 1200);
         });
+
+        if (gifBtn) {
+            gifBtn.addEventListener("click", openGifPicker);
+        }
     }
 
     // ------------------------------
@@ -1208,6 +1371,102 @@ const LocalDB = {
         }
     }
 
+    function openEmojiPicker() {
+        const existing = document.querySelector(".emoji-modal");
+        if (existing) existing.remove();
+
+        const picker = document.createElement("div");
+        picker.className = "emoji-modal";
+
+        picker.onclick = (e) => e.stopPropagation(); // impede fechar ao clicar dentro
+
+        const tabs = document.createElement("div");
+        tabs.className = "emoji-tabs";
+
+        const list = document.createElement("div");
+        list.className = "emoji-list";
+
+        picker.appendChild(tabs);
+        picker.appendChild(list);
+
+        document.body.appendChild(picker);
+
+        Object.keys(emojiCategories).forEach((cat, index) => {
+            const tab = document.createElement("div");
+            tab.className = "emoji-tab" + (index === 0 ? " active" : "");
+            tab.textContent = emojiCategories[cat][0];
+
+            tab.onclick = (e) => {
+                e.stopPropagation(); // não fecha modal
+
+                document.querySelectorAll(".emoji-tab").forEach(t =>
+                    t.classList.remove("active")
+                );
+                tab.classList.add("active");
+
+                renderEmojiList(cat);
+            };
+
+            tabs.appendChild(tab);
+        });
+
+        renderEmojiList(Object.keys(emojiCategories)[0]); // primeiro grupo
+
+        function renderEmojiList(cat) {
+            list.innerHTML = "";
+            emojiCategories[cat].forEach((emoji) => {
+                const item = document.createElement("div");
+                item.className = "emoji-item";
+                item.textContent = emoji;
+
+                item.onclick = () => {
+                    const input = document.getElementById("chat-input");
+                    input.value += emoji;
+                    picker.remove();
+                };
+
+                list.appendChild(item);
+            });
+        }
+    }
+
+
+
+    // ------------------------------
+    // EMOJI PICKER SIMPLES (OPCIONAL)
+    // ------------------------------
+    function initEmojiPicker() {
+        console.log("[ChatGlobal] initEmojiPicker iniciado");
+
+        const inputArea = document.querySelector(".chat-input");
+        if (!inputArea) return;
+
+        let emojiBtn = document.getElementById("emoji-btn");
+        if (!emojiBtn) {
+            emojiBtn = document.createElement("button");
+            emojiBtn.id = "emoji-btn";
+            emojiBtn.className = "btn emoji-btn";
+            emojiBtn.textContent = "😊";
+            emojiBtn.style.marginRight = "6px";
+            inputArea.insertBefore(emojiBtn, inputArea.firstChild);
+        }
+
+        emojiBtn.onclick = (e) => {
+            e.stopPropagation();
+            openEmojiPicker();
+        };
+
+        // fechar ao clicar fora
+        document.addEventListener("click", (e) => {
+            const picker = document.querySelector(".emoji-modal");
+            if (picker && !picker.contains(e.target) && e.target.id !== "emoji-btn") {
+                picker.remove();
+            }
+        });
+    }
+
+
+
     // ------------------------------
     // HOOKS GLOBAIS
     // ------------------------------
@@ -1215,6 +1474,7 @@ const LocalDB = {
         console.log("[ChatGlobal] DOMContentLoaded");
         initChatInput();
         initChatToggle();
+        initEmojiPicker();
     });
 
     document.addEventListener("auth:changed", () => {
@@ -1228,6 +1488,7 @@ const LocalDB = {
         }
     });
 })();
+
 
 
 const Cards = {
