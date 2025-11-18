@@ -1015,7 +1015,8 @@ async function initFirebase() {
 
                 // gerar avatar com prioridade CORRETA
                 const avatarURL =
-                    savedPhoto;
+                    savedPhoto || getGravatar(data.email, data.name) ||
+                    getFallbackAvatar(data.name);
 
                 avatar.src = avatarURL;
 
@@ -6294,4 +6295,5 @@ async function listenUserInbox() {
 if (typeof document !== 'undefined') {
     document.addEventListener('auth:changed', listenUserInbox);
 }
+
 
