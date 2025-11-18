@@ -2722,3 +2722,338 @@ html.light .data-table th {
 .emoji-item:hover {
     transform: scale(1.25);
 }
+
+/* Container */
+.online-avatar {
+    width: 32px;
+    height: 32px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Foto real */
+.online-avatar-img {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+/* Fallback (letra) */
+.online-avatar-fallback {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Pontinho verde */
+.online-dot {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+    width: 10px;
+    height: 10px;
+    background: #22c55e;
+    border-radius: 50%;
+    border: 2px solid var(--chat-bg);
+}
+
+.profile-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    justify-content: center;
+    align-items: center;
+    z-index: 99999 !important;
+}
+
+.profile-card {
+    width: 380px;
+    background: var(--chat-bg);
+    color: var(--chat-text);
+    padding: 20px;
+    border-radius: 14px;
+    border: 1px solid var(--chat-border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.profile-avatar-img {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.profile-body input,
+.profile-body textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--chat-border);
+    background: var(--chat-card);
+    color: var(--chat-text);
+}
+
+.profile-save {
+    background: var(--primary);
+    padding: 12px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    font-size: 15px;
+    color: #fff;
+}
+
+/* Área do usuário na navbar */
+.auth-user-area {
+    position: relative;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+/* Avatar */
+.auth-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.12);
+    transition: .2s;
+}
+.auth-avatar:hover {
+    transform: scale(1.05);
+}
+
+/* Dropdown */
+.auth-menu {
+    position: absolute;
+    top: 44px;
+    right: 0;
+    min-width: 150px;
+    background: #0f172a;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.3);
+    padding: 6px 0;
+    z-index: 9999;
+    animation: fadeAuthMenu .18s ease-out;
+}
+
+@keyframes fadeAuthMenu {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.auth-menu.hidden {
+    display: none;
+}
+
+.auth-menu-item {
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: background .15s;
+}
+
+.auth-menu-item:hover {
+    background: rgba(255,255,255,0.10);
+}
+
+.auth-avatar,
+.online-avatar-img,
+.profile-avatar-preview {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.cropper-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999;
+    backdrop-filter: blur(6px);
+}
+
+.cropper-header {
+    padding: 12px 16px;
+    font-weight: 600;
+    font-size: 16px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.cropper-body {
+    padding: 10px;
+    height: 340px;
+}
+
+.cropper-actions {
+    padding: 12px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #e5e7eb;
+}
+
+.cropper-actions .primary {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.cropper-actions button {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+.auth-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.4);
+    box-shadow: 0 0 4px rgba(0,0,0,0.25);
+}
+html.dark .auth-avatar {
+    border-color: rgba(0,0,0,0.5);
+}
+
+/* MODAL do cropper - sempre no topo */
+/* ================================
+   CROP MODAL SEM BUGS
+================================ */
+
+#cropper-modal.cropper-modal {
+    position: fixed !important;
+    inset: 0 !important;
+    background: rgba(0, 0, 0, 0.65) !important;
+    backdrop-filter: blur(5px) !important;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999999 !important;
+}
+
+/* Caixa do cropper */
+.cropper-box {
+    width: 420px;
+    max-width: 92%;
+    background: #ffffff !important;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.55);
+    animation: cropPop .25s ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+@keyframes cropPop {
+    from { opacity: 0; transform: scale(.85); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+/* Topo */
+.cropper-header {
+    padding: 12px 18px;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    font-weight: 600;
+}
+
+/* Área do cropper */
+.cropper-body {
+    flex: 1;
+    min-height: 320px;
+    padding: 10px;
+}
+
+.cropper-body img {
+    max-width: 100%;
+    display: block;
+}
+
+/* Botões */
+.cropper-actions {
+    padding: 14px;
+    border-top: 1px solid #ddd;
+    background: #fafafa;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.cropper-actions button {
+    padding: 9px 16px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.cropper-actions .primary {
+    background: #4f46e5;
+    color: white;
+}
+
+.cropper-actions .primary:hover {
+    background: #4338ca;
+}
+.cropper-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.55);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999 !important;
+    backdrop-filter: blur(3px);
+}
+.cropper-box {
+    background: #fff;
+    padding: 20px;
+    border-radius: 14px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.cropper-body {
+    width: 100%;
+    height: 420px;
+    overflow: hidden;
+}

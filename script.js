@@ -348,6 +348,17 @@ const Ephemeral = (() => {
     return { push, list, markAllRead, clear };
 })();
 
+function getGravatar(email, name) {
+    if (!email) {
+        // fallback se não houver e-mail
+        return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || "U")}&background=4f46e5&color=fff&bold=true`;
+    }
+
+    const hash = CryptoJS.MD5(email.trim().toLowerCase()).toString();
+
+    return `https://www.gravatar.com/avatar/${hash}?d=identicon&s=200`;
+}
+
 
 /* ===========================
    Mural Service (Firestore / Local)
@@ -663,6 +674,209 @@ const firebaseConfig = {
     measurementId: "G-LN9BEKHCD5"
 };
 
+let cropper = null;
+
+function openCropper(file) {
+    const cropModal = document.getElementById("cropper-modal");
+    const profileModal = document.getElementById("profile-modal");
+    const imgEl = document.getElementById("cropper-image");
+
+    // Fecha o modal do perfil
+    if (profileModal) profileModal.style.display = "none";
+
+    const reader = new FileReader();
+    reader.onload = () => {
+        imgEl.src = reader.result;
+        cropModal.style.display = "flex";
+
+        setTimeout(() => {
+            if (cropper) cropper.destroy();
+
+            cropper = new Cropper(imgEl, {
+                aspectRatio: 1,
+                viewMode: 1,
+                background: false,
+                zoomable: true,
+                movable: true,
+                dragMode: "move"
+            });
+        }, 150);
+    };
+
+    reader.readAsDataURL(file);
+}
+
+function closeCropper() {
+    const cropModal = document.getElementById("cropper-modal");
+    const profileModal = document.getElementById("profile-modal");
+
+    cropModal.style.display = "none";
+
+    if (cropper) cropper.destroy();
+
+    // volta para o modal do perfil
+    if (profileModal) profileModal.style.display = "flex";
+}
+
+document.getElementById("cropper-close").onclick = closeCropper;
+document.getElementById("cropper-cancel").onclick = closeCropper;
+
+
+document.getElementById("cropper-save").onclick = async () => {
+    const modal = document.getElementById("cropper-modal");
+
+    const canvas = cropper.getCroppedCanvas({
+        width: 400,
+        height: 400,
+    });
+
+    const base64 = canvas.toDataURL("image/jpeg", 0.9);
+
+    // Salvar no Firestore
+    const { doc, updateDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    await updateDoc(doc(db, "presence", currentUser.uid), {
+        photoURL: base64
+    });
+
+    // atualiza avatar imediatamente
+    document.getElementById("authAvatar").src = base64;
+
+    // se houver preview no modal de perfil:
+    const preview = document.getElementById("profile-avatar-preview");
+    if (preview) preview.src = base64;
+
+    modal.style.display = "none";
+    cropper.destroy();
+};
+
+async function loadProfileDataIntoModal() {
+    if (!currentUser || !db) return;
+
+    const { doc, getDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    // vamos usar a presence como fonte principal
+    const ref = doc(db, "presence", currentUser.uid);
+    const snap = await getDoc(ref);
+    const data = snap.exists() ? snap.data() : {};
+
+    const nameInput = document.getElementById("profile-name");
+    const roleInput = document.getElementById("profile-role");
+    const phoneInput = document.getElementById("profile-phone");
+    const bioInput = document.getElementById("profile-bio");
+    const avatarImg = document.getElementById("profile-avatar-preview");
+
+    const displayName =
+        data.name ||
+        currentDisplayName ||
+        currentUser.displayName ||
+        currentUser.email?.split("@")[0] ||
+        "";
+
+    if (nameInput) nameInput.value = displayName;
+    if (roleInput) roleInput.value = data.role || "";      // 👈 cargo
+    if (phoneInput) phoneInput.value = data.phone || "";
+    if (bioInput) bioInput.value = data.bio || "";
+    if (avatarImg) avatarImg.src = data.photoURL;
+}
+
+function initProfileModal() {
+    const modal = document.getElementById("profile-modal");
+    const btnClose = document.getElementById("profile-close");
+    const btnSave = document.getElementById("profile-save");
+    const btnChange = document.getElementById("profile-change-photo");
+    const fileInput = document.getElementById("profile-photo");
+
+    if (!modal || !btnClose || !btnSave) {
+        console.warn("[Profile] Elementos do modal não encontrados");
+        return;
+    }
+
+    // abrir modal (ex: quando clica no avatar / menu "Meu Perfil")
+    const profileTriggers = [
+        document.getElementById("authProfile"),  // se você tiver esse id
+        document.getElementById("open-profile")  // ou esse
+    ].filter(Boolean);
+
+    profileTriggers.forEach((el) => {
+        el.addEventListener("click", async () => {
+            await loadProfileDataIntoModal();
+            modal.style.display = "flex";
+        });
+    });
+
+    // fechar no X
+    btnClose.addEventListener("click", () => {
+        modal.style.display = "none";
+    });
+
+    // fechar clicando fora
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal) {
+            modal.style.display = "none";
+        }
+    });
+
+    // trocar foto
+    if (btnChange && fileInput) {
+        btnChange.addEventListener("click", () => fileInput.click());
+        document.getElementById("profile-photo").click();
+
+        fileInput.addEventListener("change", async (ev) => {
+            const file = ev.target.files[0];
+            if (!file) return;
+            const base64 = await uploadProfilePhotoLocal(file);
+            const avatarImg = document.getElementById("profile-avatar-preview");
+            if (avatarImg) avatarImg.src = base64;
+        });
+    }
+
+    // SALVAR PERFIL (AQUI ESTAVA O PROBLEMA)
+    btnSave.addEventListener("click", async () => {
+        if (!currentUser || !db) return;
+
+        const name = document.getElementById("profile-name")?.value.trim() || "";
+        const role = document.getElementById("profile-role")?.value.trim() || "";
+        const phone = document.getElementById("profile-phone")?.value.trim() || "";
+        const bio = document.getElementById("profile-bio")?.value.trim() || "";
+
+        try {
+            const { doc, updateDoc } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
+
+            const ref = doc(db, "presence", currentUser.uid);
+
+            await updateDoc(ref, {
+                name,
+                role,   // 👈 cargo salvo aqui
+                phone,
+                bio
+            });
+
+            console.log("[Profile] Dados de perfil salvos com sucesso");
+            alert("Perfil atualizado com sucesso!");
+
+            // Atualiza coisas visuais se precisar (ex: nome em algum lugar)
+            // ex: recarregar online-list automaticamente nas próximas snapshots
+
+            modal.style.display = "none";
+        } catch (e) {
+            console.error("[Profile] Erro ao salvar:", e);
+            alert("Erro ao salvar perfil: " + (e.message || e));
+        }
+    });
+}
+
+// garante inicialização
+document.addEventListener("DOMContentLoaded", () => {
+    initProfileModal();
+});
+
 
 async function initFirebase() {
     try {
@@ -746,6 +960,8 @@ async function initFirebase() {
                 // Outros erros (ex.: rede)
                 alert('Falha no login: ' + (err.message || err.code));
             }
+
+
         };
 
 
@@ -763,22 +979,88 @@ async function initFirebase() {
         window.signOutApp = async () => { await signOut(auth); };
 
         // muda UI conforme estado
-        function paintAuthUI() {
-            const chip = $('#authChip');
+        async function paintAuthUI() {
+            const userArea = $('#authUserArea');
+            const avatar = $('#authAvatar');
             const btnIn = $('#btnLogin');
             const btnOut = $('#btnLogout');
 
+            const menu = $('#authMenu');
+            const profileBtn = $('#authProfile');
+            const logoutBtn = $('#authLogout');
+
+            if (!userArea || !avatar) return;
+
             if (currentUser) {
-                const name = currentDisplayName || currentUser.displayName || currentUser.email || currentUser.uid.slice(0, 6);
-                chip.textContent = `${name} • ${currentRole}`;
-                btnIn.classList.add('hidden');
-                btnOut.classList.remove('hidden');
+
+                // esconder login
+                if (btnIn) btnIn.classList.add('hidden');
+                if (btnOut) btnOut.classList.add('hidden');
+
+                // mostrar avatar
+                userArea.classList.remove("hidden");
+
+                // buscar presença do usuário
+                const { doc, getDoc } = await import(
+                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+                );
+
+                const ref = doc(db, "presence", currentUser.uid);
+                const snap = await getDoc(ref);
+                const data = snap.exists() ? snap.data() : {};
+
+                // pegar campos
+                const savedPhoto = data.photoURL;
+                const savedName = data.name || currentUser.displayName || currentUser.email?.split("@")[0];
+
+                // gerar avatar com prioridade CORRETA
+                const avatarURL =
+                    savedPhoto;
+
+                avatar.src = avatarURL;
+
+                // ao clicar: mostra/oculta menu
+                avatar.onclick = (e) => {
+                    e.stopPropagation();
+                    menu.classList.toggle("hidden");
+                };
+
+                // fechar ao clicar fora
+                document.addEventListener("click", (ev) => {
+                    if (!userArea.contains(ev.target)) {
+                        menu.classList.add("hidden");
+                    }
+                });
+
+                // botão "Meu Perfil"
+                profileBtn.onclick = () => {
+                    const modal = document.getElementById("profile-modal");
+                    const nameInput = document.getElementById("profile-name");
+
+                    if (nameInput) nameInput.value = savedName;
+
+                    modal.style.display = "flex";
+                    menu.classList.add("hidden");
+                };
+
+                // botão "Sair"
+                logoutBtn.onclick = () => {
+                    menu.classList.add("hidden");
+                    if (btnOut) btnOut.click();
+                };
+
+
             } else {
-                chip.textContent = 'Offline';
-                btnIn.classList.remove('hidden');
-                btnOut.classList.add('hidden');
+
+                // offline
+                if (btnIn) btnIn.classList.remove('hidden');
+                if (btnOut) btnOut.classList.add('hidden');
+                userArea.classList.add("hidden");
+
             }
         }
+
+
         // Observa autenticação
         onAuthStateChanged(auth, async (u) => {
             currentUser = u || null;
@@ -811,6 +1093,47 @@ async function initFirebase() {
         cloudOk = false;
         $('#authChip').textContent = `Local • ${currentRole}`;
         console.warn('Firebase init falhou:', e.message);
+    }
+}
+
+// === FECHAR MODAL DO PERFIL ===
+document.addEventListener("DOMContentLoaded", () => {
+    const profileModal = document.getElementById("profile-modal");
+    const closeBtn = document.getElementById("profile-close");
+
+    if (closeBtn) {
+        closeBtn.addEventListener("click", () => {
+            profileModal.style.display = "none";
+        });
+    }
+
+    // fechar ao clicar fora
+    profileModal?.addEventListener("click", (e) => {
+        if (e.target === profileModal) {
+            profileModal.style.display = "none";
+        }
+    });
+});
+
+
+async function ensureUserProfile() {
+    const { doc, getDoc, setDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    const ref = doc(db, "users", currentUser.uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+        await setDoc(ref, {
+            name: currentUser.displayName || "Usuário",
+            email: currentUser.email,
+            role: "member",
+            photoURL: null,
+            bio: "",
+            phone: "",
+            createdAt: Date.now()
+        });
     }
 }
 
@@ -879,6 +1202,12 @@ const LocalDB = {
 // ==============================
 // CHAT GLOBAL – DEBUG MODE 😈
 // ==============================
+
+function getFallbackAvatar(name) {
+    const first = (name || "U")[0].toUpperCase();
+    return `https://ui-avatars.com/api/?name=${first}&background=4f46e5&color=fff&size=64`;
+}
+
 
 (function () {
     console.log("[ChatGlobal] Script carregado");
@@ -1010,8 +1339,10 @@ const LocalDB = {
             online: true,
             typing: false,
             name: currentUser.displayName || currentUser.email,
+            email: currentUser.email || null,
             lastSeen: Date.now()
         }, { merge: true });
+
 
         console.log("[ChatGlobal] marcado como online.");
 
@@ -1020,8 +1351,10 @@ const LocalDB = {
             try {
                 await updateDoc(ref, {
                     online: true,
-                    lastSeen: Date.now()
+                    lastSeen: Date.now(),
+                    email: currentUser.email || null
                 });
+
             } catch (e) {
                 console.warn("[ChatGlobal] heartbeat falhou", e);
             }
@@ -1045,18 +1378,23 @@ const LocalDB = {
         onSnapshot(collection(db, "presence"), snap => {
 
             if (!onlineList) return;
-            onlineList.innerHTML = ""; // limpa lista
+            onlineList.innerHTML = "";
 
             snap.forEach(d => {
                 const data = d.data();
 
-                // 🔥 CORREÇÃO CRÍTICA:
-                // considera offline se não atualizou lastSeen nos últimos 20 segundos
+                // considerar online apenas se lastSeen < 20s
                 const isOnline = data.online && (Date.now() - data.lastSeen) < 20000;
-
                 if (!isOnline) return;
 
-                const first = (data.name || "U").charAt(0).toUpperCase();
+                // PRIORIDADE DE AVATAR:
+                // 1. foto customizada (base64)
+                // 2. gravatar
+                // 3. fallback
+                const avatarURL =
+                    data.photoURL ||
+                    getGravatar(data.email, data.name) ||
+                    getFallbackAvatar(data.name);
 
                 const li = document.createElement("li");
                 li.className = "online-user";
@@ -1064,17 +1402,18 @@ const LocalDB = {
 
                 li.innerHTML = `
             <div class="online-avatar">
-                ${first}
+                <img src="${avatarURL}" class="online-avatar-img">
                 <span class="online-dot"></span>
             </div>
+
             <span class="online-name">${data.name}</span>
+
             ${data.typing ? `<span class="online-typing">digitando...</span>` : ""}
         `;
 
                 onlineList.appendChild(li);
             });
         });
-
 
     }
 
@@ -1563,6 +1902,7 @@ const LocalDB = {
             initPresence();
             initTypingIndicator();
             initChatGlobal();
+            ensureUserProfile();
         } else {
             console.warn("[ChatGlobal] Usuário deslogado ou cloudOk = false");
         }
@@ -5302,6 +5642,46 @@ $('#c-ai')?.addEventListener('click', async () => {
         checklistEl.innerHTML = `<p class="msg err">⚠️ Falha ao gerar checklist: ${err.message}</p>`;
     }
 });
+
+async function uploadProfilePhoto(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = async function (e) {
+            const base64 = e.target.result; // DataURL
+
+            try {
+                const { doc, updateDoc } = await import(
+                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+                );
+
+                await updateDoc(doc(db, "presence", currentUser.uid), {
+                    photoURL: base64
+                });
+
+                resolve(base64);
+            } catch (err) {
+                reject(err);
+            }
+        };
+
+        reader.onerror = reject;
+
+        reader.readAsDataURL(file);
+    });
+}
+
+document.getElementById("profile-photo").addEventListener("change", async (ev) => {
+    const file = ev.target.files[0];
+    if (!file) return;
+    if (file) openCropper(file);
+
+    const base64 = await uploadProfilePhoto(file);
+
+    // Atualiza visual
+    document.getElementById("profile-avatar-preview").src = base64;
+});
+
 
 // === Upload de anexos via Uploadcare (REST, gratuito) ===
 const UPLOADCARE_PUBLIC_KEY = "b4ee2700efa718b5276c"; // sua public key

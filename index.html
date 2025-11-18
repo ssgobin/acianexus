@@ -8,8 +8,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-  <!-- no index.html (uma vez) adicione o SweetAlert2 -->
+
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <link rel="icon" type="image/png" href="img\WhatsApp Image 2025-10-10 at 15.39.08.jpeg" />
@@ -20,7 +23,6 @@
     rel="stylesheet">
 
   <script>
-    // aplica o tema salvo antes do CSS carregar (evita FOUC)
     (function () {
       try {
         var t = localStorage.getItem('theme');
@@ -41,13 +43,20 @@
       <a href="#/criar" data-link>Criar Tarefa</a>
       <a href="#/kanban" data-link>Kanban</a>
       <a href="#/reportar">Abrir Ticket</a>
-      
+
       <a href="#/tickets" id="nav-tickets">Tickets</a>
       <a hidden href="#/prospeccao">Prospecção</a>
       <a href="#/indicadores" data-link>Indicadores</a>
       <button id="themeToggle" class="btn secondary" type="button">🌙</button>
       <div class="spacer"></div>
-      <span class="chip" id="authChip">Offline</span>
+      <div id="authUserArea" class="auth-user-area hidden">
+        <img id="authAvatar" class="auth-avatar" src="">
+        <div id="authMenu" class="auth-menu hidden">
+          <div class="auth-menu-item" id="authProfile">👤 Meu Perfil</div>
+          <div class="auth-menu-item" id="authLogout">🚪 Sair</div>
+        </div>
+      </div>
+
       <button id="btnLogin" class="btn secondary" type="button">Entrar</button>
       <button id="btnLogout" class="btn secondary hidden" type="button">Sair</button>
 
@@ -1017,10 +1026,62 @@
     </div>
   </div>
 
+  <div id="profile-modal" class="profile-modal" style="display:none">
+    <div class="profile-card">
+      <div class="profile-header">
+        <h3>Meu Perfil</h3>
+        <button id="profile-close" class="profile-close">×</button>
+      </div>
+
+      <div class="profile-body">
+        <div class="profile-avatar-area">
+          <img id="profile-avatar-preview" class="profile-avatar-img" src="" alt="Foto">
+          <br>
+          <button id="profile-change-photo" type="button">Trocar foto</button>
+          <input id="profile-photo" type="file" accept="image/*" style="display:none">
+        </div>
+
+        <label for="profile-name">Nome</label>
+        <input id="profile-name" type="text">
+
+        <label for="profile-role">Cargo</label>
+        <input id="profile-role" type="text" placeholder="Ex: Admin, Atendimento, Comercial">
+
+        <label for="profile-phone">Telefone</label>
+        <input id="profile-phone" type="text">
+
+        <label for="profile-bio">Bio</label>
+        <textarea id="profile-bio" rows="3"></textarea>
+      </div>
+
+      <button id="profile-save" type="button" class="profile-save">Salvar</button>
+    </div>
+  </div>
+
+
+
   <!-- BOTÃO FLUTUANTE -->
   <button id="chat-toggle-btn" class="chat-fab">💬</button>
 
+  <!-- Modal de Crop -->
+  <div id="cropper-modal" class="cropper-modal">
+    <div class="cropper-box">
+      <div class="cropper-header">
+        Editar Foto
+        <button id="cropper-close">✖</button>
+      </div>
+
+      <div class="cropper-body">
+        <img id="cropper-image">
+      </div>
+
+      <div class="cropper-actions">
+        <button id="cropper-cancel">Cancelar</button>
+        <button id="cropper-save" class="primary">Salvar</button>
+      </div>
+    </div>
   </div>
+
   <script type="module" src="script.js"></script>
   <script>
     UPLOADCARE_PUBLIC_KEY = 'bec8b0653d0455ca2d7d'; // substitua pela sua chave
