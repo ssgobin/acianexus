@@ -5460,6 +5460,7 @@ const DRP = {
     const btnAdd = document.getElementById('drp-add');
     const btnSave = document.getElementById('drp-save');
     const msg = document.getElementById('drp-msg');
+    let isDRPOpen = false;
 
     if (!modal) return;
 
@@ -5473,10 +5474,14 @@ const DRP = {
     }
 
     function openDRP({ start, end, label }) {
+        if (isDRPOpen) return; // <-- impede reabrir enquanto está aberto
+        isDRPOpen = true;
         // zera estado
         buffer = [];
         currentMeta = { date: ymd(), start, end, label };
         guardKey = DRP.keyFor(currentUser?.uid || 'anon', currentMeta.date, label);
+
+
 
         // preenche campos
         inStart.value = start; inEnd.value = end;
@@ -5491,6 +5496,7 @@ const DRP = {
     }
 
     function closeDRP() {
+        isDRPOpen = false;
         modal.classList.remove('show');
         modal.style.display = 'none';
         document.body.style.overflow = '';

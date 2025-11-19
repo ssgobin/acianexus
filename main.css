@@ -1795,7 +1795,6 @@ html.light .icon-btn {
   border-radius: 12px;
   padding: 12px;
   margin: 8px 0;
-  background: rgba(15, 23, 42, 0.6);
 }
 
 .daily-divider {
@@ -2380,7 +2379,7 @@ html.light .data-table th {
 /* ===============================
    SIDEBAR ONLINE (ESTILO SLACK)
 ================================ */
-.chat-sidebar-global {
+.chat-global-sidebar {
     width: 130px;
     background: rgba(255,255,255,0.03);
     border-right: 1px solid var(--chat-border);
@@ -2388,7 +2387,7 @@ html.light .data-table th {
     overflow-y: auto;
 }
 
-.chat-sidebar-global h3 {
+.chat-global-sidebar h3 {
     font-size: 14px;
     color: var(--chat-text);
     margin-bottom: 8px;
@@ -3056,4 +3055,62 @@ html.dark .auth-avatar {
     width: 100%;
     height: 420px;
     overflow: hidden;
+}
+
+
+#dailyReportModal {
+  background: var(--drp-modal-bg);
+}
+
+#dailyReportModal .drp-card {
+  background: var(--drp-bg);
+  color: var(--drp-text);
+}
+
+#dailyReportModal input,
+#dailyReportModal textarea {
+  background: var(--drp-input-bg);
+  color: var(--drp-text);
+  border: 1px solid var(--drp-input-border);
+}
+
+
+
+html.light #addMore {
+    background-color: #165da1;
+}
+
+html.light .end{
+    background-color: #ebebeb;
+}
+
+html.light .profile-card {
+    background-color: #ebebeb;
+}
+
+html.light .profile-header h3{
+    color: #0b0d10;
+}
+
+html.light .chat-panel {
+    background-color: #ebebeb;
+}
+
+
+html.light .chat-header {
+    background-color: #ebebeb;
+    color: #081226;
+}
+
+html.light .chat-box {
+    background-color: white;
+}
+
+html.light .chat-input {
+    background-color: white;
+}
+
+html.light #online-list {
+    background-color: white;
+    color: #081226;
 }
