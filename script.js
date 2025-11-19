@@ -674,83 +674,6 @@ const firebaseConfig = {
     measurementId: "G-LN9BEKHCD5"
 };
 
-let cropper = null;
-
-function openCropper(file) {
-    const cropModal = document.getElementById("cropper-modal");
-    const profileModal = document.getElementById("profile-modal");
-    const imgEl = document.getElementById("cropper-image");
-
-    // Fecha o modal do perfil
-    if (profileModal) profileModal.style.display = "none";
-
-    const reader = new FileReader();
-    reader.onload = () => {
-        imgEl.src = reader.result;
-        cropModal.style.display = "flex";
-
-        setTimeout(() => {
-            if (cropper) cropper.destroy();
-
-            cropper = new Cropper(imgEl, {
-                aspectRatio: 1,
-                viewMode: 1,
-                background: false,
-                zoomable: true,
-                movable: true,
-                dragMode: "move"
-            });
-        }, 150);
-    };
-
-    reader.readAsDataURL(file);
-}
-
-function closeCropper() {
-    const cropModal = document.getElementById("cropper-modal");
-    const profileModal = document.getElementById("profile-modal");
-
-    cropModal.style.display = "none";
-
-    if (cropper) cropper.destroy();
-
-    // volta para o modal do perfil
-    if (profileModal) profileModal.style.display = "flex";
-}
-
-document.getElementById("cropper-close").onclick = closeCropper;
-document.getElementById("cropper-cancel").onclick = closeCropper;
-
-
-document.getElementById("cropper-save").onclick = async () => {
-    const modal = document.getElementById("cropper-modal");
-
-    const canvas = cropper.getCroppedCanvas({
-        width: 400,
-        height: 400,
-    });
-
-    const base64 = canvas.toDataURL("image/jpeg", 0.9);
-
-    // Salvar no Firestore
-    const { doc, updateDoc } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-    );
-
-    await updateDoc(doc(db, "presence", currentUser.uid), {
-        photoURL: base64
-    });
-
-    // atualiza avatar imediatamente
-    document.getElementById("authAvatar").src = base64;
-
-    // se houver preview no modal de perfil:
-    const preview = document.getElementById("profile-avatar-preview");
-    if (preview) preview.src = base64;
-
-    modal.style.display = "none";
-    cropper.destroy();
-};
 
 async function loadProfileDataIntoModal() {
     if (!currentUser || !db) return;
@@ -804,6 +727,8 @@ function initProfileModal() {
 
     profileTriggers.forEach((el) => {
         el.addEventListener("click", async () => {
+            // garante que, ao abrir "Meu Perfil", os campos estejam editáveis
+            try { unlockProfileModal(); } catch (e) { /* ignore */ }
             await loadProfileDataIntoModal();
             modal.style.display = "flex";
         });
@@ -811,6 +736,9 @@ function initProfileModal() {
 
     // fechar no X
     btnClose.addEventListener("click", () => {
+        const modal = document.getElementById("profile-modal");
+        modal.classList.remove("readonly");
+        unlockProfileModal();
         modal.style.display = "none";
     });
 
@@ -1011,12 +939,12 @@ async function initFirebase() {
 
                 // pegar campos
                 const savedPhoto = data.photoURL;
+
                 const savedName = data.name || currentUser.displayName || currentUser.email?.split("@")[0];
 
                 // gerar avatar com prioridade CORRETA
                 const avatarURL =
-                    savedPhoto || getGravatar(data.email, data.name) ||
-                    getFallbackAvatar(data.name);
+                    savedPhoto
 
                 avatar.src = avatarURL;
 
@@ -1207,6 +1135,77 @@ const LocalDB = {
 function getFallbackAvatar(name) {
     const first = (name || "U")[0].toUpperCase();
     return `https://ui-avatars.com/api/?name=${first}&background=4f46e5&color=fff&size=64`;
+}
+
+async function openUserProfile(uid) {
+    const { doc, getDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    const ref = doc(db, "presence", uid);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+        alert("Usuário não possui perfil configurado.");
+        return;
+    }
+
+    const data = snap.data();
+
+    // Preencher o modal do perfil
+    const modal = document.getElementById("profile-modal");
+    modal.style.display = "flex";
+
+    document.getElementById("profile-avatar-preview").src =
+        data.photoURL || getGravatar(data.email, data.name);
+
+    document.getElementById("profile-name").value = data.name || "";
+    // preenche possíveis ids (compatibilidade: profile-role / profile-cargo)
+    const roleEl = document.getElementById("profile-role") || document.getElementById("profile-cargo");
+    if (roleEl) roleEl.value = data.role || data.cargo || "";
+
+    // telefone: aceita profile-phone ou profile-tel
+    const phoneEl = document.getElementById("profile-phone") || document.getElementById("profile-tel");
+    if (phoneEl) phoneEl.value = data.phone || "";
+    document.getElementById("profile-bio").value = data.bio || ""
+
+    console.log(uid);
+    // trava edição — estamos vendo o perfil de OUTRA PESSOA
+    try { lockProfileModal(); } catch (e) { /* silent */ }
+}
+
+function lockProfileModal() {
+    const modal = document.getElementById("profile-modal");
+
+    modal.classList.add("readonly");
+
+    // Desabilita todos os inputs
+    modal.querySelectorAll("input, textarea, select").forEach(el => {
+        el.setAttribute("disabled", "disabled");
+    });
+
+    // Esconde botões
+    const saveBtn = document.getElementById("profile-save");
+    const uploadBtn = document.getElementById("profile-change-photo");
+    if (saveBtn) saveBtn.style.display = "none";
+    if (uploadBtn) uploadBtn.style.display = "none";
+}
+
+function unlockProfileModal() {
+    const modal = document.getElementById("profile-modal");
+
+    modal.classList.remove("readonly");
+
+    // Reativa inputs
+    modal.querySelectorAll("input, textarea, select").forEach(el => {
+        el.removeAttribute("disabled");
+    });
+
+    // Mostra botões
+    const saveBtn = document.getElementById("profile-save");
+    const uploadBtn = document.getElementById("profile-change-photo");
+    if (saveBtn) saveBtn.style.display = "flex";
+    if (uploadBtn) uploadBtn.style.display = "inline-block";
 }
 
 
@@ -1401,17 +1400,18 @@ function getFallbackAvatar(name) {
                 li.className = "online-user";
                 li.style.listStyle = "none";
 
+                li.dataset.uid = d.id; // UID
+
                 li.innerHTML = `
-            <div class="online-avatar">
-                <img src="${avatarURL}" class="online-avatar-img">
-                <span class="online-dot"></span>
-            </div>
+    <div class="online-avatar">
+        <img src="${avatarURL}" class="online-avatar-img">
+        <span class="online-dot"></span>
+    </div>
+    <span class="online-name">${data.name}</span>
+    ${data.typing ? `<span class="online-typing">digitando...</span>` : ""}
+`;
 
-            <span class="online-name">${data.name}</span>
-
-            ${data.typing ? `<span class="online-typing">digitando...</span>` : ""}
-        `;
-
+                li.onclick = () => openUserProfile(d.id);
                 onlineList.appendChild(li);
             });
         });
@@ -5460,7 +5460,6 @@ const DRP = {
     const btnAdd = document.getElementById('drp-add');
     const btnSave = document.getElementById('drp-save');
     const msg = document.getElementById('drp-msg');
-    let isDRPOpen = false;
 
     if (!modal) return;
 
@@ -5474,14 +5473,10 @@ const DRP = {
     }
 
     function openDRP({ start, end, label }) {
-        if (isDRPOpen) return; // <-- impede reabrir enquanto está aberto
-        isDRPOpen = true;
         // zera estado
         buffer = [];
         currentMeta = { date: ymd(), start, end, label };
         guardKey = DRP.keyFor(currentUser?.uid || 'anon', currentMeta.date, label);
-
-
 
         // preenche campos
         inStart.value = start; inEnd.value = end;
@@ -5496,7 +5491,6 @@ const DRP = {
     }
 
     function closeDRP() {
-        isDRPOpen = false;
         modal.classList.remove('show');
         modal.style.display = 'none';
         document.body.style.overflow = '';
@@ -5681,7 +5675,6 @@ async function uploadProfilePhoto(file) {
 document.getElementById("profile-photo").addEventListener("change", async (ev) => {
     const file = ev.target.files[0];
     if (!file) return;
-    if (file) openCropper(file);
 
     const base64 = await uploadProfilePhoto(file);
 
@@ -6301,5 +6294,4 @@ async function listenUserInbox() {
 if (typeof document !== 'undefined') {
     document.addEventListener('auth:changed', listenUserInbox);
 }
-
 
