@@ -37,6 +37,7 @@
 
 <body>
   <header>
+    <div class="xmas-garland"></div>
     <nav class="nav">
       <a href="#/" data-link><img id="logo" alt="ACIA Nexus" class="brand-logo" src="img/logoacianexus.png"></a>
       <a href="#/agenda" data-link>Agenda</a>
@@ -48,6 +49,8 @@
       <a hidden href="#/prospeccao">Prospecção</a>
       <a href="#/indicadores" data-link>Indicadores</a>
       <button id="themeToggle" class="btn secondary" type="button">🌙</button>
+      <div class="spacer"></div>
+      <img src="img/natal.png" alt="" width="70px" height="">
       <div class="spacer"></div>
       <div id="authUserArea" class="auth-user-area hidden">
         <img id="authAvatar" class="auth-avatar" src="">
@@ -81,6 +84,19 @@
 
     </nav>
   </header>
+
+  <!-- Faixa de Natal -->
+  <div class="christmas-banner">
+    🎄 Feliz Natal, equipe ACIA! 🎅
+  </div>
+
+  <!-- Luzinhas de Natal -->
+  <div class="christmas-lights">
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><a href="https://www.youtube.com/watch?v=N0m1nI7gGHs&list=RDN0m1nI7gGHs&start_radio=1" target="_blank"><span></span></a>
+  </div>
+
 
   <main class="container">
     <!-- HOME -->
@@ -866,25 +882,25 @@
       </div>
 
       <!-- GUT/Prioridade (mesma lógica, layout mais limpo) -->
-        <h3 style="margin:0 0 8px">GUT (1–5)</h3>
-        <div class="row" style="grid-template-columns: repeat(4, 1fr);">
-          <div class="field">
-            <label for="m-g">Gravidade (G)</label>
-            <input id="m-g" type="number" min="1" max="5" />
-          </div>
-          <div class="field">
-            <label for="m-u">Urgência (U)</label>
-            <input id="m-u" type="number" min="1" max="5" />
-          </div>
-          <div class="field">
-            <label for="m-t">Tendência (T)</label>
-            <input id="m-t" type="number" min="1" max="5" />
-          </div>
-          <div class="field">
-            <label for="m-gut">Resultado (G×U×T)</label>
-            <input id="m-gut" type="text" disabled />
-          </div>
+      <h3 style="margin:0 0 8px">GUT (1–5)</h3>
+      <div class="row" style="grid-template-columns: repeat(4, 1fr);">
+        <div class="field">
+          <label for="m-g">Gravidade (G)</label>
+          <input id="m-g" type="number" min="1" max="5" />
         </div>
+        <div class="field">
+          <label for="m-u">Urgência (U)</label>
+          <input id="m-u" type="number" min="1" max="5" />
+        </div>
+        <div class="field">
+          <label for="m-t">Tendência (T)</label>
+          <input id="m-t" type="number" min="1" max="5" />
+        </div>
+        <div class="field">
+          <label for="m-gut">Resultado (G×U×T)</label>
+          <input id="m-gut" type="text" disabled />
+        </div>
+      </div>
 
 
       <!-- Envolvidos + Anexos (lado a lado, estilo criar) -->
@@ -1127,8 +1143,6 @@
     UPLOADCARE_PUBLIC_KEY = 'bec8b0653d0455ca2d7d'; // substitua pela sua chave
   </script>
   <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
-
-
 </body>
 
 </html>

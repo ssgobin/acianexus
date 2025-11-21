@@ -15,6 +15,10 @@ Se algo quebrar, lembre-se:
 2. Já estava assim quando cheguei.
 3. Se funcionar, eu chamo de feature.
 4. Se não funcionar, chame de milagre quando voltar a funcionar.
+5. Uma oração nunca é demais.
+6. Lembre-se: "Funciona na minha máquina".
+7. Não me peça para documentar o código, isso é trabalho para os fracos.
+8. Você pode consertar, mas não me peça para explicar como funciona.
 
 Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
 */
@@ -4258,12 +4262,10 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             : [];
 
         function applyRespAndMembers() {
-            // só aplica quando os <option> já existem
             const readyResp = mResp && mResp.options && mResp.options.length > 0;
             const readyMembers = mMembers && mMembers.querySelectorAll('input[type="checkbox"]').length > 0;
             if (!readyResp || !readyMembers) return false;
 
-            // --- responsável
             let appliedResp = false;
             if (desiredRespUid) {
                 const optByVal = Array.from(mResp.options).find(o => o.value === desiredRespUid);
@@ -6495,4 +6497,30 @@ function updateMembersDisplay(targetId) {
 // EXPORTA PARA O SISTEMA
 function getMembersSelectedFor(targetId) {
     return [...(MEMBER_SELECTED[targetId] || [])];
+}
+// === NEVE ===
+function startSnow() {
+  const snowInterval = setInterval(() => {
+    const flake = document.createElement("div");
+    flake.classList.add("snowflake");
+    flake.textContent = "❄";
+
+    flake.style.left = `${Math.random() * window.innerWidth}px`;
+    flake.style.fontSize = `${Math.random() * 10 + 10}px`;
+    flake.style.animationDuration = `${Math.random() * 3 + 4}s`;
+
+    document.body.appendChild(flake);
+
+    setTimeout(() => flake.remove(), 8000);
+  }, 150);
+
+  window._snowInterval = snowInterval;
+}
+
+// Iniciar automaticamente
+startSnow();
+const now = new Date();
+if (now.getMonth() === 11) { // Dezembro
+    startSnow();
+    document.body.classList.add("christmas-mode");
 }

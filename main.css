@@ -3236,3 +3236,95 @@ html.light #online-list {
 .file-button i {
   font-size: 16px;
 }
+
+/* === NEVE === */
+.snowflake {
+  position: fixed;
+  top: -10px;
+  color: white;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  pointer-events: none;
+  animation: snowFall linear infinite;
+}
+
+@keyframes snowFall {
+  0% { transform: translateY(0) translateX(0); }
+  100% { transform: translateY(110vh) translateX(20px); }
+}
+
+/* === LUZES DE NATAL NO TOPO === */
+.christmas-lights {
+  width: 100%;
+  height: 40px;
+  background-image: url('https://i.imgur.com/1yVlEby.png');
+  background-size: contain;
+  background-repeat: repeat-x;
+  animation: blink 1.4s infinite;
+  margin-bottom: -12px;
+  background-color: #0ea5e9;
+}
+
+@keyframes blink {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+  100% { filter: brightness(1); }
+}
+
+/* ---------------------- */
+/*     FAIXA DE NATAL     */
+/* ---------------------- */
+
+.christmas-banner {
+    width: 100%;
+    text-align: center;
+    background: linear-gradient(90deg, #c62828, #d32f2f, #b71c1c);
+    padding: 10px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #ffeb3b;
+    box-shadow: 0 4px 8px rgba(0,0,0,.25);
+    z-index: 49;
+    position: relative;
+}
+
+/* ---------------------- */
+/*     LUZINHAS NATAL     */
+/* ---------------------- */
+
+.christmas-lights {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0;
+    background: transparent;
+    position: relative;
+    z-index: 48;
+}
+
+.christmas-lights span {
+    width: 14px;
+    height: 20px;
+    background: red;
+    border-radius: 50% 50% 40% 40%;
+    display: inline-block;
+    box-shadow: 0 4px 10px rgba(255, 0, 0, .5);
+    animation: christmasBlink 1.2s infinite alternate;
+}
+
+.christmas-lights span:nth-child(2n) {
+    background: #00e676;
+    box-shadow: 0 4px 10px rgba(0, 230, 118, .5);
+}
+
+.christmas-lights span:nth-child(3n) {
+    background: #2979ff;
+    box-shadow: 0 4px 10px rgba(41, 121, 255, .5);
+}
+
+@keyframes christmasBlink {
+    0% { opacity: .4; transform: translateY(0px); }
+    100% { opacity: 1; transform: translateY(3px); }
+}
