@@ -6517,10 +6517,4 @@ function startSnow() {
   window._snowInterval = snowInterval;
 }
 
-// Iniciar automaticamente
 startSnow();
-const now = new Date();
-if (now.getMonth() === 11) { // Dezembro
-    startSnow();
-    document.body.classList.add("christmas-mode");
-}

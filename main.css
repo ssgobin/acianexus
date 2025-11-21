@@ -3328,3 +3328,21 @@ html.light #online-list {
     0% { opacity: .4; transform: translateY(0px); }
     100% { opacity: 1; transform: translateY(3px); }
 }
+
+/* Wrapper do avatar */
+/* ====== Gorrinho de Natal ====== */
+.avatar-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.santa-hat {
+    position: absolute;
+    top: -15px;
+    right: -5px;
+    width: 50px;
+    transform: rotate(25deg);
+    pointer-events: none;
+    z-index: 10;
+}
+
