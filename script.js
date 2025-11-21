@@ -1,3 +1,23 @@
+/*
+Para quem for mexer nesse código, boa sorte, esse código foi feito com fé em Deus.
+
+Se você é budista, reze para Buda.
+Se você é muçulmano, faça suas orações.
+Se você é cristão, peça a Jesus.
+Se você é espírita, invoque seus guias.
+Se você é judeu, peça a Yahweh.
+Se você é hinduísta, reze para Shiva.
+Se você é ateu, boa sorte mesmo assim.
+Se você é agnóstico, boa sorte também.
+
+Se algo quebrar, lembre-se:
+1. Não fui eu.
+2. Já estava assim quando cheguei.
+3. Se funcionar, eu chamo de feature.
+4. Se não funcionar, chame de milagre quando voltar a funcionar.
+
+Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
+*/
 
 /* ===========================
    CONFIG & HELPERS
@@ -2749,6 +2769,19 @@ async function isChecklistComplete(cardId) {
     const msg = $('#c-msg');
     const cMembers = $('#c-members');
     const cParent = $('#c-parent');
+    const cSolic = $('#c-solic');
+    const mSolic = $('#m-solic');
+
+    document.getElementById("c-members").onclick = () => {
+        openMembersModal("c-members", getMembersSelectedFor("c-members"));
+    };
+
+    cSolic.value = currentUser?.displayName || currentUser?.email || currentUser?.uid || "";
+    mSolic.value = currentUser?.displayName || currentUser?.email || currentUser?.uid || "";
+
+    document.addEventListener("auth:changed", () => {
+        cSolic.value = currentUser?.displayName || currentUser?.email || currentUser?.uid || "";
+    });
 
     // Inputs do "Descritivo da Tarefa"
     const mdObj = $('#md-objetivo');
@@ -2786,21 +2819,64 @@ async function isChecklistComplete(cardId) {
     // ===== Usuários para Responsável/Membros =====
     let unsubUsersForCreate = null;
 
-    function renderMembersCheckboxes(rows) {
-        if (!cMembers) return;
-        // rows: [{id, displayName, email, role}]
-        cMembers.innerHTML = rows.map((u, i) => {
-            const uid = u.id || u.uid || String(i);
-            const label = u.displayName || u.name || u.email || uid;
-            const cid = `c-m-${uid.replace(/[^a-z0-9_-]/gi, '')}`;
-            return `
-      <label class="chip" for="${cid}" style="display:inline-flex;gap:6px;align-items:center;margin:4px 6px 0 0">
-        <input type="checkbox" id="${cid}" name="c-member" value="${uid}" data-label="${label}">
-        <span>${label}</span>
-      </label>
-    `;
-        }).join('');
+    // Lista local de anexos (arquivos que o usuário escolheu)
+    let cAttachments = [];
+
+    // Abrir seletor de arquivo
+    document.getElementById("c-send-attach").onclick = () => {
+        document.getElementById("c-file-input").click();
+    };
+
+    document.getElementById("c-file-input").onchange = async (e) => {
+        const files = Array.from(e.target.files || []);
+        const container = document.querySelector("#c-attachments");
+
+        for (const file of files) {
+            try {
+                const url = await uploadSimple(file);
+
+                // SALVA LOCALMENTE →
+                cAttachments.push({ name: file.name, url });
+
+                // MOSTRA NA TELA →
+                renderFileButton(container, file.name, url);
+
+            } catch (err) {
+                alert("Erro ao anexar: " + err.message);
+            }
+        }
+    };
+
+
+    // Renderização dos anexos selecionados
+    function renderCreateAttachments() {
+        const wrap = document.getElementById("c-attachments");
+        wrap.innerHTML = "";
+
+        if (!cAttachments.length) {
+            wrap.innerHTML = `<div class="muted">Nenhum arquivo anexado</div>`;
+            return;
+        }
+
+        cAttachments.forEach(att => {
+            const div = document.createElement("div");
+            div.className = "attach-item";
+
+            div.innerHTML = `
+            <span>${att.name}</span>
+            <span class="attach-remove" data-id="${att.id}">✖</span>
+        `;
+
+            div.querySelector(".attach-remove").onclick = (ev) => {
+                const id = ev.target.dataset.id;
+                cAttachments = cAttachments.filter(a => a.id !== id);
+                renderCreateAttachments();
+            };
+
+            wrap.appendChild(div);
+        });
     }
+
 
     async function startUsersLiveForCreate() {
         // Prioriza Firestore "members"; se offline, cai em fallback simples.
@@ -2818,7 +2894,7 @@ async function isChecklistComplete(cardId) {
                     return `<option value="${u.id}" data-label="${label}">${label}</option>`;
                 }).join('');
                 // Preenche CHECKBOXES de membros
-                renderMembersCheckboxes(rows);
+
             });
         } else {
             // Fallback local (sem Firestore): usa nomes coletados de cards existentes ou uma lista mínima
@@ -2827,7 +2903,6 @@ async function isChecklistComplete(cardId) {
             cResp.innerHTML = `<option value="">— Selecione —</option>` + rows.map(u =>
                 `<option value="${u.id}" data-label="${u.displayName}">${u.displayName}</option>`
             ).join('');
-            renderMembersCheckboxes(rows);
         }
     }
 
@@ -2838,6 +2913,11 @@ async function isChecklistComplete(cardId) {
     async function bindUsersToCreate() {
         try { unsubUsersForCreate && unsubUsersForCreate(); } catch { }
         unsubUsersForCreate = null;
+
+        document.getElementById("c-members").onclick = () => {
+            openMembersModal("c-members", getMembersSelectedFor("c-members"));
+        };
+
 
         // Fallback (no cloud or db not ready yet)
         if (!cloudOk || !db) {
@@ -2850,12 +2930,7 @@ async function isChecklistComplete(cardId) {
                     : '<option value="">—</option>';
 
                 cResp.innerHTML = respOpts;
-                cMembers.innerHTML = arr.map(u => `
-  <label style="display:flex;align-items:center;gap:6px;margin:4px 0">
-    <input type="checkbox" name="c-member" value="${u.id}">
-    <span>${u.displayName || u.email || u.id}</span>
-  </label>
-`).join('');
+
 
 
             } catch {
@@ -2884,15 +2959,6 @@ async function isChecklistComplete(cardId) {
                 `<option value="${u.uid}" data-label="${u.label}">${u.label}</option>`
             ).join('');
 
-            cMembers.innerHTML = users.map(u => {
-                const cid = `c-m-${String(u.uid).replace(/[^a-z0-9_-]/gi, '')}`;
-                return `
-    <label class="chip" for="${cid}" style="display:inline-flex;gap:6px;align-items:center;margin:4px 6px 0 0">
-      <input type="checkbox" id="${cid}" name="c-member" value="${u.uid}" data-label="${u.label}">
-      <span>${u.label}</span>
-    </label>
-  `;
-            }).join('');
         });
     }
 
@@ -3123,7 +3189,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         }
 
         // membros (uma vez só)
-        const memberUids = getSelectedMembers(document);
+        const memberUids = getMembersSelectedFor("c-members");
 
         // rótulo do responsável (usa no rec.resp)
         const respUid = $('#c-resp')?.value || null;
@@ -3180,6 +3246,16 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             routine                             // se não quiser salvar, remova esta linha
         });
 
+        // ===== Salvar anexos enviados na criação =====
+        // Salvar anexos da criação
+        for (const att of cAttachments) {
+            await Sub.addAttachment(rec.id, att.url);
+        }
+
+
+        // limpar anexos locais
+        cAttachments = [];
+        renderCreateAttachments();
 
 
         // checklist (em paralelo)
@@ -3457,6 +3533,11 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
     let unsubUsersForEdit = null;
     async function bindUsersToEdit() {
+        document.getElementById("m-members").onclick = () => {
+            const current = getMembersSelectedFor("m-members");
+            openMembersModal("m-members", current);
+        };
+
         // limpa listener anterior
         try { unsubUsersForEdit && unsubUsersForEdit(); } catch { }
         unsubUsersForEdit = null;
@@ -3469,14 +3550,6 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             mResp.innerHTML = baseResp + rows
                 .map(u => `<option value="${u.uid}" data-label="${u.label}">${u.label}</option>`)
                 .join('');
-
-            // membros vira uma lista de checkboxes dentro do <div id="m-members">
-            mMembers.innerHTML = rows.map(u => `
-  <label class="pill" style="display:inline-flex;gap:6px;align-items:center;margin:4px 6px 0 0">
-    <input type="checkbox" value="${u.uid}"/>
-    <span>${u.label}</span>
-  </label>
-`).join('') || '<div class="muted">Sem itens</div>';
 
             // depois de pintar, tenta aplicar a seleção pendente
             applyPendingSelection?.();
@@ -4138,6 +4211,11 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         mDesc.value = card.desc || '';
         // dentro de openModal(card)
         window.currentEditingCardId = card.id;
+
+        // ===== Envolvidos (novo sistema — modal global) =====
+        MEMBER_SELECTED["m-members"] = new Set(card.members || []);
+        updateMembersDisplay("m-members");
+
 
 
         // pré-preenche os 3 campos do modelo a partir da descrição existente
@@ -5682,10 +5760,30 @@ document.getElementById("profile-photo").addEventListener("change", async (ev) =
     document.getElementById("profile-avatar-preview").src = base64;
 });
 
+async function uploadSimple(file) {
+    const FIXED_CDN = "3g9vdtdwtu.ucarecd.net";
+    return new Promise((resolve, reject) => {
+        uploadcare.fileFrom("object", file, {
+            publicKey: "b4ee2700efa718b5276c",
+            store: "auto"
+        })
+            .done(info => {
+                const uuid = info.uuid;
+                const safeName = encodeURIComponent(info.name);
+
+                const finalUrl =
+                    `https://${FIXED_CDN}/${uuid}/${safeName}`;
+
+                resolve(finalUrl);
+            })
+            .fail(err => reject("Erro UploadCare: " + err));
+    });
+}
+
 
 // === Upload de anexos via Uploadcare (REST, gratuito) ===
 const UPLOADCARE_PUBLIC_KEY = "b4ee2700efa718b5276c"; // sua public key
-// Dica: não precisa de domínio fixo; use sempre ucarecdn.com
+// : não precisa de domínio fixo; use sempre ucarecdn.com
 async function uploadWithUploadcare(file) {
     if (!UPLOADCARE_PUBLIC_KEY) throw new Error("UPLOADCARE_PUBLIC_KEY não definida");
 
@@ -5715,7 +5813,17 @@ async function uploadWithUploadcare(file) {
     if (!data.file) throw new Error("Falha no upload: UUID ausente.");
 
     // URL canônica no CDN (sem subdomínio fixo)
-    return `https://ucarecdn.com/${data.file}/${encodeURIComponent(file.name)}`;
+    return `https://3g9vdtdwtu.ucarecd.net/${data.file}/${encodeURIComponent(file.name)}`;
+}
+
+function renderFileButton(container, name, url) {
+    const btn = document.createElement("div");
+    btn.className = "file-button";
+    btn.innerHTML = `
+        <i>📎</i>
+        <a href="${url}" target="_blank">${name}</a>
+    `;
+    container.appendChild(btn);
 }
 
 
@@ -5724,53 +5832,33 @@ document.querySelector('#m-send-attach')?.addEventListener('click', async () => 
     const picker = document.createElement('input');
     picker.type = 'file';
     picker.accept = '*/*';
+    picker.multiple = true;
+
     picker.onchange = async () => {
-        const file = picker.files?.[0];
-        if (!file) return;
+        const files = Array.from(picker.files || []);
+        if (!files.length) return;
 
-        try {
-            const url = await uploadWithUploadcare(file);
+        const container = document.querySelector('#m-attachments');
 
-            // Render imediato no modal
-            const list = document.querySelector('#m-attachments');
-            if (list) {
-                list.insertAdjacentHTML('beforeend', `
-          <div class="comment">
-            <a href="${url}" target="_blank">${file.name}</a>
-          </div>`);
+        for (const file of files) {
+            try {
+                const url = await uploadSimple(file);
+
+                // VISUAL BONITO
+                renderFileButton(container, file.name, url);
+
+                // SALVAR NO CARD
+                await Sub.addAttachment(window.currentEditingCardId, url);
+
+            } catch (err) {
+                alert("Erro ao anexar: " + err.message);
             }
-
-            // Persistência no card (Firestore ou Local)
-            if (window.currentEditingCardId) {
-                if (cloudOk) {
-                    const { collection, addDoc } =
-                        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-                    await addDoc(collection(db, 'cards', window.currentEditingCardId, 'attachments'), {
-                        name: file.name,
-                        url,
-                        createdAt: new Date().toISOString(),
-                        author: currentUser?.uid || 'anon',
-                        authorName: currentUser?.displayName || currentUser?.email || '—'
-                    });
-                } else {
-                    // Local fallback
-                    const all = LocalDB.load();
-                    const i = all.cards.findIndex(c => String(c.id) === String(window.currentEditingCardId));
-                    if (i >= 0) {
-                        all.cards[i].attachments = (all.cards[i].attachments || [])
-                            .concat({ name: file.name, url, createdAt: new Date().toISOString() });
-                        LocalDB.save(all);
-                    }
-                }
-            }
-
-            alert("Arquivo anexado com sucesso!");
-        } catch (e) {
-            alert("⚠️ Erro no upload: " + e.message);
         }
     };
+
     picker.click();
 });
+
 
 
 (function () {
@@ -6295,3 +6383,116 @@ if (typeof document !== 'undefined') {
     document.addEventListener('auth:changed', listenUserInbox);
 }
 
+/* ============================================================
+   SELETOR GLOBAL DE ENVOLVIDOS (criar + editar)
+============================================================ */
+
+let MEMBER_TARGET = null;        // "c-members" ou "m-members"
+let MEMBER_SELECTED = {};        // cache por target
+
+async function openMembersModal(targetId, preselected = []) {
+    MEMBER_TARGET = targetId;
+    MEMBER_SELECTED[targetId] = new Set(preselected);
+
+    document.getElementById("members-modal").classList.remove("hidden");
+    document.getElementById("members-search").value = "";
+
+    loadMembersForModal();
+}
+
+async function loadMembersForModal() {
+    const listEl = document.getElementById("members-list");
+    listEl.innerHTML = "Carregando...";
+
+    let members = [];
+
+    if (cloudOk) {
+        const { collection, getDocs } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        const snap = await getDocs(collection(db, "presence"));
+
+        snap.forEach(d => {
+            const u = d.data();
+
+            members.push({
+                id: d.id,
+                name: u.name || u.email,
+                email: u.email,
+                photo: u.photoURL || getGravatar(u.email, u.name)
+            });
+        });
+    }
+
+    renderMembersModalList(members);
+}
+
+function renderMembersModalList(arr) {
+    const listEl = document.getElementById("members-list");
+    listEl.innerHTML = "";
+
+    arr.forEach(m => {
+        const item = document.createElement("div");
+        item.className = "member-item";
+
+        const checked = MEMBER_SELECTED[MEMBER_TARGET].has(m.id)
+            ? "checked"
+            : "";
+
+        item.innerHTML = `
+            <input type="checkbox" class="member-check" value="${m.id}" ${checked}>
+            <img src="${m.photo}">
+            <span>${m.name}</span>
+        `;
+
+        item.onclick = e => {
+            if (e.target.tagName !== "INPUT") {
+                const chk = item.querySelector(".member-check");
+                chk.checked = !chk.checked;
+            }
+        };
+
+        listEl.appendChild(item);
+    });
+}
+
+// BUSCA
+document.getElementById("members-search").oninput = e => {
+    const term = e.target.value.toLowerCase();
+    document.querySelectorAll(".member-item").forEach(it => {
+        const name = it.innerText.toLowerCase();
+        it.style.display = name.includes(term) ? "flex" : "none";
+    });
+};
+
+// APLICAR
+document.getElementById("members-apply").onclick = () => {
+    const checks = [...document.querySelectorAll(".member-check:checked")];
+    const ids = checks.map(c => c.value);
+
+    MEMBER_SELECTED[MEMBER_TARGET] = new Set(ids);
+
+    updateMembersDisplay(MEMBER_TARGET);
+
+    document.getElementById("members-modal").classList.add("hidden");
+};
+
+// FECHAR
+document.getElementById("members-close").onclick = () => {
+    document.getElementById("members-modal").classList.add("hidden");
+};
+
+function updateMembersDisplay(targetId) {
+    const el = document.getElementById(targetId);
+    const count = MEMBER_SELECTED[targetId].size;
+
+    el.innerHTML = count === 0
+        ? `<span class="muted">Selecione...</span>`
+        : `<span>${count} membro(s) selecionado(s)</span>`;
+}
+
+// EXPORTA PARA O SISTEMA
+function getMembersSelectedFor(targetId) {
+    return [...(MEMBER_SELECTED[targetId] || [])];
+}

@@ -199,7 +199,11 @@
 
         <div class="row">
           <div class="field">
-            <label for="c-resp">Solicitante</label>
+            <label for="c-solic">Solicitante</label>
+            <input id="c-solic" type="text" disabled />
+          </div>
+          <div class="field">
+            <label for="c-resp">Responsável</label>
             <select id="c-resp"></select>
           </div>
           <div class="field">
@@ -213,15 +217,15 @@
             <div class="row" style="grid-template-columns: repeat(4, 1fr)">
               <div class="field">
                 <label for="c-g">G</label>
-                <input id="c-g" type="number" min="1" max="10" value="5" />
+                <input id="c-g" type="number" min="1" max="5" value="5" />
               </div>
               <div class="field">
                 <label for="c-u">U</label>
-                <input id="c-u" type="number" min="1" max="10" value="5" />
+                <input id="c-u" type="number" min="1" max="5" value="5" />
               </div>
               <div class="field">
                 <label for="c-t">T</label>
-                <input id="c-t" type="number" min="1" max="10" value="5" />
+                <input id="c-t" type="number" min="1" max="5" value="5" />
               </div>
               <div class="field">
                 <label>Total (G×U×T)</label>
@@ -234,106 +238,119 @@
 
           <!-- MEMBROS DO CARD -->
           <div class="row">
-            <div class="field" style="grid-column: 1 / -1">
+            <div class="field" style="flex:1">
               <label for="c-members">Envolvidos</label>
-              <div id="c-members" class="c-members-list"></div>
-              <!-- Tarefa linkada (subtarefa) -->
-              <div class="row">
-                <div class="field" style="grid-column: 1 / -1">
-                  <label for="c-parent">Tarefa linkada com</label>
-                  <select id="c-parent">
-                    <option value="">—Nenhuma—</option>
-                  </select>
-                  <div class="muted" style="font-size:12px;margin-top:6px">Use para vincular esta tarefa como subtarefa
-                    de
-                    uma tarefa‑mãe.</div>
-                </div>
-              </div>
-
-              <!-- === Descritivo da Tarefa === -->
-              <h3 class="subtitle">Descritivo da Tarefa</h3>
-              <div class="desc-grid">
-                <div class="field">
-                  <label for="md-objetivo">Objetivo da Tarefa</label>
-                  <textarea id="md-objetivo" placeholder="Descreva o objetivo..."></textarea>
-                </div>
-
-                <div class="field">
-                  <label for="md-acoes">Descrever a Tarefa</label>
-                  <textarea id="md-acoes" placeholder="Explique as ações, etapas, critérios de aceite..."></textarea>
-                </div>
-
-                <div class="field full-row">
-                  <label for="md-info">Informações Adicionais</label>
-                  <textarea id="md-info" placeholder="Links, observações, anexos, referências..."></textarea>
-                </div>
-              </div>
-
-
-              <div class="field" style="display:flex;gap:8px;align-items:center;margin-top:6px">
-                <input id="c-new-check" type="text" placeholder="Novo item da checklist…" />
-                <button id="c-add-check" class="btn secondary" type="button">Adicionar à Checklist</button>
-              </div>
-            </div>
-            <!-- Descrição (agora oculta, preenchida automaticamente) -->
-
-
-            <!-- Descrição (agora oculta, preenchida automaticamente) -->
-            <textarea id="c-desc" hidden></textarea>
-
-            <!-- Checklist (gerada do modelo) -->
-            <div>
-              <h4 style="margin:10px 0 6px">Checklist (gerada do modelo)</h4>
-              <div id="c-checklist"></div>
+              <div id="c-members" class="select-members">Selecione...</div>
             </div>
 
-            <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
-              <button id="c-ai" class="btn secondary" type="button">Gerar Checklist com IA</button>
-              <button id="c-create" class="btn" type="button">Gerar Card</button>
-              <span id="c-msg" class="msg"></span>
-            </div>
+            <!-- ANEXOS -->
+            <div class="field" style="flex:1">
+              <label>Anexos</label>
+              <div id="c-attachments" style="margin-bottom:6px"></div>
 
-
-
-
-
-            <!-- ROTINAS -->
-            <div id="rt-block" class="card hidden" style="margin:12px 0 14px">
-              <div class="card" style="margin:12px 0 14px">
-                <h3 style="margin:0 0 8px">Rotinas</h3>
-                <div class="row">
-                  <div class="field">
-                    <label for="c-rt-enabled">Ativar rotina</label>
-                    <select required id="c-rt-enabled">
-                      <option value="on">Ativada</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label for="c-rt-kind">Periodicidade</label>
-                    <select required id="c-rt-kind">
-                      <option value="DAILY">Diariamente</option>
-                      <option value="WEEKLY">Semanalmente</option>
-                      <option value="BIWEEKLY">Quinzenalmente</option>
-                      <option value="MONTHLY">Mensalmente</option>
-                      <option value="MON">Toda segunda</option>
-                      <option value="TUE">Toda terça</option>
-                      <option value="WED">Toda quarta</option>
-                      <option value="THU">Toda quinta</option>
-                      <option value="FRI">Toda sexta</option>
-                    </select>
-                  </div>
-                </div>
-                <p class="muted" style="margin:6px 0 0;font-size:12px">
-                  Os prazos das tarefas rotineiras, são definidos por cada responsável. Quando o prazo é vencido, a
-                  tarefa é gerada novamente e aplicada no início do fluxo automaticamente.
-                </p>
+              <div style="display:flex; gap:8px; margin-top:6px;">
+                <button id="c-send-attach" class="btn secondary" type="button">
+                  Anexar arquivo
+                </button>
+                <input id="c-file-input" type="file" multiple hidden />
               </div>
-            </div>
-
-            <div>
-              <div id="c-checklist"></div>
+              <p style="font-size: 12px;">Só imagens podem ser anexadas (por enquanto 😉)</p>
             </div>
           </div>
+
+          <!-- Tarefa linkada (subtarefa) -->
+          <div class="row">
+            <div class="field" style="grid-column: 1 / -1">
+              <label for="c-parent">Subtarefa vinculada a:</label>
+              <select id="c-parent">
+                <option value="">—Nenhuma—</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- === Descritivo da Tarefa === -->
+          <div class="desc-grid">
+            <div class="field">
+              <label for="md-objetivo">Objetivo</label>
+              <textarea id="md-objetivo" placeholder="Descreva o objetivo..."></textarea>
+            </div>
+
+            <div class="field">
+              <label for="md-acoes">Descrição</label>
+              <textarea id="md-acoes" placeholder="Explique as ações, etapas, critérios de aceite..."></textarea>
+            </div>
+
+            <div class="field full-row">
+              <label for="md-info">Informações Adicionais</label>
+              <textarea id="md-info" placeholder="Links, observações, anexos, referências..."></textarea>
+            </div>
+          </div>
+
+
+          <div class="field" style="display:flex;gap:8px;align-items:center;margin-top:6px">
+            <input id="c-new-check" type="text" placeholder="Novo item da checklist…" />
+            <button id="c-add-check" class="btn secondary" type="button">Adicionar à Checklist</button>
+          </div>
+        </div>
+        <!-- Descrição (agora oculta, preenchida automaticamente) -->
+
+
+        <!-- Descrição (agora oculta, preenchida automaticamente) -->
+        <textarea id="c-desc" hidden></textarea>
+
+        <!-- Checklist (gerada do modelo) -->
+        <div>
+          <h4 style="margin:10px 0 6px">Checklist (gerada do modelo)</h4>
+          <div id="c-checklist"></div>
+        </div>
+
+        <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+          <button id="c-ai" class="btn secondary hidden" type="button">Gerar Checklist com IA</button>
+          <button id="c-create" class="btn" type="button">Gerar Card</button>
+          <span id="c-msg" class="msg"></span>
+        </div>
+
+
+
+
+
+        <!-- ROTINAS -->
+        <div id="rt-block" class="card hidden" style="margin:12px 0 14px">
+          <div class="card" style="margin:12px 0 14px">
+            <h3 style="margin:0 0 8px">Rotinas</h3>
+            <div class="row">
+              <div class="field">
+                <label for="c-rt-enabled">Ativar rotina</label>
+                <select required id="c-rt-enabled">
+                  <option value="on">Ativada</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="c-rt-kind">Periodicidade</label>
+                <select required id="c-rt-kind">
+                  <option value="DAILY">Diariamente</option>
+                  <option value="WEEKLY">Semanalmente</option>
+                  <option value="BIWEEKLY">Quinzenalmente</option>
+                  <option value="MONTHLY">Mensalmente</option>
+                  <option value="MON">Toda segunda</option>
+                  <option value="TUE">Toda terça</option>
+                  <option value="WED">Toda quarta</option>
+                  <option value="THU">Toda quinta</option>
+                  <option value="FRI">Toda sexta</option>
+                </select>
+              </div>
+            </div>
+            <p class="muted" style="margin:6px 0 0;font-size:12px">
+              Os prazos das tarefas rotineiras, são definidos por cada responsável. Quando o prazo é vencido, a
+              tarefa é gerada novamente e aplicada no início do fluxo automaticamente.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <div id="c-checklist"></div>
+        </div>
+      </div>
     </section>
 
     <section id="view-report" class="hidden">
@@ -791,79 +808,115 @@
     </div>
   </div>
 
-
-  <!-- MODAL EDITAR CARD -->
   <div id="modalBack" class="backdrop"></div>
-  <!-- MODAL EDITAR CARD (atualizado) -->
+
+  <!-- MODAL EDITAR CARD (ajustado a partir do original) -->
   <div id="cardModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
     <div class="modal-head">
       <strong id="m-title">Editar card</strong>
       <div style="display:flex;gap:8px;align-items:center">
-        <span id="m-badge-gut" class="badge">GUT: 0 (C)</span>
-        <span id="m-badge-pri" class="badge">PRI: 0</span>
-        <button id="m-open-chat" class="btn secondary" type="button" title="Abrir chat">Chat</button>
+        <span id="m-badge-gut" class="hidden badge">GUT: 0 (C)</span>
+        <span id="m-badge-pri" class="hidden badge">PRI: 0</span>
+        <button id="m-open-chat" class="btn secondary hidden" type="button" title="Abrir chat">Chat</button>
         <button id="m-close" class="btn secondary" type="button">Fechar</button>
       </div>
     </div>
 
     <div class="modal-body">
-      <div class="cols">
+
+      <!-- Linha 1 – Título + Kanban (igual ao criar) -->
+      <div class="row">
         <div class="field">
           <label for="m-title-in">Título</label>
           <input id="m-title-in" type="text" />
         </div>
         <div class="field">
-          <label for="m-resp">Solicitante</label>
-          <!-- value = uid; data-label = nome/email p/ exibir em card.resp -->
-          <select id="m-resp"></select>
+          <label for="m-board">Kanban</label>
+          <select id="m-board" disabled>
+            <option value="PROJETOS">Projetos</option>
+            <option value="ROTINAS">Rotinas</option>
+            <option value="EVENTOS">Eventos</option>
+            <option value="VENDAS">Vendas</option>
+          </select>
         </div>
       </div>
 
-      <div class="cols">
+      <!-- Linha 2 – Solicitante / Responsável / Status / Prazo -->
+      <div class="row">
+        <div class="field">
+          <label for="m-solic">Solicitante</label>
+          <input id="m-solic" type="text" disabled />
+        </div>
+
+        <div class="field">
+          <label for="m-resp">Responsável</label>
+          <!-- value = uid; data-label = nome/email p/ exibir em card.resp -->
+          <select id="m-resp"></select>
+        </div>
+
         <div class="field">
           <label for="m-status">Status</label>
           <select id="m-status"></select>
         </div>
+
         <div class="field">
           <label for="m-due">Prazo</label>
           <input id="m-due" type="datetime-local" />
         </div>
       </div>
 
-      <!-- GUT/Prioridade -->
-      <div class="row" style="margin:6px 0">
-        <h4 style="margin:0 0 6px">GUT & Prioridade</h4>
-        <br>
-        <div class="row">
-          <div class="field"><label for="m-g">Gravidade (G)</label><input id="m-g" type="number" min="1" max="10" />
+      <!-- GUT/Prioridade (mesma lógica, layout mais limpo) -->
+        <h3 style="margin:0 0 8px">GUT (1–5)</h3>
+        <div class="row" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="field">
+            <label for="m-g">Gravidade (G)</label>
+            <input id="m-g" type="number" min="1" max="5" />
           </div>
-          <div class="field"><label for="m-u">Urgência (U)</label><input id="m-u" type="number" min="1" max="10" />
+          <div class="field">
+            <label for="m-u">Urgência (U)</label>
+            <input id="m-u" type="number" min="1" max="5" />
+          </div>
+          <div class="field">
+            <label for="m-t">Tendência (T)</label>
+            <input id="m-t" type="number" min="1" max="5" />
+          </div>
+          <div class="field">
+            <label for="m-gut">Resultado (G×U×T)</label>
+            <input id="m-gut" type="text" disabled />
           </div>
         </div>
-        <div class="row">
-          <div class="field"><label for="m-t">Tendência (T)</label><input id="m-t" type="number" min="1" max="10" />
+
+
+      <!-- Envolvidos + Anexos (lado a lado, estilo criar) -->
+      <div class="row">
+        <div class="field" style="flex:1">
+          <label for="m-members">Envolvidos</label>
+          <div id="m-members" class="select-members"></div>
+        </div>
+
+        <div class="field" style="flex:1">
+          <label>Anexos</label>
+          <div id="m-attachments" style="margin-bottom:6px"></div>
+
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <input id="m-new-attach" type="url" class="hidden" placeholder="URL do anexo…" style="flex:1" />
+            <button id="m-send-attach" class="btn secondary" type="button">Anexar</button>
           </div>
-          <div class="field"><label for="m-gut">Resultado (G×U×T)</label><input id="m-gut" type="text" disabled /></div>
         </div>
       </div>
 
-      <!-- Membros -->
-      <div class="field">
-        <label for="m-members">Envolvidos</label>
-        <div id="m-members" class="m-members-list"></div>
-      </div>
-      <!-- Tarefa linkada (subtarefa) — EDITAR -->
+      <!-- Tarefa linkada (subtarefa) -->
       <div class="field">
         <label for="m-parent">Tarefa linkada com</label>
         <select id="m-parent">
           <option value="">—Nenhuma—</option>
         </select>
-        <p class="muted" style="margin:6px 0 0;font-size:12px">Use para vincular esta tarefa como subtarefa de uma
-          tarefa‑mãe.</p>
+        <p class="muted" style="margin:6px 0 0;font-size:12px">
+          Use para vincular esta tarefa como subtarefa de uma tarefa-mãe.
+        </p>
       </div>
 
-
-      <!-- Rotinas -->
+      <!-- Rotinas (mantido) -->
       <div id="m-rt-block" class="card hidden" style="margin:6px 0">
         <h4 style="margin:0 0 6px">Rotinas</h4>
         <div class="row hidden">
@@ -895,8 +948,7 @@
         </p>
       </div>
 
-      <!-- Descritivo da Tarefa — EDITAR -->
-      <!-- === Descritivo da Tarefa (MODAL / EDITAR CARD) === -->
+      <!-- Descritivo da Tarefa -->
       <h3 class="subtitle">🧩 Descritivo da Tarefa</h3>
       <div id="m-desc-block" class="desc-grid">
         <div class="field">
@@ -915,31 +967,21 @@
         </div>
       </div>
 
+      <div class="field hidden">
+        <label for="m-desc">Descrição</label>
+        <textarea id="m-desc" rows="6"></textarea>
+      </div>
 
-      <div class="field hidden"><label for="m-desc">Descrição</label><textarea id="m-desc" rows="6"></textarea></div>
-
-      <div class="grid" style="grid-template-columns:1fr 1fr;gap:12px">
-        <div>
-          <h4 style="margin:0 0 6px">Checklist</h4>
-          <div id="m-checklist"></div>
-          <div class="field" style="margin-top:6px;display:flex;gap:8px">
-            <input id="m-new-check" type="text" placeholder="Novo item…" />
-            <button id="m-add-check" class="btn secondary" type="button">Adicionar</button>
-          </div>
-        </div>
-        <div>
-          <h4 style="margin:0 0 6px">Anexos (URL)</h4>
-          <div id="m-attachments"></div>
-          <div class="field" style="margin-top:6px;display:flex;gap:8px">
-            <div id="m-attachments"></div>
-            <div style="margin-top:8px">
-              <button id="m-send-attach" class="btn secondary" type="button">Anexar arquivo</button>
-            </div>
-
-
-          </div>
+      <!-- Checklist -->
+      <div>
+        <h4 style="margin:0 0 6px">Checklist</h4>
+        <div id="m-checklist"></div>
+        <div class="field" style="margin-top:6px;display:flex;gap:8px">
+          <input id="m-new-check" type="text" placeholder="Novo item…" />
+          <button id="m-add-check" class="btn secondary" type="button">Adicionar</button>
         </div>
       </div>
+
     </div>
 
     <div class="modal-foot">
@@ -948,6 +990,7 @@
       <button id="m-save" class="btn" type="button">Salvar</button>
     </div>
   </div>
+
 
   <!-- MODAL DE CHAT (por card) -->
   <div id="chatModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="chat-title">
@@ -1058,6 +1101,22 @@
     </div>
   </div>
 
+  <!-- ==== MODAL GLOBAL DE ENVOLVIDOS ==== -->
+  <div id="members-modal" class="members-modal hidden">
+    <div class="members-modal-content">
+
+      <div class="members-modal-header">
+        <h3>Selecionar Envolvidos</h3>
+        <button id="members-close" class="close-btn">✖</button>
+      </div>
+
+      <input id="members-search" class="members-search" placeholder="Pesquisar por nome...">
+
+      <div id="members-list" class="members-list"></div>
+
+      <button id="members-apply" class="apply-btn">Aplicar Seleção</button>
+    </div>
+  </div>
 
 
   <!-- BOTÃO FLUTUANTE -->
