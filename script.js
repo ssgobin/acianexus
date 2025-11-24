@@ -5553,6 +5553,13 @@ const DRP = {
     }
 
     function openDRP({ start, end, label }) {
+
+        // 🔒 EVITA RESETAR SE O MODAL JÁ ESTIVER ABERTO
+        if (modal.classList.contains('show')) {
+            console.warn('DRP já está aberto — ignorando nova abertura.');
+            return;
+        }
+
         // zera estado
         buffer = [];
         currentMeta = { date: ymd(), start, end, label };
@@ -5564,11 +5571,11 @@ const DRP = {
         btnSave.disabled = true;
         msg.className = 'msg'; msg.textContent = '';
 
-        // mostra modal (sem possibilidade de fechar por fora)
         modal.classList.add('show');
         modal.style.display = 'grid';
         document.body.style.overflow = 'hidden';
     }
+
 
     function closeDRP() {
         modal.classList.remove('show');
@@ -6500,21 +6507,21 @@ function getMembersSelectedFor(targetId) {
 }
 // === NEVE ===
 function startSnow() {
-  const snowInterval = setInterval(() => {
-    const flake = document.createElement("div");
-    flake.classList.add("snowflake");
-    flake.textContent = "❄";
+    const snowInterval = setInterval(() => {
+        const flake = document.createElement("div");
+        flake.classList.add("snowflake");
+        flake.textContent = "❄";
 
-    flake.style.left = `${Math.random() * window.innerWidth}px`;
-    flake.style.fontSize = `${Math.random() * 10 + 10}px`;
-    flake.style.animationDuration = `${Math.random() * 3 + 4}s`;
+        flake.style.left = `${Math.random() * window.innerWidth}px`;
+        flake.style.fontSize = `${Math.random() * 10 + 10}px`;
+        flake.style.animationDuration = `${Math.random() * 3 + 4}s`;
 
-    document.body.appendChild(flake);
+        document.body.appendChild(flake);
 
-    setTimeout(() => flake.remove(), 8000);
-  }, 150);
+        setTimeout(() => flake.remove(), 8000);
+    }, 150);
 
-  window._snowInterval = snowInterval;
+    window._snowInterval = snowInterval;
 }
 
 startSnow();
