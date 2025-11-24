@@ -4547,9 +4547,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         }
 
 
-        const members = Array
-            .from(mMembers.querySelectorAll('input[type="checkbox"]:checked'))
-            .map(cb => cb.value);
+        const members = getMembersSelectedFor("m-members");
         const routine = (mRtEnabled?.value === 'on')
             ? { enabled: true, kind: mRtKind?.value || 'DAILY' }
             : { enabled: false };
