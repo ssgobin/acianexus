@@ -3532,6 +3532,7 @@ async function addActivityEvent(cardId, text) {
     // ===== Modal Editar (refs) =====
     const modal = $('#cardModal'), back = $('#modalBack');
     const mTitle = $('#m-title-in'), mResp = $('#m-resp'), mStatus = $('#m-status'), mDue = $('#m-due'), mDesc = $('#m-desc');
+    const mSolic = $('#m-solic');
     const mMembers = $('#m-members');
     const mParent = $('#m-parent');
     const mG = $('#m-g'), mU = $('#m-u'), mT = $('#m-t'), mGUT = $('#m-gut');
@@ -6659,3 +6660,4 @@ function startSnow() {
 
 
 startSnow();
+
