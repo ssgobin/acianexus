@@ -12,7 +12,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 
-
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <link rel="icon" type="image/png" href="img\WhatsApp Image 2025-10-10 at 15.39.08.jpeg" />
@@ -54,8 +53,8 @@
       <div class="spacer"></div>
       <div id="authUserArea" class="auth-user-area hidden">
         <div class="avatar-wrapper">
-        <img id="authAvatar" class="auth-avatar" src="">
-        <img class="santa-hat" src="img/santahat.png">
+          <img id="authAvatar" class="auth-avatar" src="">
+          <img class="santa-hat" src="img/santahat.png">
         </div>
         <div id="authMenu" class="auth-menu hidden">
           <div class="auth-menu-item" id="authProfile">👤 Meu Perfil</div>
@@ -97,7 +96,9 @@
   <div class="christmas-lights">
     <span></span><span></span><span></span><span></span><span></span>
     <span></span><span></span><span></span><span></span><span></span>
-    <span></span><span></span><span></span><span></span><a href="https://www.youtube.com/watch?v=N0m1nI7gGHs&list=RDN0m1nI7gGHs&start_radio=1" target="_blank"><span></span></a>
+    <span></span><span></span><span></span><span></span><a
+      href="https://www.youtube.com/watch?v=N0m1nI7gGHs&list=RDN0m1nI7gGHs&start_radio=1"
+      target="_blank"><span></span></a>
   </div>
 
 
@@ -831,6 +832,10 @@
 
   <!-- MODAL EDITAR CARD (ajustado a partir do original) -->
   <div id="cardModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+
+  <!-- LADO ESQUERDO DO MODAL -->
+  <div class="modal-inner">
+
     <div class="modal-head">
       <strong id="m-title">Editar card</strong>
       <div style="display:flex;gap:8px;align-items:center">
@@ -843,12 +848,13 @@
 
     <div class="modal-body">
 
-      <!-- Linha 1 – Título + Kanban (igual ao criar) -->
+      <!-- Linha 1 – Título + Kanban -->
       <div class="row">
         <div class="field">
           <label for="m-title-in">Título</label>
           <input id="m-title-in" type="text" />
         </div>
+
         <div class="field">
           <label for="m-board">Kanban</label>
           <select id="m-board" disabled>
@@ -869,7 +875,6 @@
 
         <div class="field">
           <label for="m-resp">Responsável</label>
-          <!-- value = uid; data-label = nome/email p/ exibir em card.resp -->
           <select id="m-resp"></select>
         </div>
 
@@ -884,29 +889,32 @@
         </div>
       </div>
 
-      <!-- GUT/Prioridade (mesma lógica, layout mais limpo) -->
+      <!-- GUT -->
       <h3 style="margin:0 0 8px">GUT (1–5)</h3>
+
       <div class="row" style="grid-template-columns: repeat(4, 1fr);">
         <div class="field">
           <label for="m-g">Gravidade (G)</label>
           <input id="m-g" type="number" min="1" max="5" />
         </div>
+
         <div class="field">
           <label for="m-u">Urgência (U)</label>
           <input id="m-u" type="number" min="1" max="5" />
         </div>
+
         <div class="field">
           <label for="m-t">Tendência (T)</label>
           <input id="m-t" type="number" min="1" max="5" />
         </div>
+
         <div class="field">
           <label for="m-gut">Resultado (G×U×T)</label>
           <input id="m-gut" type="text" disabled />
         </div>
       </div>
 
-
-      <!-- Envolvidos + Anexos (lado a lado, estilo criar) -->
+      <!-- Envolvidos + Anexos -->
       <div class="row">
         <div class="field" style="flex:1">
           <label for="m-members">Envolvidos</label>
@@ -915,6 +923,7 @@
 
         <div class="field" style="flex:1">
           <label>Anexos</label>
+
           <div id="m-attachments" style="margin-bottom:6px"></div>
 
           <div style="display:flex;gap:8px;margin-top:6px">
@@ -924,7 +933,7 @@
         </div>
       </div>
 
-      <!-- Tarefa linkada (subtarefa) -->
+      <!-- Tarefa linkada -->
       <div class="field">
         <label for="m-parent">Tarefa linkada com</label>
         <select id="m-parent">
@@ -935,7 +944,7 @@
         </p>
       </div>
 
-      <!-- Rotinas (mantido) -->
+      <!-- Rotinas -->
       <div id="m-rt-block" class="card hidden" style="margin:6px 0">
         <h4 style="margin:0 0 6px">Rotinas</h4>
         <div class="row hidden">
@@ -962,13 +971,13 @@
           </div>
         </div>
         <p class="muted" style="margin:6px 0 0;font-size:12px">
-          Com rotina ativada, ao “bater” o prazo o card volta ao início do fluxo e o próximo prazo é calculado
-          automaticamente.
+          Com rotina ativada, ao “bater” o prazo o card volta ao início do fluxo e o próximo prazo é calculado automaticamente.
         </p>
       </div>
 
-      <!-- Descritivo da Tarefa -->
+      <!-- Descritivo -->
       <h3 class="subtitle">🧩 Descritivo da Tarefa</h3>
+
       <div id="m-desc-block" class="desc-grid">
         <div class="field">
           <label for="m-md-objetivo">🎯 Objetivo da Tarefa</label>
@@ -994,21 +1003,41 @@
       <!-- Checklist -->
       <div>
         <h4 style="margin:0 0 6px">Checklist</h4>
+
         <div id="m-checklist"></div>
+
         <div class="field" style="margin-top:6px;display:flex;gap:8px">
           <input id="m-new-check" type="text" placeholder="Novo item…" />
           <button id="m-add-check" class="btn secondary" type="button">Adicionar</button>
         </div>
       </div>
 
-    </div>
+    </div><!-- modal-body -->
 
     <div class="modal-foot">
       <button id="m-copy-link" class="btn secondary">🔗 Copiar link</button>
       <button id="m-delete" class="btn secondary" type="button">Excluir</button>
       <button id="m-save" class="btn" type="button">Salvar</button>
     </div>
+
+  </div><!-- modal-inner -->
+
+  <!-- PAINEL DE ATIVIDADE (LADO DIREITO) -->
+  <div id="card-activity-panel" class="activity-panel">
+    <div class="activity-header">Comentários e atividade</div>
+
+    <div id="activity-list" class="activity-list">
+      <div class="muted">Carregando...</div>
+    </div>
+
+    <div class="activity-input">
+      <textarea id="activity-msg" placeholder="Escreva um comentário..."></textarea>
+      <button id="activity-send">Enviar</button>
+    </div>
   </div>
+
+</div><!-- cardModal -->
+
 
 
   <!-- MODAL DE CHAT (por card) -->
@@ -1146,6 +1175,7 @@
     UPLOADCARE_PUBLIC_KEY = 'bec8b0653d0455ca2d7d'; // substitua pela sua chave
   </script>
   <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
+  <div id="toast"></div>
 </body>
 
 </html>

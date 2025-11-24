@@ -3346,3 +3346,199 @@ html.light #online-list {
     z-index: 10;
 }
 
+/* --- Lado esquerdo (conteúdo do card) --- */
+#cardModal .modal-inner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#cardModal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 22px;
+}
+
+/* --- PAINEL LATERAL --- */
+.activity-panel {
+    width: 360px;
+    min-width: 360px;
+    background: rgba(11, 0, 51, 0.96);
+    backdrop-filter: blur(6px);
+    border-left: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
+    box-shadow: -4px 0 10px rgba(0,0,0,0.15);
+}
+
+html.light .activity-panel {
+    background: rgba(255, 255, 255, 0.85);
+    border-left: 1px solid rgba(0, 0, 0, 0.07);
+    box-shadow: -4px 0 10px rgba(0,0,0,0.2);
+}
+
+/* Tema escuro */
+body.dark .activity-panel {
+    background: rgba(20, 20, 28, 0.85);
+    border-left: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: -4px 0 10px rgba(0,0,0,0.4);
+}
+
+/* --- Cabeçalho --- */
+.activity-header {
+    font-size: 16px;
+    font-weight: 700;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+body.dark .activity-header {
+    border-bottom-color: rgba(255,255,255,0.12);
+}
+
+/* --- Lista de atividades --- */
+.activity-list {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 6px;
+}
+
+.activity-item {
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    line-height: 1.3rem;
+}
+
+
+body.dark .activity-item {
+    border-bottom-color: rgba(255,255,255,0.07);
+}
+
+/* Texto pequeno abaixo */
+.activity-item .meta {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 3px;
+}
+
+/* Mensagens vazias */
+.activity-list .muted {
+    opacity: 0.6;
+    font-size: 13px;
+    padding: 10px 0;
+}
+
+/* --- Caixa de comentário --- */
+.activity-input {
+    border-top: 1px solid rgba(0,0,0,0.12);
+    padding-top: 12px;
+    margin-top: 12px;
+}
+
+body.dark .activity-input {
+    border-top-color: rgba(255,255,255,0.12);
+}
+
+#activity-msg {
+    width: 100%;
+    min-height: 70px;
+    resize: vertical;
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 14px;
+    border: 1px solid rgba(0,0,0,0.18);
+    background: rgb(25, 38, 65);
+}
+
+html.light #activity-msg {
+    background: rgba(255,255,255,0.9);
+    border-color: rgba(0,0,0,0.15);
+    color: #111;
+
+}
+
+body.dark #activity-msg {
+    background: rgba(30,30,40,0.9);
+    border-color: rgba(255,255,255,0.15);
+    color: #eee;
+}
+
+/* --- Botão Enviar --- */
+#activity-send {
+    width: 100%;
+    margin-top: 8px;
+    padding: 10px;
+    background: #0b65c2;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+#activity-send:hover {
+    background: #094f99;
+}
+
+#activity-send:active {
+    transform: scale(0.98);
+}
+.modal {
+  display: none;
+}
+
+.modal.show {
+  display: flex;
+}
+.modal-inner {
+  min-height: 0;
+  height: 100%;
+}
+
+.activity-panel {
+    position: relative;
+}
+
+#cardModal .modal-content-2col {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+.modal {
+    width: min(1200px, 98vw);
+    max-height: 94vh;
+}
+#cardModal .modal-inner {
+    flex: 1;
+    overflow-y: auto;     /* AGORA TEM SCROLL */
+    max-height: 100%;     /* EVITA ESTOURAR */
+}
+
+#cardModal .modal-inner {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;     /* AQUI ativa a barra de rolagem! */
+    max-height: 90vh;     /* mesmo limite do modal */
+    scrollbar-width: thin;
+}
+
+/* Estética da scrollbar */
+#cardModal .modal-inner::-webkit-scrollbar {
+    width: 8px;
+}
+#cardModal .modal-inner::-webkit-scrollbar-thumb {
+    background: rgba(148,163,184,0.35);
+    border-radius: 4px;
+}
+
+.activity-panel {
+    overflow-y: auto;
+}

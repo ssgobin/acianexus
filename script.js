@@ -1944,6 +1944,7 @@ const Cards = {
             status: (card.status || FLOWS[card.board || 'PROJETOS'][0]),
             resp: card.resp,
             respUid: card.respUid || null,                 // NOVO
+            solicitante: card.solicitante,
             due: card.due || null,
             createdAt: new Date().toISOString(),
             routine: card.routine || { enabled: false },
@@ -2048,6 +2049,8 @@ const Cards = {
     }
 
 };
+
+
 
 const Sub = {
     async addComment(cardId, text) {
@@ -2170,6 +2173,87 @@ const Sub = {
 
 
 };
+
+// === ACTIVITY SYSTEM ===
+// grava atividade (comentário ou evento)
+// === ACTIVITY SYSTEM (compatível com Firebase e LocalDB) ===
+
+// adicionar atividade
+Sub.addActivity = async function (cardId, data) {
+    const createdAt = new Date().toISOString();
+    const author = currentUser?.uid || "anon";
+    const authorName = currentUser?.displayName || currentUser?.email || "—";
+
+    const payload = {
+        text: data.text,
+        type: data.type || "event",
+        createdAt,
+        author,
+        authorName
+    };
+
+    if (cloudOk) {
+        const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        await addDoc(collection(db, "cards", cardId, "activity"), payload);
+    } else {
+        const all = LocalDB.load();
+        const idx = all.cards.findIndex(c => String(c.id) === String(cardId));
+        if (idx >= 0) {
+            const arr = all.cards[idx].activity || [];
+            arr.push(payload);
+            all.cards[idx].activity = arr;
+            LocalDB.save(all);
+        }
+    }
+};
+
+// pegar histórico inicial
+Sub.getActivity = async function (cardId) {
+    if (cloudOk) {
+        const { collection, getDocs, orderBy, query } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        const qRef = query(collection(db, "cards", cardId, "activity"), orderBy("createdAt", "asc"));
+        const snap = await getDocs(qRef);
+
+        const arr = [];
+        snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
+        return arr;
+    } else {
+        const card = LocalDB.list().find(c => String(c.id) === String(cardId));
+        return (card?.activity || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    }
+};
+
+// escutar tempo real (igual attachments/comments/checklist)
+Sub.listenActivity = function (cardId, cb) {
+    if (cloudOk) {
+        const listen = async () => {
+            const { collection, onSnapshot, orderBy, query } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
+            const qRef = query(collection(db, "cards", cardId, "activity"), orderBy("createdAt", "asc"));
+
+            return onSnapshot(qRef, (snap) => {
+                const arr = [];
+                snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+                cb(arr);
+            });
+        };
+
+        listen().then(u => Sub._unsubACT = u);
+        return () => Sub._unsubACT && Sub._unsubACT();
+    } else {
+        const emit = () => {
+            const card = LocalDB.list().find(c => String(c.id) === String(cardId));
+            cb((card?.activity || []).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)));
+        };
+
+        emit();
+        const t = setInterval(emit, 700);
+        return () => clearInterval(t);
+    }
+};
+
+
 
 // Atualiza o texto de um item da checklist (por docId)
 async function updateChecklistItem(cardId, docId, newText) {
@@ -3230,6 +3314,14 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             return; // interrompe o fluxo
         }
 
+        // === SOLICITANTE ===
+        const solicitante =
+            currentUser?.displayName ||
+            currentUser?.name ||
+            currentUser?.email ||
+            "Desconhecido";
+
+
 
         // cria o card
         const rec = await Cards.add({
@@ -3239,6 +3331,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             status: FLOWS[cBoard.value][0],
             resp: respLabel,                    // usa o label calculado
             respUid,
+            solicitante,
             due: dueIso,                        // usa o due já calculado
             members: memberUids,
             gut: gutVal,
@@ -3305,6 +3398,37 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 })();
 
 
+
+function renderActivityList(arr) {
+    const list = document.getElementById("activity-list");
+
+    if (!arr || arr.length === 0) {
+        list.innerHTML = `<div class="muted">Nenhuma atividade ainda.</div>`;
+        return;
+    }
+
+    list.innerHTML = arr.map(a => `
+        <div class="activity-item">
+            <div>${escapeHtml(a.text)}</div>
+            <div class="meta">${a.authorName || a.author}</div>
+        </div>
+    `).join('');
+}
+
+function loadCardActivity(cardId) {
+    Sub.getActivity(cardId).then(arr => {
+        renderActivityList(arr || []);
+    });
+}
+async function addActivityEvent(cardId, text) {
+    await Sub.addActivity(cardId, {
+        type: "event",
+        text,
+        authorUid: currentUser?.uid || null,
+        authorName: currentUser?.name || "Sistema",
+        date: Date.now()
+    });
+}
 
 
 /* ===========================
@@ -3548,16 +3672,14 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
         // helper para pintar as opções
         const paint = (rows) => {
-            // rows: [{ uid, label }]
-            const baseResp = '<option value="">—</option>';
-            // responsável segue como <select>
-            mResp.innerHTML = baseResp + rows
+            mResp.innerHTML = '<option value="">—</option>' + rows
                 .map(u => `<option value="${u.uid}" data-label="${u.label}">${u.label}</option>`)
                 .join('');
 
-            // depois de pintar, tenta aplicar a seleção pendente
+            // Agora sim — aplica a seleção pendente
             applyPendingSelection?.();
         };
+
 
         // Fallback local (ou Firestore ainda não pronto)
         if (!cloudOk || !db) {
@@ -3639,9 +3761,13 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         }
 
         // MEMBROS
-        const want = new Set(memberUids || []);
+        const safeMemberUids = Array.isArray(memberUids) ? memberUids : [];
+        const want = new Set(safeMemberUids);
+
         // também aceita labels legadas
-        const wantLabels = new Set((memberLabels || []).map(s => String(s).trim()));
+        const safeMemberLabels = Array.isArray(memberLabels) ? memberLabels : [];
+        const wantLabels = new Set(safeMemberLabels.map(s => String(s).trim()));
+
 
         Array.from(mMembers.options).forEach(o => {
             const byUid = want.has(o.value);
@@ -4204,6 +4330,16 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             try { bindUsersToEdit(); } catch { }
         }
 
+        pendingModalSelection = {
+            respUid: card.respUid || null,
+            respLabel: card.resp || null,
+            memberUids: Array.isArray(card.members) ? card.members : [],
+            memberLabels: Array.isArray(card.members)
+                ? card.members.map(x => String(x))
+                : []
+        };
+
+
         mG.value = (card.gutG ?? 5);
         mU.value = (card.gutU ?? 5);
         mT.value = (card.gutT ?? 5);
@@ -4213,6 +4349,11 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
         mTitle.value = card.title || '';
         mDesc.value = card.desc || '';
+        document.getElementById("m-solic").value =
+            card.solicitante ||
+            card.solic ||
+            "";
+
         // dentro de openModal(card)
         window.currentEditingCardId = card.id;
 
@@ -4220,10 +4361,31 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         MEMBER_SELECTED["m-members"] = new Set(card.members || []);
         updateMembersDisplay("m-members");
 
+        // === ATIVIDADE DO CARD ===
+        loadCardActivity(card.id);
 
+        if (window.unsubActivity) window.unsubActivity();
+
+        window.unsubActivity = Sub.listenActivity(card.id, (arr) => {
+            renderActivityList(arr);
+        });
 
         // pré-preenche os 3 campos do modelo a partir da descrição existente
         syncDescToModel();
+        document.getElementById("activity-send").onclick = async () => {
+            const msg = document.getElementById("activity-msg").value.trim();
+            if (!msg) return;
+
+            await Sub.addActivity(window.currentEditingCardId, {
+                type: "comment",
+                text: msg,
+                authorUid: currentUser?.uid || null,
+                authorName: currentUser?.name || "—",
+                date: Date.now()
+            });
+
+            document.getElementById("activity-msg").value = "";
+        };
 
 
         if (card.due) {
@@ -4248,67 +4410,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             mParent.innerHTML = opts.join('');
             mParent.value = card.parentId || '';
         }
-        /* ========= RESPONSÁVEL & MEMBROS (robusto ao async) ========= */
-        // o que queremos selecionar (aceita UID e/ou label legado)
-        const desiredRespUid = (cloudOk && card.respUid) ? String(card.respUid) : null;
-        const desiredRespLabel = (card.resp || '').trim() || null;
 
-        const desiredMemberUids = Array.isArray(card.members)
-            ? card.members.map(x => String(x))
-            : [];
-        // caso “legado” (membros salvos como nomes/emails), também tentamos por label:
-        const desiredMemberLabels = Array.isArray(card.members)
-            ? card.members.map(x => String(x).trim())
-            : [];
-
-        function applyRespAndMembers() {
-            const readyResp = mResp && mResp.options && mResp.options.length > 0;
-            const readyMembers = mMembers && mMembers.querySelectorAll('input[type="checkbox"]').length > 0;
-            if (!readyResp || !readyMembers) return false;
-
-            let appliedResp = false;
-            if (desiredRespUid) {
-                const optByVal = Array.from(mResp.options).find(o => o.value === desiredRespUid);
-                if (optByVal) { mResp.value = optByVal.value; appliedResp = true; }
-            }
-            if (!appliedResp && desiredRespLabel) {
-                const optByLabel = Array.from(mResp.options).find(o => {
-                    const lbl = (o.dataset?.label || o.textContent || '').trim();
-                    return lbl === desiredRespLabel;
-                });
-                if (optByLabel) { mResp.value = optByLabel.value; appliedResp = true; }
-            }
-            // se não encontrou, cria uma opção “fantasma” pra mostrar algo coerente
-            if (!appliedResp && (desiredRespUid || desiredRespLabel)) {
-                const ghost = document.createElement('option');
-                ghost.value = desiredRespUid || `legacy_${Date.now()}`;
-                ghost.dataset.label = desiredRespLabel || desiredRespUid || '—';
-                ghost.textContent = `${ghost.dataset.label} (não cadastrado)`;
-                mResp.appendChild(ghost);
-                mResp.value = ghost.value;
-            }
-
-            // --- membros (marca por UID e também por label legado)
-            const wantUids = new Set(desiredMemberUids);
-            const wantLabels = new Set(desiredMemberLabels);
-            mMembers.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-                const labelEl = cb.nextElementSibling;
-                const lbl = (labelEl?.textContent || '').trim();
-                cb.checked = wantUids.has(cb.value) || (lbl && wantLabels.has(lbl));
-            });
-
-            return true;
-        }
-
-        // tenta aplicar agora; se ainda não deu, re-tenta algumas vezes até as opções chegarem
-        if (!applyRespAndMembers()) {
-            let tries = 0;
-            const t = setInterval(() => {
-                tries++;
-                if (applyRespAndMembers() || tries >= 25) clearInterval(t); // ~3s total @120ms
-            }, 120);
-        }
-        /* ========= /RESP/MEM ========= */
 
         const r = card.routine || { enabled: false };
         if (mRtEnabled) mRtEnabled.value = r.enabled ? 'on' : 'off';
@@ -4427,6 +4529,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
     btnSave.onclick = async () => {
         if (!modalId) return;
         const dueIso = mDue.value ? new Date(mDue.value).toISOString() : null;
+        fields.solicitante = mSolic.value.trim();
 
         const all = lastAll || [];
         const card = all.find(c => String(c.id) === String(modalId));
@@ -6222,6 +6325,8 @@ function makeCardPayload(type, card, extra) {
     const btnAdd = document.getElementById("addMore");
     const btnSave = document.getElementById("saveDaily");
 
+    let isOpen = false; // 🔒 Proteção contra reabertura
+
     // === Helpers ===
     function todayKey() {
         return new Date().toISOString().slice(0, 10);
@@ -6230,14 +6335,24 @@ function makeCardPayload(type, card, extra) {
         return `dailySent:${todayKey()}:${period}`;
     }
 
-    // 🧹 Limpa registros antigos
-    function resetDailyKeys() {
+    // === NÃO resetar mais automaticamente ===
+    // Evita apagar envios do dia atual.
+    function resetDailyKeysOncePerDay() {
         const today = todayKey();
+
         Object.keys(localStorage)
-            .filter(k => k.startsWith("dailySent:") && !k.includes(today))
-            .forEach(k => localStorage.removeItem(k));
+            .filter(k => k.startsWith("dailySent:"))
+            .forEach(k => {
+                const parts = k.split(":");
+                const keyDate = parts[1];
+                if (keyDate !== today) {
+                    localStorage.removeItem(k);
+                }
+            });
     }
-    resetDailyKeys();
+
+    // Rodar só no load
+    window.addEventListener("load", resetDailyKeysOncePerDay);
 
     // === UI ===
     function addIntervalRow() {
@@ -6273,7 +6388,10 @@ function makeCardPayload(type, card, extra) {
                 localStorage.setItem("dailyReports", JSON.stringify(prev));
                 return;
             }
-            const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+            const { collection, addDoc } =
+                await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
             const colRef = collection(db, "users", currentUser.uid, "dailyReports");
             await addDoc(colRef, {
                 date: todayKey(),
@@ -6281,14 +6399,19 @@ function makeCardPayload(type, card, extra) {
                 period,
                 entries: filled
             });
+
         } catch (e) {
             console.warn("Erro ao salvar relatório diário:", e);
         }
     }
 
     function openPopup(period) {
+        if (isOpen) return; // 🔒 Se já está aberto, não abre de novo
+        isOpen = true;
+
         body.querySelectorAll(".daily-row").forEach(c => c.remove());
         addIntervalRow();
+
         modal.dataset.period = period;
         modal.classList.add("show");
     }
@@ -6308,8 +6431,11 @@ function makeCardPayload(type, card, extra) {
 
         const period = modal.dataset.period || "geral";
         await saveToFirebase(filled, period);
+
         localStorage.setItem(getKey(period), "true");
+
         modal.classList.remove("show");
+        isOpen = false; // libera o modal para o dia seguinte
     });
 
     // === Lógica de verificação ===
@@ -6321,7 +6447,8 @@ function makeCardPayload(type, card, extra) {
     }
 
     function checkPopup() {
-        resetDailyKeys();
+        if (isOpen) return; // 🔒 Não verifica se o modal está aberto
+
         const sent11 = localStorage.getItem(getKey("11h"));
         const sent17 = localStorage.getItem(getKey("17h"));
 
@@ -6337,9 +6464,14 @@ function makeCardPayload(type, card, extra) {
 
     // 💡 Verifica assim que abre a página
     window.addEventListener("load", checkPopup);
-    // 💡 E repete a checagem a cada minuto
-    setInterval(checkPopup, 60 * 1000);
+
+    // 💡 Repete a verificação a cada minuto, sem nunca resetar
+    setInterval(() => {
+        checkPopup();
+    }, 60 * 1000);
+
 })();
+
 
 // === POPUP DE POLÍTICA DE PRIVACIDADE ===
 (function initPrivacyPopup() {
