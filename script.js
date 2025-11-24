@@ -4529,7 +4529,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
     btnSave.onclick = async () => {
         if (!modalId) return;
         const dueIso = mDue.value ? new Date(mDue.value).toISOString() : null;
-        fields.solicitante = mSolic.value.trim();
+        const solicitante = mSolic.value.trim();
 
         const all = lastAll || [];
         const card = all.find(c => String(c.id) === String(modalId));
@@ -4578,6 +4578,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             gut,
             gutGrade: gutClass(gut),
             priority: computePriority(dueIso, gut),
+            solicitante,
             gutG: Number(mG.value),
             gutU: Number(mU.value),
             gutT: Number(mT.value),
@@ -6655,5 +6656,6 @@ function startSnow() {
 
     window._snowInterval = snowInterval;
 }
+
 
 startSnow();
