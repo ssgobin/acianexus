@@ -7359,7 +7359,9 @@ async function openDM(otherUid) {
         doc,
         getDoc,
         collection,
-        onSnapshot
+        onSnapshot,
+        query, 
+        orderBy
     } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
     // nome / avatar básico
@@ -7413,7 +7415,10 @@ async function openDM(otherUid) {
     }
 
     // listener de mensagens
-    const messagesRef = collection(db, "privateChats", chatId, "messages");
+    const messagesRef = query(
+        collection(db, "privateChats", chatId, "messages"),
+        orderBy("createdAt")
+    );
     dmUnsubMessages = onSnapshot(messagesRef, (snap) => {
         if (!dmBox) return;
         dmBox.innerHTML = "";
