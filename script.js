@@ -4053,7 +4053,6 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         <span class="pill">${card.board}</span>
         <span class="pill">${card.resp || '—'}</span>
         <span class="due ${isOver ? 'over' : ''}">⏰ ${dStr}</span>
-        <span class="pill" data-chat-count="${card.id}">💬 …</span>
       </div>
       ${membersHtml}
     `;
@@ -6658,5 +6657,6 @@ function startSnow() {
 
 
 startSnow();
+
 
 
