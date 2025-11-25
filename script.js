@@ -292,6 +292,11 @@ const Tickets = {
                 LocalDB.save(all);
             }
         }
+        if (patch.status?.toLowerCase() === "fechado" || patch.status?.toLowerCase() === "resolvido") {
+            givePoints(currentUser.uid, 10, "Ticket resolvido");
+            unlockBadge(currentUser.uid, "resolver-ticket");
+        }
+
     },
 
     listen(cb) {
@@ -1269,6 +1274,8 @@ function unlockProfileModal() {
                     "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
                 );
 
+                const reply = window.chatReplyTarget || null;
+
                 const payload = {
                     text,
                     author: currentUser.uid,
@@ -1277,12 +1284,23 @@ function unlockProfileModal() {
                     createdAt: new Date().toISOString(),
                     pinned: false,
                     reactions: {},
+                    replyTo: reply ? reply.id : null,
+                    replyPreview: reply ? {
+                        authorName: reply.authorName,
+                        text: reply.text.slice(0, 120)
+                    } : null,
+                    mentions: window._pendingMentions || []
                 };
 
                 console.log("[ChatGlobal] Enviando payload para Firestore:", payload);
 
                 const ref = await addDoc(collection(db, "chatGlobal"), payload);
+                // limpar reply após enviar
+                window.chatReplyTarget = null;
+                document.getElementById("reply-preview")?.remove();
                 console.log("[ChatGlobal] Mensagem salva com ID:", ref.id);
+                givePoints(currentUser.uid, 1, "Mensagem no chat global");
+
             } catch (e) {
                 console.error("[ChatGlobal] Erro em send():", e);
                 alert("Erro ao enviar mensagem: " + (e.message || e));
@@ -1368,7 +1386,12 @@ function unlockProfileModal() {
         }, { merge: true });
 
 
+
+
         console.log("[ChatGlobal] marcado como online.");
+        givePoints(currentUser.uid, 2, "Check-in diário");
+        unlockBadge(currentUser.uid, "presenca-diaria");
+
 
         // HEARTBEAT a cada 15s — mantém o usuário online
         setInterval(async () => {
@@ -1435,7 +1458,7 @@ function unlockProfileModal() {
     ${data.typing ? `<span class="online-typing">digitando...</span>` : ""}
 `;
 
-                li.onclick = () => openUserProfile(d.id);
+                li.onclick = () => openDM(d.id);
                 onlineList.appendChild(li);
             });
         });
@@ -1538,6 +1561,17 @@ function unlockProfileModal() {
 
                     const div = document.createElement("div");
                     div.className = "chat-msg" + (msg.pinned ? " chat-pinned" : "");
+                    if (msg.mentions && msg.mentions.includes(currentUser.uid)) {
+                        div.classList.add("mention-highlight");
+                    }
+
+                    // botão de responder
+                    const replyBtn = document.createElement("button");
+                    replyBtn.textContent = "↩️";
+                    replyBtn.className = "reply-btn";
+                    replyBtn.onclick = () => startReplyMode(msg);
+
+                    div.appendChild(replyBtn);
 
                     // hora
                     const when = msg.createdAt ? new Date(msg.createdAt) : new Date();
@@ -1583,6 +1617,18 @@ function unlockProfileModal() {
           <button class="chat-action-btn more-btn">⋮</button>
       </div>
     `;
+
+                    // (AQUI ONDE VOCÊ COLE!)
+                    if (msg.replyTo && msg.replyPreview) {
+                        const rep = document.createElement("div");
+                        rep.className = "reply-to-block";
+                        rep.innerHTML = `
+        <strong>${msg.replyPreview.authorName}</strong><br>
+        <span>${msg.replyPreview.text}</span>
+    `;
+                        div.prepend(rep);  // aparece acima da mensagem
+                    }
+
 
                     // MENU FLUTUANTE DE REAÇÕES
                     const reactBtn = div.querySelector(".react-btn");
@@ -1763,11 +1809,41 @@ function unlockProfileModal() {
             }
         });
 
-        input.addEventListener("input", () => {
+        input.addEventListener("input", async (ev) => {
             clearTimeout(typingTimeout);
             setTyping(true);
             typingTimeout = setTimeout(() => setTyping(false), 1200);
+
+            const input = ev.target;
+            const cursorPos = input.selectionStart;
+            const text = input.value;
+            const beforeCursor = text.substring(0, cursorPos);
+
+            const atIndex = beforeCursor.lastIndexOf("@");
+            if (atIndex === -1) {
+                if (mentionPopup) mentionPopup.remove();
+                mentionActive = false;
+                return;
+            }
+
+            mentionActive = true;
+
+            const query = beforeCursor.substring(atIndex + 1).toLowerCase();
+
+            if (!mentionUsers.length) await loadMentionUsers();
+
+            const matches = mentionUsers.filter(u =>
+                u.name.toLowerCase().includes(query) ||
+                u.email.toLowerCase().includes(query)
+            );
+
+            const rect = input.getBoundingClientRect();
+            const x = rect.left + 10;
+            const y = rect.top - 5;
+
+            showMentionPopup(matches.slice(0, 6), x, y);
         });
+
 
         if (gifBtn) {
             gifBtn.addEventListener("click", openGifPicker);
@@ -1975,20 +2051,48 @@ const Cards = {
     async update(id, patch) {
         if (cloudOk) {
 
-            // 🔹 Garante startAt e finishAt ANTES de salvar
-            if (patch.status === "EXECUÇÃO" && !patch.startAt) {
+            // 1) Buscar o card completo para poder comparar due, status anterior etc
+            const { doc, updateDoc, getDoc } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
+
+            const ref = doc(db, 'cards', id);
+            const snap = await getDoc(ref);
+            const card = snap.exists() ? snap.data() : {};
+
+            // -------------------------------------------
+            // GAMIFICAÇÃO (CORRETO E SEGURO)
+            // -------------------------------------------
+
+            // START -> executando pela primeira vez
+            if (patch.status === "EXECUÇÃO" && !card.startAt) {
                 patch.startAt = new Date().toISOString();
+                // (NÃO GANHA PONTOS AQUI)
             }
 
-            if (patch.status === "CONCLUÍDO" && !patch.finishAt) {
-                patch.finishAt = new Date().toISOString();
+            // CONCLUÍDO
+            if (patch.status === "CONCLUÍDO") {
+
+                // Garantir finishAt
+                if (!patch.finishAt) {
+                    patch.finishAt = new Date().toISOString();
+                }
+
+                // Card concluído → +10 pontos
+                givePoints(currentUser.uid, 10, "Card concluído");
+                applyLevelUp(currentUser.uid);
+
+                // Concluído NO PRAZO → +15 pontos
+                if (card?.due && new Date() <= new Date(card.due)) {
+                    givePoints(currentUser.uid, 15, "Card concluído no prazo");
+                    unlockBadge(currentUser.uid, "pontual");
+                }
             }
 
-            const { doc, updateDoc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-            // 🔹 Salva no Firestore já com o patch corrigido
-            await updateDoc(doc(db, 'cards', id), patch);
-
+            // -------------------------------------------
+            // SALVAR patch com tudo ajustado
+            // -------------------------------------------
+            await updateDoc(ref, patch);
 
         } else {
             // LocalDB fallback
@@ -2841,6 +2945,186 @@ async function isChecklistComplete(cardId) {
 
 
 
+// ===============================
+// GAMIFICAÇÃO – helpers globais
+// ===============================
+const GAMIF_LEVEL_REQS = [0, 200, 500, 1000, 2000];
+
+let _gamifToastTimer = null;
+function showGamificationToast(msg, subtitle = '') {
+    const el = document.getElementById('gamification-toast');
+    if (!el) return;
+    el.innerHTML = msg + (subtitle ? `<small>${subtitle}</small>` : '');
+    el.classList.add('show');
+    clearTimeout(_gamifToastTimer);
+    _gamifToastTimer = setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+/* ===============================
+   GAMIFICAÇÃO – Pontos
+=============================== */
+async function givePoints(uid, amount, reason = '') {
+    if (!uid || !amount) return;
+    if (!cloudOk || !db) return;
+
+    try {
+        const { doc, getDoc, setDoc } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        const ref = doc(db, "gamification", uid);
+        const snap = await getDoc(ref);
+
+        let base = snap.exists() ? snap.data() : {
+            points: 0,
+            monthPoints: 0,
+            level: 1,
+            badges: [],
+            lastUpdated: new Date().toISOString()
+        };
+
+        base.points += amount;
+        base.monthPoints += amount;
+        base.lastUpdated = new Date().toISOString();
+        if (reason) base.lastReason = reason;
+
+        await setDoc(ref, base);
+
+        // avisa HUD/Ranking
+        document.dispatchEvent(new Event('gamification:updated'));
+
+        // toast só pro próprio usuário
+        if (uid === currentUser?.uid) {
+            showGamificationToast(`+${amount} pontos`, reason || '');
+        }
+
+        console.log(`[GAMIFICAÇÃO] +${amount} pontos para ${uid} (${reason})`);
+    } catch (e) {
+        console.warn("[GAMIFICAÇÃO] Falha ao adicionar pontos:", e);
+    }
+}
+
+/* =========================================
+   GAMIFICAÇÃO – Upgrade automático de nível
+========================================= */
+async function applyLevelUp(uid) {
+    if (!cloudOk || !db) return;
+
+    const { doc, getDoc, updateDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    const ref = doc(db, "gamification", uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return;
+
+    let data = snap.data();
+    const pts = data.monthPoints || 0;
+
+    let newLevel = data.level || 1;
+    for (let i = GAMIF_LEVEL_REQS.length - 1; i >= 0; i--) {
+        if (pts >= GAMIF_LEVEL_REQS[i]) {
+            newLevel = i + 1;
+            break;
+        }
+    }
+
+    if (newLevel !== data.level) {
+        await updateDoc(ref, { level: newLevel });
+        document.dispatchEvent(new Event('gamification:updated'));
+
+        if (uid === currentUser?.uid) {
+            showGamificationToast(`⬆️ Nível ${newLevel}`, 'Subiu de nível!');
+        }
+
+        console.log(`[GAMIFICAÇÃO] ${uid} subiu para nível ${newLevel}`);
+    }
+}
+
+/* ===============================
+   GAMIFICAÇÃO – Badges / Conquistas
+=============================== */
+async function unlockBadge(uid, badge) {
+    try {
+        if (!cloudOk || !db) return;
+
+        const { doc, getDoc, updateDoc } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        const ref = doc(db, "gamification", uid);
+        const snap = await getDoc(ref);
+        if (!snap.exists()) return;
+
+        let data = snap.data();
+        const badges = data.badges || [];
+
+        if (!badges.includes(badge)) {
+            badges.push(badge);
+            await updateDoc(ref, { badges });
+            document.dispatchEvent(new Event('gamification:updated'));
+
+            if (uid === currentUser?.uid) {
+                showGamificationToast(`🏅 Nova conquista`, badge);
+            }
+
+            console.log(`[GAMIFICAÇÃO] Badge conquistada: ${badge}`);
+        }
+    } catch (e) {
+        console.warn("[GAMIFICAÇÃO] Falha ao desbloquear badge:", e);
+    }
+}
+
+// ===============================
+// GAMIFICAÇÃO – HUD no topo
+// ===============================
+(function initGamificationHud() {
+    const hud = document.getElementById('gamificationHud');
+    if (!hud) return;
+
+    const pointsSpan = hud.querySelector('.gamif-points');
+    const levelSpan = hud.querySelector('.gamif-level');
+
+    async function refreshHud() {
+        if (!cloudOk || !db || !currentUser) {
+            hud.classList.add('hidden');
+            return;
+        }
+
+        try {
+            const { doc, getDoc } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
+
+            const ref = doc(db, "gamification", currentUser.uid);
+            const snap = await getDoc(ref);
+
+            if (!snap.exists()) {
+                hud.classList.add('hidden');
+                return;
+            }
+
+            const data = snap.data();
+            const pts = data.monthPoints || 0;
+            const lvl = data.level || 1;
+
+            pointsSpan.textContent = `⭐ ${pts} pts`;
+            levelSpan.textContent = `Nível ${lvl}`;
+            hud.classList.remove('hidden');
+        } catch (e) {
+            console.warn('[Gamificação HUD] Falha ao carregar:', e);
+            hud.classList.add('hidden');
+        }
+    }
+
+    document.addEventListener('auth:changed', refreshHud);
+    document.addEventListener('gamification:updated', refreshHud);
+
+    // primeira carga
+    setTimeout(refreshHud, 1000);
+})();
+
+
 
 /* ===========================
    UI: Criar card
@@ -3264,6 +3548,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         if (!title) { setMsg(msg, 'err', 'Informe o título.'); return; }
 
         const dueIso = cDue.value ? new Date(cDue.value).toISOString() : null;
+        givePoints(currentUser.uid, 3, "Criou card");
 
         // rotina só vale quando o board for ROTINAS
         const isRotinaBoard = (cBoard.value === 'ROTINAS');
@@ -4053,6 +4338,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         <span class="pill">${card.board}</span>
         <span class="pill">${card.resp || '—'}</span>
         <span class="due ${isOver ? 'over' : ''}">⏰ ${dStr}</span>
+        
       </div>
       ${membersHtml}
     `;
@@ -4827,6 +5113,133 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
 })();
 
+/* ===========================
+   GAMIFICAÇÃO – Ranking
+=========================== */
+; (function initRankingView() {
+    const view = document.querySelector('#view-ranking');
+    if (!view) return;
+
+    const listEl = view.querySelector('#rk-list');
+    const summaryEl = view.querySelector('#rk-summary');
+    const btnRefresh = view.querySelector('#btn-ranking-refresh');
+
+    function levelBounds(level) {
+        const idx = Math.max(0, (level || 1) - 1);
+        const cur = GAMIF_LEVEL_REQS[idx] || 0;
+        const next = GAMIF_LEVEL_REQS[idx + 1];
+        return { cur, next };
+    }
+
+    async function fetchRanking() {
+        if (!cloudOk || !db || !currentUser) {
+            summaryEl.textContent = 'Faça login para ver o ranking.';
+            listEl.innerHTML = '';
+            return;
+        }
+
+        try {
+            summaryEl.textContent = 'Carregando...';
+
+            const { collection, getDocs, doc, getDoc } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
+
+            const snap = await getDocs(collection(db, 'gamification'));
+            const rows = [];
+            snap.forEach(d => rows.push({ uid: d.id, ...(d.data() || {}) }));
+
+            // Enriquecer com nome/e-mail da coleção users (se existir)
+            await Promise.all(rows.map(async r => {
+                try {
+                    const uRef = doc(db, 'users', r.uid);
+                    const uSnap = await getDoc(uRef);
+                    if (uSnap.exists()) {
+                        const u = uSnap.data();
+                        r.name = u.name || '';
+                        r.email = u.email || '';
+                    }
+                } catch { }
+            }));
+
+            // ordenar por pontos do mês
+            rows.sort((a, b) => (b.monthPoints || 0) - (a.monthPoints || 0));
+
+            if (!rows.length) {
+                summaryEl.textContent = 'Ainda não há pontuações registradas.';
+                listEl.innerHTML = '';
+                return;
+            }
+
+            const meIndex = rows.findIndex(r => r.uid === currentUser.uid);
+            const me = meIndex >= 0 ? rows[meIndex] : null;
+
+            // Summary
+            if (me) {
+                const pts = me.monthPoints || 0;
+                const lvl = me.level || 1;
+                const { cur, next } = levelBounds(lvl);
+                const span = (next ?? (cur + 200)) - cur;
+                const done = pts - cur;
+                summaryEl.innerHTML = `
+                    <div><strong>Você está em #${meIndex + 1}</strong> no ranking deste mês.</div>
+                    <div>Pontos no mês: <strong>${pts}</strong> • Nível <strong>${lvl}</strong></div>
+                    <div>${done}/${span} XP para o próximo nível.</div>
+                `;
+            } else {
+                summaryEl.innerHTML = `
+                    <div>Você ainda não ganhou pontos este mês.</div>
+                    <div>Conclua cards, resolva tickets ou participe do chat para entrar no ranking.</div>
+                `;
+            }
+
+            // Lista
+            listEl.innerHTML = rows.map((r, idx) => {
+                const name = r.name || r.email || r.uid || 'Usuário';
+                const pts = r.monthPoints || 0;
+                const lvl = r.level || 1;
+                const { cur, next } = levelBounds(lvl);
+                const span = (next ?? (cur + 200)) - cur;
+                const done = pts - cur;
+                const pct = Math.max(0, Math.min(100, Math.round((done / (span || 1)) * 100)));
+                const badges = (r.badges || []).map(b => `<span class="gamif-badge-pill">${b}</span>`).join('') || '<span class="muted">Sem conquistas ainda</span>';
+
+                return `
+                  <div class="rk-card">
+                    <div class="rk-rank">#${idx + 1}</div>
+                    <div class="rk-main">
+                      <div class="rk-name">${name}</div>
+                      <div class="rk-level">Nível ${lvl}</div>
+                      <div class="rk-points">Pontos no mês: <strong>${pts}</strong></div>
+                      <div class="gamif-xp-bar">
+                        <div class="gamif-xp-fill" style="width:${pct}%"></div>
+                      </div>
+                      <div class="gamif-xp-label">${done}/${span} XP para o próximo nível</div>
+                      <div class="rk-badges">${badges}</div>
+                    </div>
+                  </div>
+                `;
+            }).join('');
+
+        } catch (e) {
+            console.error('[Ranking] Erro ao carregar ranking:', e);
+            summaryEl.textContent = 'Erro ao carregar ranking.';
+            listEl.innerHTML = '';
+        }
+    }
+
+    btnRefresh?.addEventListener('click', fetchRanking);
+
+    document.addEventListener('auth:changed', () => {
+        if (location.hash.startsWith('#/ranking')) fetchRanking();
+    });
+    document.addEventListener('gamification:updated', () => {
+        if (location.hash.startsWith('#/ranking')) fetchRanking();
+    });
+    window.addEventListener('hashchange', () => {
+        if (location.hash.startsWith('#/ranking')) fetchRanking();
+    });
+})();
 
 /* ===========================
    UI dos Tickets (apenas TI)
@@ -5562,7 +5975,7 @@ function renderRoute() {
     const views = [
         '#view-home', '#view-create', '#view-kanban', '#view-members',
         '#view-metrics', '#view-auth', '#view-calendar',
-        '#view-report', '#view-tickets', '#view-prospec'
+        '#view-report', '#view-tickets', '#view-prospec', '#view-ranking'
     ];
     views.forEach(id => { const el = document.querySelector(id); el && el.classList.add('hidden'); });
 
@@ -5586,6 +5999,8 @@ function renderRoute() {
     } else if (hash.startsWith('#/agenda')) {
         document.querySelector('#view-calendar')?.classList.remove('hidden');
         try { loadAndRenderCalendar(); } catch { }
+    } else if (hash.startsWith('#/ranking')) {
+        document.querySelector('#view-ranking')?.classList.remove('hidden');
     } else {
         document.querySelector('#view-home')?.classList.remove('hidden');
     }
@@ -6658,5 +7073,510 @@ function startSnow() {
 
 startSnow();
 
+// ========================================
+// CHAT 2.0 — Threads (Responder Mensagem)
+// ========================================
+function startReplyMode(msg) {
+    window.chatReplyTarget = {
+        id: msg.id,
+        text: msg.text || "",
+        author: msg.author,
+        authorName: msg.authorName || "Usuário"
+    };
+
+    // remover preview antigo
+    document.getElementById("reply-preview")?.remove();
+
+    // criar preview
+    const inputArea = document.getElementById("chat-input-area");
+    if (!inputArea) return;
+
+    const box = document.createElement("div");
+    box.id = "reply-preview";
+    box.className = "reply-preview-box";
+    box.innerHTML = `
+        <strong>${msg.authorName}</strong><br>
+        <span>${(msg.text || "").slice(0, 110)}</span>
+        <button id="cancel-reply" class="btn small">✕</button>
+    `;
+
+    inputArea.prepend(box);
+
+    // cancelar reply
+    document.getElementById("cancel-reply").onclick = () => {
+        window.chatReplyTarget = null;
+        box.remove();
+    };
+}
+
+// ======================================
+// MENÇÕES (@usuario)
+// ======================================
+let mentionPopup = null;
+let mentionUsers = [];
+let mentionActive = false;
+
+async function loadMentionUsers() {
+    if (!cloudOk || !db) return [];
+
+    const { collection, getDocs } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    const snap = await getDocs(collection(db, "users"));
+    const arr = [];
+
+    snap.forEach(d => {
+        const u = d.data();
+        arr.push({
+            uid: d.id,
+            name: u.name || u.email || "Usuário",
+            email: u.email || "",
+        });
+    });
+
+    mentionUsers = arr;
+    return arr;
+}
+
+function showMentionPopup(matches, x, y) {
+    if (mentionPopup) mentionPopup.remove();
+
+    mentionPopup = document.createElement("div");
+    mentionPopup.className = "mention-popup";
+    mentionPopup.style.left = x + "px";
+    mentionPopup.style.top = y + "px";
+
+    mentionPopup.innerHTML = matches
+        .map(u => `<div class="mention-item" data-uid="${u.uid}" data-name="${u.name}">@${u.name}</div>`)
+        .join("");
+
+    document.body.appendChild(mentionPopup);
+
+    mentionPopup.querySelectorAll(".mention-item").forEach(el => {
+        el.onclick = () => {
+            insertMention(el.dataset.name, el.dataset.uid);
+        };
+    });
+}
+
+function insertMention(name, uid) {
+    const input = document.getElementById("chat-input");
+    if (!input) return;
+
+    const cursorPos = input.selectionStart;
+    const text = input.value;
+
+    const before = text.substring(0, cursorPos);
+    const after = text.substring(cursorPos);
+
+    const lastAt = before.lastIndexOf("@");
+    if (lastAt === -1) return;
+
+    const newText = before.substring(0, lastAt) + `@${name} ` + after;
+
+    input.value = newText;
+    input.focus();
+
+    input.setSelectionRange(lastAt + name.length + 2, lastAt + name.length + 2);
+
+    window._pendingMentions = window._pendingMentions || [];
+    window._pendingMentions.push(uid);
+
+    if (mentionPopup) mentionPopup.remove();
+    mentionActive = false;
+}
 
 
+// ====================================================
+//  DMs — Chat privado 1:1
+// ====================================================
+// ====================================================
+//  DMs — Chat privado 1:1 (com avatar, online, lista, typing, edição)
+// ====================================================
+let currentDM = null;
+let currentDMOtherUid = null;
+let dmUnsubMessages = null;
+let dmUnsubMeta = null;
+let dmConvsUnsub = null;
+let dmTypingTimeout = null;
+
+// chatId determinístico
+function getDMChatId(uid1, uid2) {
+    return [uid1, uid2].sort().join("_");
+}
+
+// Atualiza meta do chat (última mensagem, horário, usuários)
+async function updateChatMeta(chatId, lastText) {
+    if (!cloudOk || !db || !currentUser || !currentDMOtherUid) return;
+
+    const { doc, setDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    const ref = doc(db, "privateChats", chatId);
+    await setDoc(ref, {
+        users: [currentUser.uid, currentDMOtherUid],
+        lastText: lastText.slice(0, 100),
+        lastAt: new Date().toISOString()
+    }, { merge: true });
+}
+
+// Typing em DM
+async function setDMTyping(isTyping) {
+    if (!currentDM || !cloudOk || !db || !currentUser) return;
+
+    try {
+        const { doc, setDoc, updateDoc } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+        const ref = doc(db, "privateChats", currentDM);
+
+        if (isTyping) {
+            await setDoc(ref, {
+                users: [currentUser.uid, currentDMOtherUid],
+                typingUid: currentUser.uid
+            }, { merge: true });
+
+            clearTimeout(dmTypingTimeout);
+            dmTypingTimeout = setTimeout(() => setDMTyping(false), 1500);
+        } else {
+            await updateDoc(ref, { typingUid: null });
+        }
+    } catch (e) {
+        console.warn("[DM] setDMTyping falhou:", e.message || e);
+    }
+}
+
+// Lista lateral de conversas
+async function initDMConversations() {
+    if (!cloudOk || !db || !currentUser) return;
+    if (dmConvsUnsub) return; // já inicializado
+
+    const listEl = document.getElementById("dm-conv-list");
+    if (!listEl) return;
+
+    const { collection, onSnapshot, query, where, orderBy } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    document.getElementById("dm-close").onclick = () => {
+        document.getElementById("dmModal").style.display = "none";
+
+        if (dmUnsubMessages) dmUnsubMessages();
+        if (dmUnsubMeta) dmUnsubMeta();
+    };
+
+
+    const q = query(
+        collection(db, "privateChats"),
+        where("users", "array-contains", currentUser.uid),
+        orderBy("lastAt", "desc")
+    );
+
+    dmConvsUnsub = onSnapshot(q, async (snap) => {
+        listEl.innerHTML = "";
+
+        const docs = [];
+        snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
+
+        if (!docs.length) {
+            listEl.innerHTML = `<div class="dm-conv-item"><span class="dm-conv-last">Nenhuma conversa ainda.</span></div>`;
+            return;
+        }
+
+        for (const chat of docs) {
+            const otherUid = (chat.users || []).find(u => u !== currentUser.uid);
+            if (!otherUid) continue;
+
+            let otherName = "Usuário";
+            try {
+                const { doc, getDoc } = await import(
+                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+                );
+                const uSnap = await getDoc(doc(db, "users", otherUid));
+                if (uSnap.exists()) {
+                    const u = uSnap.data();
+                    otherName = u.name || u.email || otherName;
+                }
+            } catch { }
+
+            const item = document.createElement("div");
+            item.className = "dm-conv-item";
+            if (currentDM === chat.id) item.classList.add("active");
+
+            const lastText = chat.lastText || "";
+            const when = chat.lastAt
+                ? new Date(chat.lastAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "";
+
+            item.innerHTML = `
+                <div class="dm-conv-name">${otherName}</div>
+                <div class="dm-conv-last">${lastText || "Nova conversa"}</div>
+                <div class="dm-conv-time">${when}</div>
+            `;
+
+            item.onclick = () => openDM(otherUid);
+            listEl.appendChild(item);
+        }
+    });
+}
+
+// Abrir DM
+async function openDM(otherUid) {
+    if (!currentUser || !cloudOk || !db) return;
+
+    const chatId = getDMChatId(currentUser.uid, otherUid);
+    currentDM = chatId;
+    currentDMOtherUid = otherUid;
+
+    console.log("[DM] Abrindo DM com:", otherUid, "chatId:", chatId);
+
+    // limpa listeners antigos
+    if (dmUnsubMessages) dmUnsubMessages();
+    if (dmUnsubMeta) dmUnsubMeta();
+
+    // mostra view de DM
+    document.getElementById("dmModal").style.display = "block";
+    const view = document.querySelector("#view-dm");
+    if (view) view.classList.remove("hidden");
+
+    initDMConversations(); // garante sidebar
+
+    const titleEl = document.getElementById("dm-title");
+    const statusEl = document.getElementById("dm-status");
+    const typingEl = document.getElementById("dm-typing");
+    const avatarEl = document.getElementById("dm-avatar");
+    const avatarStatusEl = document.getElementById("dm-avatar-status");
+    const dmBox = document.getElementById("dm-box");
+
+    if (dmBox) dmBox.innerHTML = "Carregando mensagens...";
+    if (typingEl) typingEl.textContent = "";
+    if (statusEl) statusEl.textContent = "Carregando...";
+    if (avatarStatusEl) avatarStatusEl.classList.remove("online", "offline");
+
+    const {
+        doc,
+        getDoc,
+        collection,
+        onSnapshot
+    } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    // nome / avatar básico
+    try {
+        const uSnap = await getDoc(doc(db, "users", otherUid));
+        const u = uSnap.data() || {};
+        if (titleEl) titleEl.textContent = u.name || u.email || "Usuário";
+
+        // tentar avatar (usa presence depois)
+        if (avatarEl) {
+            avatarEl.src =
+                (u.photoURL) ||
+                getGravatar?.(u.email, u.name) ||
+                getFallbackAvatar?.(u.name || "U") ||
+                "";
+        }
+    } catch {
+        if (titleEl) titleEl.textContent = "Chat";
+    }
+
+    // presence do outro usuário pro online/offline + avatar
+    try {
+        const { onSnapshot: onSnapPresence, collection: collPres } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        onSnapPresence(collPres(db, "presence"), (snap) => {
+            snap.forEach(d => {
+                if (d.id !== otherUid) return;
+                const data = d.data() || {};
+                const online = !!data.online && (Date.now() - data.lastSeen) < 20000;
+
+                if (statusEl) statusEl.textContent = online ? "Online" : "Offline";
+                if (avatarStatusEl) {
+                    avatarStatusEl.classList.remove("online", "offline");
+                    avatarStatusEl.classList.add(online ? "online" : "offline");
+                }
+
+                if (avatarEl) {
+                    const avatarURL =
+                        data.photoURL ||
+                        getGravatar?.(data.email, data.name) ||
+                        getFallbackAvatar?.(data.name || "U") ||
+                        avatarEl.src;
+                    avatarEl.src = avatarURL;
+                }
+            });
+        });
+    } catch (e) {
+        console.warn("[DM] Presence falhou:", e.message || e);
+    }
+
+    // listener de mensagens
+    const messagesRef = collection(db, "privateChats", chatId, "messages");
+    dmUnsubMessages = onSnapshot(messagesRef, (snap) => {
+        if (!dmBox) return;
+        dmBox.innerHTML = "";
+
+        snap.forEach((d) => {
+            const msg = d.data();
+            const id = d.id;
+            const div = document.createElement("div");
+
+            const mine = msg.author === currentUser.uid;
+            div.className = "dm-msg " + (mine ? "dm-me" : "dm-other");
+
+            const when = msg.createdAt
+                ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "";
+
+            let contentHtml = "";
+            if (msg.deleted) {
+                contentHtml = `<span class="dm-msg-deleted">Mensagem apagada</span>`;
+            } else {
+                contentHtml = msg.text || "";
+                if (msg.edited) {
+                    contentHtml += ` <small>(editada)</small>`;
+                }
+            }
+
+            div.innerHTML = `
+                <div>${contentHtml}</div>
+                <small style="opacity:.6">${when}</small>
+            `;
+
+            // ações de editar/apagar (apenas minhas e não deletadas)
+            if (mine && !msg.deleted) {
+                const actions = document.createElement("div");
+                actions.className = "dm-msg-actions";
+                actions.innerHTML = `
+                    <button class="dm-edit">editar</button>
+                    <button class="dm-del">apagar</button>
+                `;
+                const editBtn = actions.querySelector(".dm-edit");
+                const delBtn = actions.querySelector(".dm-del");
+
+                editBtn.onclick = () => editDMMessage(chatId, id, msg.text || "");
+                delBtn.onclick = () => deleteDMMessage(chatId, id);
+
+                div.appendChild(actions);
+            }
+
+            dmBox.appendChild(div);
+        });
+
+        dmBox.scrollTop = dmBox.scrollHeight;
+    });
+
+    // meta do chat (typing)
+    const metaRef = doc(db, "privateChats", chatId);
+    dmUnsubMeta = onSnapshot(metaRef, (snap) => {
+        const data = snap.data() || {};
+        if (!typingEl) return;
+
+        if (data.typingUid && data.typingUid !== currentUser.uid) {
+            typingEl.textContent = "digitando...";
+        } else {
+            typingEl.textContent = "";
+        }
+    });
+}
+
+// Enviar DM
+async function sendDM() {
+    if (!currentDM || !currentUser || !cloudOk || !db) return;
+
+    const input = document.getElementById("dm-input");
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = "";
+
+    const { collection, addDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    await addDoc(collection(db, "privateChats", currentDM, "messages"), {
+        text,
+        author: currentUser.uid,
+        createdAt: new Date().toISOString()
+    });
+
+    await updateChatMeta(currentDM, text);
+    await setDMTyping(false);
+}
+
+// Editar mensagem
+async function editDMMessage(chatId, msgId, oldText) {
+    const novo = prompt("Editar mensagem:", oldText);
+    if (novo === null) return; // cancel
+    const t = novo.trim();
+    if (!t || t === oldText) return;
+
+    const { doc, updateDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    await updateDoc(doc(db, "privateChats", chatId, "messages", msgId), {
+        text: t,
+        edited: true
+    });
+}
+
+// Apagar mensagem
+async function deleteDMMessage(chatId, msgId) {
+    if (!confirm("Apagar esta mensagem?")) return;
+
+    const { doc, updateDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    await updateDoc(doc(db, "privateChats", chatId, "messages", msgId), {
+        text: "Mensagem apagada",
+        deleted: true,
+        edited: false
+    });
+}
+
+// Bind de botões e eventos de input
+(function initDMUI() {
+    const sendBtn = document.getElementById("dm-send");
+    const input = document.getElementById("dm-input");
+    const backBtn = document.getElementById("dm-back");
+
+    if (sendBtn) {
+        sendBtn.onclick = () => sendDM();
+    }
+
+    if (input) {
+        input.addEventListener("keydown", (ev) => {
+            if (ev.key === "Enter" && !ev.shiftKey) {
+                ev.preventDefault();
+                sendDM();
+            }
+        });
+
+        input.addEventListener("input", () => {
+            setDMTyping(true);
+        });
+    }
+
+    if (backBtn) {
+        backBtn.onclick = () => {
+            location.hash = "#/";
+        };
+    }
+})();
+
+
+document.getElementById("dm-input").addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" && !ev.shiftKey) {
+        ev.preventDefault();
+        sendDM();
+    }
+});
+
+document.getElementById("dm-back").onclick = () => {
+    location.hash = "#/"; // ou voltar pro chat global
+};
