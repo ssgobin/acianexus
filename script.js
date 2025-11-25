@@ -6442,7 +6442,7 @@ function makeCardPayload(type, card, extra) {
     function shouldShow(period) {
         const h = new Date().getHours();
         if (period === "11h") return h >= 11 && h < 12;
-        if (period === "17h") return h >= 17 && h < 18;
+        if (period === "17h") return h >= 16 && h < 18;
         return false;
     }
 
@@ -6658,4 +6658,5 @@ function startSnow() {
 
 
 startSnow();
+
 
