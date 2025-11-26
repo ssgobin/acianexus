@@ -999,26 +999,23 @@ input[type="checkbox"]:focus {
 
 /* ===== THEME: LIGHT (claro/azulado) ===== */
 html.light {
-    --bg: #f3f7ff;
-    /* fundo da página */
-    --surface: #e9f1ff;
-    /* superfícies secundárias */
-    --card: #ffffff;
-    /* cartões/caixas */
-    --text: #0b1220;
-    /* texto principal */
-    --text-muted: #3b4966;
-    /* texto secundário */
-    --border: #cfe0ff;
-    /* bordas leves */
-    --primary: #1d72c6;
-    /* azul principal */
-    --primary-600: #165da1;
-    --primary-700: #124f88;
-    --accent: #3a7bd5;
-    --ring: #c9daf8;
-    --shadow-lg: 0 12px 30px rgba(2, 6, 23, .08);
+    --bg: #f8fafc;
+    --bg2: #ffffff;
+    --text: #111827;
+    --text-muted: #6b7280;
+
+    --card-bg: #ffffff;
+    --border-color: #e5e7eb;
+    --input-bg: #ffffff;
+    --input-border: #d1d5db;
+
+    --button-bg: #2563eb;
+    --button-text: #ffffff;
+
+    --button-secondary-bg: #e5e7eb;
+    --button-secondary-text: #111827;
 }
+
 
 /* Transição suave para temas */
 html,
@@ -4289,4 +4286,82 @@ html.light .gamif-toast {
 
 .switch input:checked + .slider:before {
   transform: translateX(20px);
+}
+
+html.light .dailyReportP {
+    background-color: #ffffff;
+    color: #081226;
+}
+
+html.light .modal-foot{
+    background-color: #ffffff;
+}
+
+html.light .daily-row .field {
+    background-color: #ffffff;
+}
+
+/* ============================
+   RELATÓRIO DIÁRIO – MODO CLARO
+============================ */
+
+html.light #dailyModal .modal-container {
+    background: var(--card-bg);
+    color: var(--text);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+}
+
+html.light #dailyModal .modal-head {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border-color);
+}
+
+html.light #dailyModal .modal-head strong {
+    color: var(--text);
+}
+
+html.light #dailyModal .modal-head button {
+    background: var(--button-secondary-bg) !important;
+    color: var(--button-secondary-text) !important;
+}
+
+html.light #dailyModal p.muted {
+    color: var(--text-muted);
+}
+
+html.light #dailyModal .daily-row {
+    background: var(--bg2);
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color);
+}
+
+html.light #dailyModal .daily-row input,
+html.light #dailyModal .daily-row textarea {
+    background: var(--input-bg);
+    color: var(--text);
+    border: 1px solid var(--input-border);
+}
+
+html.light #dailyModal #addMore {
+    background: var(--button-secondary-bg);
+    color: var(--button-secondary-text);
+    border: 1px solid var(--border-color);
+}
+
+html.light #dailyModal #saveDaily {
+    background: var(--button-bg);
+    color: var(--button-text);
+}
+
+/* botão excluir */
+html.light #dailyModal .remove-row {
+    background: #fee2e2 !important;
+    color: #b91c1c !important;
+    border: 1px solid #fecaca !important;
+}
+
+html.light #dailyModal textarea {
+    resize: vertical;
 }
