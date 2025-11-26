@@ -15,7 +15,8 @@
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
   <link rel="icon" type="image/png" href="img\WhatsApp Image 2025-10-10 at 15.39.08.jpeg" />
-
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap"
+    rel="stylesheet">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
@@ -1270,28 +1271,70 @@
   <div id="gamification-toast" class="gamif-toast"></div>
 
   <div id="settingsModal" class="modal settings-modal" style="--w:420px;display:none">
-  <div class="settings-container">
+    <div class="settings-container">
 
-    <div class="settings-header">
-      <h3>⚙️ Configurações</h3>
-      <button id="settingsClose" class="settings-close-btn">✕</button>
-    </div>
-
-    <div class="settings-body">
-
-      <div class="settings-item">
-        <div class="settings-info">
-          <strong>Neve no site</strong>
-          <span class="muted">Ative ou desative o efeito de neve na interface</span>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="toggleSnow">
-          <span class="slider"></span>
-        </label>
+      <div class="settings-header">
+        <h3>⚙️ Configurações</h3>
+        <button id="settingsClose" class="settings-close-btn">✕</button>
       </div>
 
-      <!-- FUTURAS CONFIGURAÇÕES AQUI ⬇ -->
-      <!--
+      <div class="settings-body">
+
+        <div class="settings-item">
+          <div class="settings-info">
+            <strong>Neve no site</strong>
+            <span class="muted">Ative ou desative o efeito de neve na interface</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleSnow">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- ===========================
+      SEÇÃO DE ACESSIBILIDADE
+=========================== -->
+        <div class="settings-divider">Acessibilidade</div>
+
+        <div class="settings-divider">Acessibilidade</div>
+
+        <div class="settings-item">
+          <div class="settings-info">
+            <strong>Modo Alto Contraste</strong>
+            <span class="muted">Aumenta o contraste da interface para facilitar leitura</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleHighContrast">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-info">
+            <strong>Reduzir Animações</strong>
+            <span class="muted">Remove transições e efeitos para evitar desconforto visual</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleReduceMotion">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="settings-item">
+          <div class="settings-info">
+            <strong>Fonte para Dislexia</strong>
+            <span class="muted">Ativa uma fonte mais amigável para leitura</span>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="toggleDyslexiaFont">
+            <span class="slider"></span>
+          </label>
+        </div>
+
+
+
+        <!-- FUTURAS CONFIGURAÇÕES AQUI ⬇ -->
+        <!--
       <div class="settings-item">
         <div class="settings-info">
           <strong>Tema</strong>
@@ -1304,10 +1347,10 @@
       </div>
       -->
 
-    </div>
+      </div>
 
+    </div>
   </div>
-</div>
 
 
 </body>

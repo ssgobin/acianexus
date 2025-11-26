@@ -6744,53 +6744,120 @@ function makeCardPayload(type, card, extra) {
 
 
 (function initSettings() {
-    const modal = document.getElementById("settingsModal");
-    const btnOpen = document.getElementById("openSettings");
-    const btnClose = document.getElementById("settingsClose");
-    const toggleSnow = document.getElementById("toggleSnow");
+    const modal      = document.getElementById("settingsModal");
+    const btnOpen    = document.getElementById("openSettings");
+    const btnClose   = document.getElementById("settingsClose");
 
-    if (!modal || !btnOpen || !btnClose || !toggleSnow) {
-        console.warn("Settings: elementos não encontrados.");
+    const toggleSnow          = document.getElementById("toggleSnow");
+    const toggleHighContrast  = document.getElementById("toggleHighContrast");
+    const toggleReduceMotion  = document.getElementById("toggleReduceMotion");
+    const toggleDyslexiaFont  = document.getElementById("toggleDyslexiaFont");
+
+    // ============================
+    // VALIDAÇÃO DE ELEMENTOS
+    // ============================
+
+    if (!modal || !btnOpen || !btnClose) {
+        console.warn("Settings: modal ou botões principais não encontrados.");
         return;
     }
 
+    if (!toggleSnow)           console.warn("Settings: toggleSnow não encontrado.");
+    if (!toggleHighContrast)   console.warn("Settings: toggleHighContrast não encontrado.");
+    if (!toggleReduceMotion)   console.warn("Settings: toggleReduceMotion não encontrado.");
+    if (!toggleDyslexiaFont)   console.warn("Settings: toggleDyslexiaFont não encontrado.");
+
     // ============================
-    // FUNÇÕES DE CONTROLE DA NEVE
+    // FUNÇÕES DE ACESSIBILIDADE
     // ============================
 
-    function stopSnow() {
-        // Para o intervalo da neve
-        if (window._snowInterval) {
-            clearInterval(window._snowInterval);
-            window._snowInterval = null;
-        }
-
-        // Remove todos os flocos existentes na tela
-        document.querySelectorAll(".snowflake").forEach(flake => flake.remove());
+    function applyHighContrast(enable) {
+        document.documentElement.classList.toggle("high-contrast", enable);
     }
 
-    function applySnow(enable) {
-        if (enable) {
-            // ligar neve
-            startSnow();
-        } else {
-            // desligar neve
-            stopSnow();
-        }
+    function applyReduceMotion(enable) {
+        document.documentElement.classList.toggle("reduce-motion", enable);
+    }
+
+    function applyDyslexiaFont(enable) {
+        document.documentElement.classList.toggle("dyslexia-font", enable);
     }
 
     // ============================
     // CARREGAR ESTADO SALVO
     // ============================
 
-    const savedSnow = localStorage.getItem("ui:snow") === "on";
-    toggleSnow.checked = savedSnow;
+    const savedContrast = localStorage.getItem("ui:contrast") === "on";
+    const savedMotion   = localStorage.getItem("ui:motion") === "off";
+    const savedDyslexia = localStorage.getItem("ui:dyslexia") === "on";
 
-    // Aplica imediatamente ao carregar
+    if (toggleHighContrast) toggleHighContrast.checked = savedContrast;
+    if (toggleReduceMotion) toggleReduceMotion.checked = savedMotion;
+    if (toggleDyslexiaFont) toggleDyslexiaFont.checked = savedDyslexia;
+
+    applyHighContrast(savedContrast);
+    applyReduceMotion(savedMotion);
+    applyDyslexiaFont(savedDyslexia);
+
+    // ============================
+    // FUNÇÕES DE NEVE
+    // ============================
+
+    function stopSnow() {
+        if (window._snowInterval) {
+            clearInterval(window._snowInterval);
+            window._snowInterval = null;
+        }
+        document.querySelectorAll(".snowflake").forEach(f => f.remove());
+    }
+
+    function applySnow(enable) {
+        if (enable) startSnow();
+        else        stopSnow();
+    }
+
+    const savedSnow = localStorage.getItem("ui:snow") === "on";
+    if (toggleSnow) toggleSnow.checked = savedSnow;
     applySnow(savedSnow);
 
     // ============================
-    // ABRIR MODAL
+    // EVENTOS DOS TOGGLES
+    // ============================
+
+    if (toggleSnow) {
+        toggleSnow.addEventListener("change", () => {
+            const enabled = toggleSnow.checked;
+            localStorage.setItem("ui:snow", enabled ? "on" : "off");
+            applySnow(enabled);
+        });
+    }
+
+    if (toggleHighContrast) {
+        toggleHighContrast.addEventListener("change", () => {
+            const enable = toggleHighContrast.checked;
+            localStorage.setItem("ui:contrast", enable ? "on" : "off");
+            applyHighContrast(enable);
+        });
+    }
+
+    if (toggleReduceMotion) {
+        toggleReduceMotion.addEventListener("change", () => {
+            const enable = toggleReduceMotion.checked;
+            localStorage.setItem("ui:motion", enable ? "off" : "on");
+            applyReduceMotion(enable);
+        });
+    }
+
+    if (toggleDyslexiaFont) {
+        toggleDyslexiaFont.addEventListener("change", () => {
+            const enable = toggleDyslexiaFont.checked;
+            localStorage.setItem("ui:dyslexia", enable ? "on" : "off");
+            applyDyslexiaFont(enable);
+        });
+    }
+
+    // ============================
+    // ABRIR E FECHAR MODAL
     // ============================
 
     btnOpen.addEventListener("click", () => {
@@ -6798,25 +6865,12 @@ function makeCardPayload(type, card, extra) {
         document.getElementById("authMenu")?.classList.add("hidden");
     });
 
-    // ============================
-    // FECHAR MODAL
-    // ============================
-
     btnClose.addEventListener("click", () => {
         modal.style.display = "none";
     });
 
-    // ============================
-    // QUANDO ALTERA O TOGGLE
-    // ============================
-
-    toggleSnow.addEventListener("change", () => {
-        const enabled = toggleSnow.checked;
-        localStorage.setItem("ui:snow", enabled ? "on" : "off");
-        applySnow(enabled);
-    });
-
 })();
+
 
 
 
