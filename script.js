@@ -1137,15 +1137,37 @@ listenAdminForceReload();
    LocalDB Fallback
 ============================ */
 const LocalDB = {
-    load() { try { return JSON.parse(localStorage.getItem('acia-kanban-v2') || '{"cards":[]}'); } catch { return { cards: [] } } },
-    save(data) { localStorage.setItem('acia-kanban-v2', JSON.stringify(data)); },
-    list() { return this.load().cards; },
+    load() {
+        try {
+            return JSON.parse(localStorage.getItem("acia-kanban-v2") || '{"cards":[]}');
+        } catch {
+            return { cards: [] };
+        }
+    },
+
+    save(data) {
+        localStorage.setItem("acia-kanban-v2", JSON.stringify(data));
+    },
+
+    list() {
+        return this.load().cards;
+    },
+
     upsert(card) {
         const all = this.load();
         const i = all.cards.findIndex(c => String(c.id) === String(card.id));
-        if (i >= 0) all.cards[i] = { ...all.cards[i], ...card }; else all.cards.push(card);
+
+        if (i >= 0) {
+            // atualiza mantendo o que já tinha e sobrescrevendo com o novo
+            all.cards[i] = { ...all.cards[i], ...card };
+        } else {
+            // novo card
+            all.cards.push(card);
+        }
+
         this.save(all);
     },
+
     remove(id) {
         const all = this.load();
         const i = all.cards.findIndex(c => String(c.id) === String(id));
@@ -1154,8 +1176,8 @@ const LocalDB = {
             this.save(all);
         }
     }
-
 };
+
 
 // ==============================
 // CHAT GLOBAL – DEBUG MODE 😈
@@ -6020,192 +6042,7 @@ window.addEventListener('hashchange', renderRoute);
      Sexta : 11:30 e 16:30   → períodos [08:00–11:30] e [13:00–16:30]
 ========================================================= */
 
-// ---- Persistência DRP (Firestore + Local) ----
-const DRP = {
-    // chave única por usuário+data+período, evita repetir popup
-    keyFor(uid, ymd, label) { return `drp-${uid || 'anon'}-${ymd}-${label}`; },
 
-    async save({ uid, userName, date, start, end, items }) {
-        const rec = {
-            uid: uid || 'anon',
-            userName: userName || '—',
-            date,        // "YYYY-MM-DD"
-            start, end,  // "HH:MM"
-            items: items.map(t => ({ ...t, createdAt: new Date().toISOString() })),
-            createdAt: new Date().toISOString()
-        };
-        if (cloudOk) {
-            const { addDoc, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-            await addDoc(collection(db, 'daily_reports'), rec);
-        } else {
-            // guarda junto do LocalDB
-            const all = LocalDB.load();
-            all.daily_reports = all.daily_reports || [];
-            all.daily_reports.push(rec);
-            LocalDB.save(all);
-        }
-    }
-};
-
-// ---- UI / Lógica do modal ----
-(function setupDailyReport() {
-    const modal = document.getElementById('dailyReportModal');
-    const inStart = document.getElementById('drp-start');
-    const inEnd = document.getElementById('drp-end');
-    const inTitle = document.getElementById('drp-title-input');
-    const inNotes = document.getElementById('drp-notes');
-    const btnAdd = document.getElementById('drp-add');
-    const btnSave = document.getElementById('drp-save');
-    const msg = document.getElementById('drp-msg');
-
-    if (!modal) return;
-
-    let buffer = [];      // tarefas adicionadas no período atual
-    let guardKey = null;  // chave para marcar como entregue
-    let currentMeta = null; // {date, label, start, end}
-
-    function ymd(d = new Date()) {
-        const z = n => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
-    }
-
-    function openDRP({ start, end, label }) {
-
-        // 🔒 EVITA RESETAR SE O MODAL JÁ ESTIVER ABERTO
-        if (modal.classList.contains('show')) {
-            console.warn('DRP já está aberto — ignorando nova abertura.');
-            return;
-        }
-
-        // zera estado
-        buffer = [];
-        currentMeta = { date: ymd(), start, end, label };
-        guardKey = DRP.keyFor(currentUser?.uid || 'anon', currentMeta.date, label);
-
-        // preenche campos
-        inStart.value = start; inEnd.value = end;
-        inTitle.value = ''; inNotes.value = '';
-        btnSave.disabled = true;
-        msg.className = 'msg'; msg.textContent = '';
-
-        modal.classList.add('show');
-        modal.style.display = 'grid';
-        document.body.style.overflow = 'hidden';
-    }
-
-
-    function closeDRP() {
-        modal.classList.remove('show');
-        modal.style.display = 'none';
-        document.body.style.overflow = '';
-    }
-
-    function renderState() {
-        // habilita concluir apenas se existir pelo menos 1 tarefa no buffer
-        btnSave.disabled = buffer.length === 0;
-        if (buffer.length) {
-            msg.className = 'msg ok show';
-            msg.textContent = `${buffer.length} tarefa(s) adicionada(s).`;
-        } else {
-            msg.className = 'msg err show';
-            msg.textContent = 'Adicione pelo menos 1 tarefa antes de concluir.';
-        }
-    }
-
-    btnAdd?.addEventListener('click', () => {
-        const title = (inTitle.value || '').trim();
-        const notes = (inNotes.value || '').trim();
-        if (!title && !notes) {
-            msg.className = 'msg err show';
-            msg.textContent = 'Informe um título ou uma descrição.';
-            return;
-        }
-        buffer.push({ title, notes });
-        inTitle.value = ''; inNotes.value = '';
-        renderState();
-    });
-
-    btnSave?.addEventListener('click', async () => {
-        if (buffer.length === 0) { renderState(); return; }
-        try {
-            await DRP.save({
-                uid: currentUser?.uid || 'anon',
-                userName: currentUser?.displayName || currentUser?.email || '—',
-                date: currentMeta.date,
-                start: currentMeta.start,
-                end: currentMeta.end,
-                items: buffer
-            });
-            // marca como entregue para esse período
-            try { localStorage.setItem(guardKey, 'ok'); } catch { }
-            closeDRP();
-        } catch (e) {
-            msg.className = 'msg err show';
-            msg.textContent = 'Falha ao salvar. Tente novamente.';
-            console.error('DRP save error:', e);
-        }
-    });
-
-    // impede fechar com ESC ou clique fora
-    window.addEventListener('keydown', (ev) => {
-        if (modal.style.display !== 'none' && ev.key === 'Escape') ev.preventDefault();
-    });
-    document.addEventListener('click', (ev) => {
-        if (modal.style.display === 'none') return;
-        if (!modal.contains(ev.target)) ev.stopPropagation();
-    });
-
-    // Agenda de disparos
-    function nextTriggersFor(date = new Date()) {
-        const dow = date.getDay();        // 0=Dom, 1=Seg, ..., 5=Sex
-        const mk = (h, m) => { const d = new Date(date); d.setHours(h, m, 0, 0); return d; };
-
-        if (dow >= 1 && dow <= 4) {       // seg—qui
-            return [
-                { at: mk(11, 30), label: 'manha', start: '08:00', end: '11:30' },
-                { at: mk(17, 30), label: 'tarde', start: '13:00', end: '17:30' },
-            ];
-        }
-        if (dow === 5) {                   // sexta
-            return [
-                { at: mk(11, 30), label: 'manha', start: '08:00', end: '11:30' },
-                { at: mk(16, 30), label: 'tarde', start: '13:00', end: '16:30' },
-            ];
-        }
-        return [];                         // sáb/dom: nada
-    }
-
-    function tick() {
-        const now = new Date();
-        const triggers = nextTriggersFor(now);
-        const uid = currentUser?.uid || 'anon';
-        const today = ymd(now);
-
-        for (const t of triggers) {
-            const diff = Math.abs(now.getTime() - t.at.getTime());
-            // janela de 60s para abrir (para não depender do milissegundo exato)
-            if (diff <= 60 * 1000) {
-                const key = DRP.keyFor(uid, today, t.label);
-                const done = (localStorage.getItem(key) === 'ok');
-                if (!done) {
-                    openDRP({ start: t.start, end: t.end, label: t.label });
-                    break;
-                }
-            }
-        }
-    }
-
-    // roda ao entrar/logar e depois a cada 20s
-    function arm() {
-        try { clearInterval(arm._t); } catch { }
-        tick();
-        arm._t = setInterval(tick, 20 * 1000);
-    }
-
-    // (re)arma sempre que o auth mudar
-    document.addEventListener('auth:changed', arm);
-    arm();
-})();
 
 // === IA: Gerar Checklist com Groq ===
 $('#c-ai')?.addEventListener('click', async () => {
@@ -6709,12 +6546,21 @@ function getActor() {
 
 function buildCardAudience(card, excludeUid) {
     const items = [];
-    if (card && Array.isArray(card.members)) items.push(...card.members);
-    if (card && card.respUid) items.push(card.respUid);
+
+    if (card && Array.isArray(card.members)) {
+        items.push(...card.members); // espalha o array de membros
+    }
+
+    if (card && card.respUid) {
+        items.push(card.respUid);
+    }
+
     const set = new Set(items.filter(Boolean));
     if (excludeUid) set.delete(excludeUid);
+
     return Array.from(set);
 }
+
 
 function makeCardPayload(type, card, extra) {
     const actor = getActor();
@@ -6733,158 +6579,245 @@ function makeCardPayload(type, card, extra) {
 // ===============================
 // POPUP DIÁRIO (11h e 17h) — persistente + visual melhorado
 // ===============================
-(function initDailyPopup() {
+// POPUP DIÁRIO
+/* ============================================================
+   DAILY MANUAL – abre pelo menu, carrega o dia e permite excluir
+============================================================ */
+(function initDailyManual() {
     const modal = document.getElementById("dailyModal");
     const body = document.getElementById("dailyBody");
     const btnAdd = document.getElementById("addMore");
     const btnSave = document.getElementById("saveDaily");
+    const btnClose = document.getElementById("dailyClose");
 
-    let isOpen = false; // 🔒 Proteção contra reabertura
+    if (!modal || !body || !btnAdd || !btnSave) return;
 
-    // === Helpers ===
+    let currentDocId = null; // ⭐ IMPORTANTE
+
     function todayKey() {
         return new Date().toISOString().slice(0, 10);
     }
-    function getKey(period) {
-        return `dailySent:${todayKey()}:${period}`;
-    }
 
-    // === NÃO resetar mais automaticamente ===
-    // Evita apagar envios do dia atual.
-    function resetDailyKeysOncePerDay() {
-        const today = todayKey();
-
-        Object.keys(localStorage)
-            .filter(k => k.startsWith("dailySent:"))
-            .forEach(k => {
-                const parts = k.split(":");
-                const keyDate = parts[1];
-                if (keyDate !== today) {
-                    localStorage.removeItem(k);
-                }
-            });
-    }
-
-    // Rodar só no load
-    window.addEventListener("load", resetDailyKeysOncePerDay);
-
-    // === UI ===
-    function addIntervalRow() {
+    function createRow(start = "", end = "", desc = "") {
         const wrap = document.createElement("div");
         wrap.className = "daily-row";
         wrap.innerHTML = `
-      <div class="row">
-        <div class="field">
-          <label>Início</label>
-          <input type="time" class="start" />
-        </div>
-        <div class="field">
-          <label>Fim</label>
-          <input type="time" class="end" />
-        </div>
-      </div>
-      <div class="field">
-        <label>O que fez nesse intervalo?</label>
-        <textarea class="desc" placeholder="Descreva o que foi feito"></textarea>
-      </div>
-    `;
+            <div class="row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+                <div class="field" style="flex:1">
+                    <label>Início</label>
+                    <input type="time" class="start" value="${start}">
+                </div>
+                <div class="field" style="flex:1">
+                    <label>Fim</label>
+                    <input type="time" class="end" value="${end}">
+                </div>
+                <button type="button" class="btn secondary remove-row">Excluir</button>
+            </div>
+            <div class="field">
+                <label>O que fez nesse intervalo?</label>
+                <textarea class="desc">${desc}</textarea>
+            </div>
+        `;
+
+        wrap.querySelector(".remove-row").addEventListener("click", () => {
+            wrap.remove();
+            if (!body.querySelector(".daily-row")) createRow();
+        });
+
         body.insertBefore(wrap, btnAdd);
     }
 
-    btnAdd.addEventListener("click", addIntervalRow);
+    async function loadDaily(period = "manual") {
+        const today = todayKey();
+        currentDocId = null;
 
-    // === Salvar ===
-    async function saveToFirebase(filled, period) {
-        try {
-            if (!cloudOk || !currentUser?.uid || !db) {
-                const prev = JSON.parse(localStorage.getItem("dailyReports") || "[]");
-                prev.push({ date: todayKey(), period, entries: filled });
-                localStorage.setItem("dailyReports", JSON.stringify(prev));
-                return;
+        if (cloudOk && currentUser?.uid && db) {
+            try {
+                const { collection, getDocs, query, where } =
+                    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+                const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+                const q = query(colRef,
+                    where("date", "==", today),
+                    where("period", "==", period)
+                );
+
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    const docSnap = snap.docs[0];
+                    currentDocId = docSnap.id; // ⭐ AQUI!
+                    return docSnap.data().entries || [];
+                }
+            } catch (e) {
+                console.warn("loadDaily Firebase:", e);
             }
-
-            const { collection, addDoc } =
-                await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-            const colRef = collection(db, "users", currentUser.uid, "dailyReports");
-            await addDoc(colRef, {
-                date: todayKey(),
-                createdAt: new Date().toISOString(),
-                period,
-                entries: filled
-            });
-
-        } catch (e) {
-            console.warn("Erro ao salvar relatório diário:", e);
         }
+
+        // localStorage
+        const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+        const found = list.find(r => r.date === today && r.period === period);
+        return found ? found.entries : [];
     }
 
-    function openPopup(period) {
-        if (isOpen) return; // 🔒 Se já está aberto, não abre de novo
-        isOpen = true;
+    async function openDaily() {
+        body.querySelectorAll(".daily-row").forEach(r => r.remove());
 
-        body.querySelectorAll(".daily-row").forEach(c => c.remove());
-        addIntervalRow();
+        const entries = await loadDaily("manual");
 
-        modal.dataset.period = period;
-        modal.classList.add("show");
+        if (entries.length) {
+            entries.forEach(e => createRow(e.start, e.end, e.desc));
+        } else {
+            createRow();
+        }
+
+        modal.dataset.period = "manual";
+        modal.style.display = "flex";
     }
 
-    btnSave.addEventListener("click", async () => {
-        const rows = Array.from(body.querySelectorAll(".daily-row"));
-        const filled = rows.map(r => ({
+    async function saveDaily() {
+        const rows = [...body.querySelectorAll(".daily-row")];
+        const period = modal.dataset.period || "manual";
+        const today = todayKey();
+
+        const entries = rows.map(r => ({
             start: r.querySelector(".start").value.trim(),
             end: r.querySelector(".end").value.trim(),
             desc: r.querySelector(".desc").value.trim()
-        })).filter(r => r.start && r.end && r.desc);
+        })).filter(e => e.start && e.end && e.desc);
 
-        if (!filled.length) {
-            alert("⚠️ Você precisa preencher pelo menos um intervalo antes de fechar.");
+        if (!entries.length) {
+            alert("Preencha pelo menos um intervalo.");
             return;
         }
 
-        const period = modal.dataset.period || "geral";
-        await saveToFirebase(filled, period);
+        // FIREBASE
+        if (cloudOk && currentUser?.uid && db) {
+            try {
+                const { collection, addDoc, updateDoc, doc } =
+                    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-        localStorage.setItem(getKey(period), "true");
+                if (currentDocId) {
+                    // ⭐ UPDATE — NÃO DUPLICA MAIS
+                    const ref = doc(db, "users", currentUser.uid, "dailyReports", currentDocId);
+                    await updateDoc(ref, { entries });
+                } else {
+                    // PRIMEIRA VEZ → ADD
+                    const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+                    const newRef = await addDoc(colRef, {
+                        date: today,
+                        period,
+                        entries,
+                        createdAt: new Date().toISOString()
+                    });
+                    currentDocId = newRef.id;
+                }
+            } catch (e) {
+                console.warn("saveDaily Firebase:", e);
+            }
+        }
 
-        modal.classList.remove("show");
-        isOpen = false; // libera o modal para o dia seguinte
+        // LOCAL STORAGE
+        const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+        const idx = list.findIndex(r => r.date === today && r.period === period);
+
+        if (idx >= 0) {
+            list[idx].entries = entries;
+        } else {
+            list.push({ date: today, period, entries });
+        }
+
+        localStorage.setItem("dailyReports", JSON.stringify(list));
+
+        alert("Relatório salvo!");
+        modal.style.display = "none";
+    }
+
+    // EVENTS
+    btnAdd.addEventListener("click", () => createRow());
+    btnSave.addEventListener("click", saveDaily);
+    btnClose.addEventListener("click", () => modal.style.display = "none");
+
+    document.getElementById("openDailyReport")
+        ?.addEventListener("click", openDaily);
+})();
+
+
+
+(function initSettings() {
+    const modal = document.getElementById("settingsModal");
+    const btnOpen = document.getElementById("openSettings");
+    const btnClose = document.getElementById("settingsClose");
+    const toggleSnow = document.getElementById("toggleSnow");
+
+    if (!modal || !btnOpen || !btnClose || !toggleSnow) {
+        console.warn("Settings: elementos não encontrados.");
+        return;
+    }
+
+    // ============================
+    // FUNÇÕES DE CONTROLE DA NEVE
+    // ============================
+
+    function stopSnow() {
+        // Para o intervalo da neve
+        if (window._snowInterval) {
+            clearInterval(window._snowInterval);
+            window._snowInterval = null;
+        }
+
+        // Remove todos os flocos existentes na tela
+        document.querySelectorAll(".snowflake").forEach(flake => flake.remove());
+    }
+
+    function applySnow(enable) {
+        if (enable) {
+            // ligar neve
+            startSnow();
+        } else {
+            // desligar neve
+            stopSnow();
+        }
+    }
+
+    // ============================
+    // CARREGAR ESTADO SALVO
+    // ============================
+
+    const savedSnow = localStorage.getItem("ui:snow") === "on";
+    toggleSnow.checked = savedSnow;
+
+    // Aplica imediatamente ao carregar
+    applySnow(savedSnow);
+
+    // ============================
+    // ABRIR MODAL
+    // ============================
+
+    btnOpen.addEventListener("click", () => {
+        modal.style.display = "flex";
+        document.getElementById("authMenu")?.classList.add("hidden");
     });
 
-    // === Lógica de verificação ===
-    function shouldShow(period) {
-        const h = new Date().getHours();
-        if (period === "11h") return h >= 11 && h < 12;
-        if (period === "17h") return h >= 16 && h < 18;
-        return false;
-    }
+    // ============================
+    // FECHAR MODAL
+    // ============================
 
-    function checkPopup() {
-        if (isOpen) return; // 🔒 Não verifica se o modal está aberto
+    btnClose.addEventListener("click", () => {
+        modal.style.display = "none";
+    });
 
-        const sent11 = localStorage.getItem(getKey("11h"));
-        const sent17 = localStorage.getItem(getKey("17h"));
+    // ============================
+    // QUANDO ALTERA O TOGGLE
+    // ============================
 
-        if (!sent11 && shouldShow("11h")) {
-            openPopup("11h");
-            return;
-        }
-        if (!sent17 && shouldShow("17h")) {
-            openPopup("17h");
-            return;
-        }
-    }
-
-    // 💡 Verifica assim que abre a página
-    window.addEventListener("load", checkPopup);
-
-    // 💡 Repete a verificação a cada minuto, sem nunca resetar
-    setInterval(() => {
-        checkPopup();
-    }, 60 * 1000);
+    toggleSnow.addEventListener("change", () => {
+        const enabled = toggleSnow.checked;
+        localStorage.setItem("ui:snow", enabled ? "on" : "off");
+        applySnow(enabled);
+    });
 
 })();
+
 
 
 // === POPUP DE POLÍTICA DE PRIVACIDADE ===
@@ -7051,6 +6984,7 @@ function updateMembersDisplay(targetId) {
 function getMembersSelectedFor(targetId) {
     return [...(MEMBER_SELECTED[targetId] || [])];
 }
+
 // === NEVE ===
 function startSnow() {
     const snowInterval = setInterval(() => {
@@ -7071,7 +7005,6 @@ function startSnow() {
 }
 
 
-startSnow();
 
 // ========================================
 // CHAT 2.0 — Threads (Responder Mensagem)
@@ -7360,7 +7293,7 @@ async function openDM(otherUid) {
         getDoc,
         collection,
         onSnapshot,
-        query, 
+        query,
         orderBy
     } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
@@ -7585,3 +7518,4 @@ document.getElementById("dm-input").addEventListener("keydown", (ev) => {
 document.getElementById("dm-back").onclick = () => {
     location.hash = "#/"; // ou voltar pro chat global
 };
+

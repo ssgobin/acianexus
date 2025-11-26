@@ -68,8 +68,12 @@
         </div>
         <div id="authMenu" class="auth-menu hidden">
           <div class="auth-menu-item" id="authProfile">👤 Meu Perfil</div>
+          <div class="auth-menu-item" id="openDailyReport">📝 Meu Report Diário</div>
+          <div class="auth-menu-item" id="openSettings">⚙️ Configurações</div>
           <div class="auth-menu-item" id="authLogout">🚪 Sair</div>
         </div>
+
+
       </div>
 
       <button id="btnLogin" class="btn secondary" type="button">Entrar</button>
@@ -563,7 +567,7 @@
 
     <!-- ========== DM CHAT PANEL ========== -->
     <!-- ========== DM CHAT PANEL ========== -->
-    
+
 
 
 
@@ -723,44 +727,44 @@
     </section>
 
     <!-- ========= DM MODAL ========= -->
-<div id="dmModal" class="modal" style="--w: 900px; display:none">
-  <div class="modal-head">
-    <strong id="dm-title">Chat Privado</strong>
-    <button id="dm-close" class="btn secondary" type="button">Fechar</button>
-  </div>
-
-  <div class="modal-body" style="display:flex; height:600px; gap:12px;">
-    
-    <!-- Sidebar -->
-    <aside class="dm-sidebar">
-      <div class="dm-sidebar-header">Conversas</div>
-      <div id="dm-conv-list" class="dm-conv-list"></div>
-    </aside>
-
-    <!-- Chat -->
-    <div class="dm-main">
-      <div class="dm-header">
-        <div class="dm-avatar-wrapper">
-          <img id="dm-avatar" class="dm-avatar" src="" />
-          <span id="dm-avatar-status" class="dm-avatar-status offline"></span>
-        </div>
-        <div>
-          <div id="dm-user-name" class="dm-user-name"></div>
-          <div class="dm-status" id="dm-status">Offline</div>
-          <div class="dm-status-typing" id="dm-typing"></div>
-        </div>
+    <div id="dmModal" class="modal" style="--w: 900px; display:none">
+      <div class="modal-head">
+        <strong id="dm-title">Chat Privado</strong>
+        <button id="dm-close" class="btn secondary" type="button">Fechar</button>
       </div>
 
-      <div id="dm-box" class="dm-box"></div>
+      <div class="modal-body" style="display:flex; height:600px; gap:12px;">
 
-      <div class="dm-input-area">
-        <input id="dm-input" type="text" placeholder="Digite..." />
-        <button id="dm-send" class="btn primary">Enviar</button>
+        <!-- Sidebar -->
+        <aside class="dm-sidebar">
+          <div class="dm-sidebar-header">Conversas</div>
+          <div id="dm-conv-list" class="dm-conv-list"></div>
+        </aside>
+
+        <!-- Chat -->
+        <div class="dm-main">
+          <div class="dm-header">
+            <div class="dm-avatar-wrapper">
+              <img id="dm-avatar" class="dm-avatar" src="" />
+              <span id="dm-avatar-status" class="dm-avatar-status offline"></span>
+            </div>
+            <div>
+              <div id="dm-user-name" class="dm-user-name"></div>
+              <div class="dm-status" id="dm-status">Offline</div>
+              <div class="dm-status-typing" id="dm-typing"></div>
+            </div>
+          </div>
+
+          <div id="dm-box" class="dm-box"></div>
+
+          <div class="dm-input-area">
+            <input id="dm-input" type="text" placeholder="Digite..." />
+            <button id="dm-send" class="btn primary">Enviar</button>
+          </div>
+        </div>
+
       </div>
     </div>
-
-  </div>
-</div>
 
 
     <!-- Modal do ticket -->
@@ -1137,7 +1141,9 @@
   <!-- ===== POPUP DIÁRIO ===== -->
   <div id="dailyModal">
     <div class="modal-container">
-      <div class="modal-head">Relatório Diário
+      <div class="modal-head">
+        Relatório Diário
+        <button id="dailyClose" class="btn secondary" type="button">X</button>
       </div>
       <p style="font-size:13px;margin-top:4px" class="muted">
         Registre aqui suas atividades diárias. Elas serão vinculadas ao seu perfil e poderão ser
@@ -1145,7 +1151,7 @@
         dia)
       </p>
       <div class="modal-body" id="dailyBody">
-
+        <!-- as linhas são criadas via JS -->
         <button id="addMore" class="btn secondary">+ Adicionar outro intervalo</button>
       </div>
       <div class="modal-foot">
@@ -1153,6 +1159,7 @@
       </div>
     </div>
   </div>
+
 
   <!-- ===== POPUP DE POLÍTICA DE PRIVACIDADE ===== -->
   <div id="privacyPopup" class="privacy-popup hidden">
@@ -1261,6 +1268,48 @@
   </script>
   <script src="https://ucarecdn.com/libs/widget/3.x/uploadcare.full.min.js"></script>
   <div id="gamification-toast" class="gamif-toast"></div>
+
+  <div id="settingsModal" class="modal settings-modal" style="--w:420px;display:none">
+  <div class="settings-container">
+
+    <div class="settings-header">
+      <h3>⚙️ Configurações</h3>
+      <button id="settingsClose" class="settings-close-btn">✕</button>
+    </div>
+
+    <div class="settings-body">
+
+      <div class="settings-item">
+        <div class="settings-info">
+          <strong>Neve no site</strong>
+          <span class="muted">Ative ou desative o efeito de neve na interface</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggleSnow">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- FUTURAS CONFIGURAÇÕES AQUI ⬇ -->
+      <!--
+      <div class="settings-item">
+        <div class="settings-info">
+          <strong>Tema</strong>
+          <span class="muted">Claro / Escuro</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="toggleTheme">
+          <span class="slider"></span>
+        </label>
+      </div>
+      -->
+
+    </div>
+
+  </div>
+</div>
+
+
 </body>
 
 </html>
