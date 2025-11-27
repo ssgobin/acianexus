@@ -21,37 +21,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap"
     rel="stylesheet">
-<script>
-  window.ENV = {};
-
-  async function loadEnv() {
-    try {
-      const res = await fetch("https://raw.githubusercontent.com/acianexus-config/main/firebase.json", {
-        headers: {
-          "Authorization": "Bearer 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"
-        }
-      });
-
-      if (!res.ok) {
-        throw new Error("Falha ao buscar firebase.json: " + res.status);
-      }
-
-      window.ENV = await res.json();
-      console.log("ENV carregado:", window.ENV);
-
-    } catch (err) {
-      console.error("Erro ao carregar ENV:", err);
-    }
-  }
-
-  // carrega assim que a página abrir
-  loadEnv();
-</script>
-
-
-  <script src="script.js"></script>
-
-
 
   <script>
     (function () {
