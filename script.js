@@ -23,6 +23,14 @@ Se algo quebrar, lembre-se:
 Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
 */
 
+async function waitForEnv() {
+  while (!window.ENV || !window.ENV.VITE_FB_API_KEY) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+}
+await waitForEnv();
+
+
 
 /* ===========================
    CONFIG & HELPERS
@@ -699,6 +707,7 @@ const firebaseConfig = {
   appId: window.ENV.VITE_FB_APP_ID,
   measurementId: window.ENV.VITE_FB_MEASURE_ID
 };
+
 
 
 async function loadProfileDataIntoModal() {
