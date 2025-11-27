@@ -5,248 +5,272 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ACIANexus – Em Manutenção</title>
 
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet" />
-
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Inter", sans-serif; }
+/* RESET */
+*{margin:0;padding:0;box-sizing:border-box;font-family:"Inter",sans-serif;}
+body{
+  height:100vh;
+  overflow:hidden;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background:#8ec6ff;
+  position:relative;
+}
 
-  body {
-    height: 100vh;
-    background: #f5f7fa;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    position: relative;
-  }
+/* ---------------- SKY ---------------- */
+.sky{
+  position:absolute;
+  inset:0;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      #8ec6ff 0px,
+      #8ec6ff 6px,
+      #7eb8f4 6px,
+      #7eb8f4 12px
+    );
+  z-index:1;
+}
 
-  /* Bolhas suaves */
-  .bg-circle {
-    position: absolute;
-    width: 380px;
-    height: 380px;
-    background: radial-gradient(circle, #9fa8ff40, transparent 70%);
-    border-radius: 50%;
-    filter: blur(60px);
-    animation: float 11s infinite alternate ease-in-out;
-    z-index: 1;
-  }
-  .bg1 { top: -80px; left: -80px; }
-  .bg2 { bottom: -90px; right: -100px; animation-delay: 2s; }
+/* ---------------- MOUNTAINS ---------------- */
+.mountains{
+  position:absolute;
+  bottom:130px;
+  width:300%;
+  height:150px;
+  background:
+    linear-gradient(#5d8bb8,#4a7399);
+  clip-path: polygon(0 100%,10% 40%,20% 75%,30% 35%,45% 80%,60% 30%,75% 85%,90% 40%,100% 100%);
+  animation: moveMountains 20s linear infinite;
+  z-index:2;
+}
+@keyframes moveMountains{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-33.33%);}
+}
 
-  @keyframes float {
-    0% { transform: translateY(0); }
-    100% { transform: translateY(22px); }
-  }
+/* ---------------- GRASS / FLOOR ---------------- */
+.grass{
+  position:absolute;
+  bottom:50px;
+  width:300%;
+  height:40px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #3a6d2f 0px, #3a6d2f 8px,
+      #4d8b3f 8px, #4d8b3f 16px
+    );
+  animation: moveGrass 6s linear infinite;
+  z-index:4;
+}
+@keyframes moveGrass{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-33.33%);}
+}
 
-  /* Bonequinhos pixel art (container) */
-  .pixel-guy {
-    position: absolute;
-    width: 16px;
-    height: 24px;
-    image-rendering: pixelated;
-    z-index: 2;
-    transform-origin: center bottom;
-  }
+.floor{
+  position:absolute;
+  bottom:0;
+  width:300%;
+  height:50px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #6b4f2a 0px, #6b4f2a 12px,
+      #8b6936 12px, #8b6936 24px
+    );
+  animation: moveFloor 3.5s linear infinite;
+  z-index:5;
+}
+@keyframes moveFloor{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-33.33%);}
+}
 
-  .px-part {
-    position: absolute;
-  }
+/* ---------------- PIXEL GUY ---------------- */
+.pixel-guy{
+  position:absolute;
+  bottom:50px;
+  width:20px;
+  height:28px;
+  transform:scale(2);
+  transform-origin:center bottom;
+  image-rendering:pixelated;
+  z-index:6;
+}
+/* Pieces */
+.pixel-guy .h{position:absolute;width:10px;height:10px;background:#ffddb3;top:0;left:5px;}
+.pixel-guy .b{position:absolute;width:12px;height:10px;background:#4c6fff;top:10px;left:4px;}
+.pixel-guy .a1,.pixel-guy .a2{
+  position:absolute;width:4px;height:9px;background:#ffddb3;top:11px;
+}
+.pixel-guy .a1{left:0;}
+.pixel-guy .a2{right:0;}
+.pixel-guy .l1,.pixel-guy .l2{
+  position:absolute;width:5px;height:10px;background:#333;top:20px;
+}
+.pixel-guy .l1{left:4px;}
+.pixel-guy .l2{left:11px;}
 
-  /* Estrutura base */
-  .pixel-guy .head {
-    width: 8px;
-    height: 8px;
-    left: 4px;
-    top: 0;
-    background: #f5d7b2;
-  }
+.pixel-guy.v2 .b{background:#ff6b81;}
+.pixel-guy.v3 .b{background:#20c997;}
+.pixel-guy.v4 .b{background:#ffa94d;}
 
-  .pixel-guy .body {
-    width: 10px;
-    height: 8px;
-    left: 3px;
-    top: 8px;
-    background: #4c6fff;
-  }
+/* ---------------- SLIME ---------------- */
+.slime{
+  position:absolute;
+  bottom:50px;
+  width:26px;height:16px;
+  background:#52d273;
+  border-radius:0 0 14px 14px;
+  image-rendering:pixelated;
+  z-index:6;
+  animation: slimeMove 7s linear infinite;
+}
+@keyframes slimeMove{
+  0%{transform:translateX(120vw);}
+  100%{transform:translateX(-20vw);}
+}
 
-  .pixel-guy .arm-left,
-  .pixel-guy .arm-right {
-    width: 3px;
-    height: 7px;
-    top: 9px;
-    background: #f5d7b2;
-  }
+/* ---------------- COINS ---------------- */
+.coin{
+  position:absolute;
+  width:14px;height:14px;
+  bottom:calc(50px + 50px);
+  background: radial-gradient(circle,#ffe066 0px,#f1c40f 10px);
+  border:2px solid #b8860b;
+  border-radius:50%;
+  image-rendering:pixelated;
+  animation:coinFloat 1s ease-in-out infinite;
+  z-index:6;
+}
+@keyframes coinFloat{
+  0%,100%{transform:translateY(0);}
+  50%{transform:translateY(-6px);}
+}
 
-  .pixel-guy .arm-left { left: 0px; }
-  .pixel-guy .arm-right { right: 0px; }
-
-  .pixel-guy .leg-left,
-  .pixel-guy .leg-right {
-    width: 4px;
-    height: 8px;
-    top: 16px;
-    background: #333;
-  }
-
-  .pixel-guy .leg-left { left: 3px; }
-  .pixel-guy .leg-right { left: 9px; }
-
-  /* Variações de cor da camisa */
-  .pixel-guy.v1 .body { background: #4c6fff; }   /* azul */
-  .pixel-guy.v2 .body { background: #ff6b81; }   /* rosa */
-  .pixel-guy.v3 .body { background: #20c997; }   /* verde água */
-  .pixel-guy.v4 .body { background: #ffa94d; }   /* laranja */
-
-  /* Card */
-  .card {
-    z-index: 10;
-    background: #ffffffcc;
-    backdrop-filter: blur(14px);
-    padding: 45px;
-    border-radius: 18px;
-    max-width: 460px;
-    width: 90%;
-    text-align: center;
-    border: 1px solid #e7e9ef;
-    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.05);
-  }
-
-  h1 { font-size: 28px; font-weight: 800; color: #313548; margin-bottom: 12px; }
-  p { font-size: 15px; color: #555c73; margin-bottom: 24px; }
-
-  .loader {
-    width: 42px;
-    height: 42px;
-    border: 3px solid #cfd3e0;
-    border-top-color: #7b6cff;
-    border-radius: 50%;
-    margin: 0 auto 25px;
-    animation: spin 1s linear infinite;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .btn {
-    padding: 12px 20px;
-    background: #7b6cff;
-    color: white;
-    border-radius: 8px;
-    text-decoration: none;
-    font-weight: 600;
-    box-shadow: 0 4px 14px #7b6cff40;
-    transition: 0.25s;
-  }
-  .btn:hover { background: #6c5ce7; transform: translateY(-2px); }
+/* ---------------- CARD ---------------- */
+.card{
+  position:relative;
+  z-index:50;
+  background:#ffffffcc;
+  backdrop-filter:blur(14px);
+  padding:45px;
+  border-radius:18px;
+  width:90%;
+  max-width:460px;
+  text-align:center;
+  border:1px solid #e7e9ef;
+  box-shadow:0 15px 40px rgba(0,0,0,0.05);
+}
+h1{font-size:28px;font-weight:800;color:#313548;margin-bottom:12px;}
+p{font-size:15px;color:#555;margin-bottom:24px;}
+.loader{
+  width:42px;height:42px;
+  border:3px solid #cfd3e0;
+  border-top-color:#7b6cff;
+  border-radius:50%;
+  margin:0 auto 25px;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.btn{
+  padding:12px 20px;
+  background:#7b6cff;
+  color:white;
+  border-radius:8px;
+  text-decoration:none;
+  font-weight:600;
+  box-shadow:0 4px 14px #7b6cff40;
+}
+.btn:hover{background:#6c5ce7;}
 </style>
 </head>
 
 <body>
 
-<!-- Fundo -->
-<div class="bg-circle bg1"></div>
-<div class="bg-circle bg2"></div>
+<div class="sky"></div>
+<div class="mountains"></div>
+<div class="grass"></div>
+<div class="floor"></div>
 
-<!-- CARD -->
+<div id="objects"></div>
+
 <div class="card">
   <div class="loader"></div>
   <h1>Estamos em manutenção</h1>
   <p>Estamos realizando melhorias no ACIANexus.<br>Voltamos em instantes!</p>
-  <a href="https://acianexusapp.netlify.app/" class="btn">Tentar novamente</a>
+  <a href="#" class="btn">Tentar novamente</a>
 </div>
 
 <script>
-/* ============================================================
-   BONEQUINHOS PIXEL ART ANDANDO + PULANDO (SEM IMAGENS EXTERNAS)
-   ============================================================ */
-
-function createPixelGuy() {
-  const guy = document.createElement("div");
-  const variant = Math.floor(Math.random() * 4) + 1; // v1..v4
-  guy.className = "pixel-guy v" + variant;
-
-  guy.innerHTML = `
-    <div class="px-part head"></div>
-    <div class="px-part body"></div>
-    <div class="px-part arm-left"></div>
-    <div class="px-part arm-right"></div>
-    <div class="px-part leg-left"></div>
-    <div class="px-part leg-right"></div>
+/* ----------------------------------------- */
+/*   GERAR PERSONAGENS 8-BIT BONITINHOS     */
+/* ----------------------------------------- */
+function spawnGuy(){
+  const g=document.createElement("div");
+  const v=Math.floor(Math.random()*4)+1;
+  g.className="pixel-guy v"+v;
+  g.innerHTML=`
+    <div class="h"></div>
+    <div class="b"></div>
+    <div class="a1"></div>
+    <div class="a2"></div>
+    <div class="l1"></div>
+    <div class="l2"></div>
   `;
-
-  // posição inicial
-  guy.style.left = Math.random() * window.innerWidth + "px";
-  guy.style.bottom = (Math.random() * 80 + 20) + "px";
-
-  document.body.appendChild(guy);
-  animateGuy(guy);
+  g.style.left=Math.random()*innerWidth+"px";
+  document.body.appendChild(g);
+  animateGuy(g);
 }
 
-// cria vários
-for (let i = 0; i < 7; i++) {
-  createPixelGuy();
-}
+for(let i=0;i<6;i++)spawnGuy();
 
-function animateGuy(el) {
-  let x = parseFloat(el.style.left);
-  let y = parseFloat(el.style.bottom);
-  const baseY = y;
-  let direction = Math.random() < 0.5 ? 1 : -1;
-  let speed = Math.random() * 1.4 + 0.6;
-  let jumping = false;
+function animateGuy(el){
+  let x=parseFloat(el.style.left);
+  let dir=Math.random()<0.5?-1:1;
+  let speed=Math.random()*1+0.6;
+  let t=0;
 
-  function loop() {
-    x += direction * speed;
+  function loop(){
+    x+=speed*dir;
+    if(x<-40)x=innerWidth+40;
+    if(x>innerWidth+40)x=-40;
+    el.style.left=x+"px";
 
-    // inverter "sprite"
-    el.style.transform = direction === 1 ? "scaleX(2) scaleY(2)" : "scaleX(-2) scaleY(2)";
+    el.style.transform = dir===1 ? "scale(2)" : "scale(-2,2)";
 
-    const width = window.innerWidth;
-
-    // saiu da tela? volta
-    if (x < -50) x = width + 50;
-    if (x > width + 50) x = -50;
-
-    el.style.left = x + "px";
-
-    // Pulo aleatório
-    if (!jumping && Math.random() < 0.007) {
-      jumping = true;
-      let jumpHeight = Math.random() * 35 + 25;
-      let up = true;
-      let currentY = baseY;
-
-      const jumpInterval = setInterval(() => {
-        if (up) {
-          currentY += 3;
-          if (currentY >= baseY + jumpHeight) up = false;
-        } else {
-          currentY -= 3;
-          if (currentY <= baseY) {
-            currentY = baseY;
-            jumping = false;
-            clearInterval(jumpInterval);
-          }
-        }
-        el.style.bottom = currentY + "px";
-      }, 16);
-    }
+    t+=0.1;
+    el.style.bottom = (50 + Math.sin(t)*6) + "px";
 
     requestAnimationFrame(loop);
   }
-
   loop();
 }
 
-// Ajustar posição se redimensionar a tela
-window.addEventListener("resize", () => {
-  const guys = document.querySelectorAll(".pixel-guy");
-  guys.forEach(g => {
-    let x = parseFloat(g.style.left);
-    if (x > window.innerWidth + 50) {
-      g.style.left = (Math.random() * window.innerWidth) + "px";
-    }
-  });
-});
+/* ----------------------------------------- */
+/*                  SLIMES                  */
+/* ----------------------------------------- */
+for(let i=0;i<3;i++){
+  const s=document.createElement("div");
+  s.className="slime";
+  s.style.left=Math.random()*100+"vw";
+  s.style.animationDelay=(Math.random()*4)+"s";
+  document.getElementById("objects").appendChild(s);
+}
+
+/* ----------------------------------------- */
+/*                  COINS                   */
+/* ----------------------------------------- */
+for(let i=0;i<8;i++){
+  const c=document.createElement("div");
+  c.className="coin";
+  c.style.left=(Math.random()*100)+"vw";
+  c.style.bottom=(Math.random()*60+90)+"px";
+  document.getElementById("objects").appendChild(c);
+}
 </script>
 
 </body>
