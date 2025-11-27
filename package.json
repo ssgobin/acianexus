@@ -1,9 +1,0 @@
-{
-  "name": "acianexus",
-  "version": "1.0.0",
-  "scripts": {
-    "build": "npm run copy",
-    "copy": "mkdir -p dist && cp -r * dist 2>/dev/null || true"
-  },
-  "devDependencies": {}
-}
