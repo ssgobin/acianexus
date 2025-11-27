@@ -1054,6 +1054,42 @@ async function initFirebase() {
     }
 }
 
+// Só checa manutenção depois do Firebase iniciar
+document.addEventListener("auth:changed", () => {
+    setTimeout(() => {
+        checkMaintenance();              // roda depois de logar
+        setInterval(checkMaintenance, 5000);
+    }, 500);
+});
+
+// === CHECK MAINTENANCE MODE ===
+async function checkMaintenance() {
+  try {
+    const { doc, getDoc } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    const snap = await getDoc(doc(db, "admin", "broadcast"));
+    const data = snap.exists() ? snap.data() : {};
+
+    if (data.maintenance === true) {
+      if (!location.href.includes("maintenance.html")) {
+        window.location.href = "maintenance.html";
+      }
+    }
+  } catch (e) {
+    console.warn("Erro ao checar manutenção:", e);
+  }
+}
+
+// só começa a checar após firebase + auth estarem prontos
+document.addEventListener("auth:changed", () => {
+  checkMaintenance();
+  setInterval(checkMaintenance, 5000);
+});
+
+
+
 // === FECHAR MODAL DO PERFIL ===
 document.addEventListener("DOMContentLoaded", () => {
     const profileModal = document.getElementById("profile-modal");
@@ -6744,14 +6780,14 @@ function makeCardPayload(type, card, extra) {
 
 
 (function initSettings() {
-    const modal      = document.getElementById("settingsModal");
-    const btnOpen    = document.getElementById("openSettings");
-    const btnClose   = document.getElementById("settingsClose");
+    const modal = document.getElementById("settingsModal");
+    const btnOpen = document.getElementById("openSettings");
+    const btnClose = document.getElementById("settingsClose");
 
-    const toggleSnow          = document.getElementById("toggleSnow");
-    const toggleHighContrast  = document.getElementById("toggleHighContrast");
-    const toggleReduceMotion  = document.getElementById("toggleReduceMotion");
-    const toggleDyslexiaFont  = document.getElementById("toggleDyslexiaFont");
+    const toggleSnow = document.getElementById("toggleSnow");
+    const toggleHighContrast = document.getElementById("toggleHighContrast");
+    const toggleReduceMotion = document.getElementById("toggleReduceMotion");
+    const toggleDyslexiaFont = document.getElementById("toggleDyslexiaFont");
 
     // ============================
     // VALIDAÇÃO DE ELEMENTOS
@@ -6762,10 +6798,10 @@ function makeCardPayload(type, card, extra) {
         return;
     }
 
-    if (!toggleSnow)           console.warn("Settings: toggleSnow não encontrado.");
-    if (!toggleHighContrast)   console.warn("Settings: toggleHighContrast não encontrado.");
-    if (!toggleReduceMotion)   console.warn("Settings: toggleReduceMotion não encontrado.");
-    if (!toggleDyslexiaFont)   console.warn("Settings: toggleDyslexiaFont não encontrado.");
+    if (!toggleSnow) console.warn("Settings: toggleSnow não encontrado.");
+    if (!toggleHighContrast) console.warn("Settings: toggleHighContrast não encontrado.");
+    if (!toggleReduceMotion) console.warn("Settings: toggleReduceMotion não encontrado.");
+    if (!toggleDyslexiaFont) console.warn("Settings: toggleDyslexiaFont não encontrado.");
 
     // ============================
     // FUNÇÕES DE ACESSIBILIDADE
@@ -6788,7 +6824,7 @@ function makeCardPayload(type, card, extra) {
     // ============================
 
     const savedContrast = localStorage.getItem("ui:contrast") === "on";
-    const savedMotion   = localStorage.getItem("ui:motion") === "off";
+    const savedMotion = localStorage.getItem("ui:motion") === "off";
     const savedDyslexia = localStorage.getItem("ui:dyslexia") === "on";
 
     if (toggleHighContrast) toggleHighContrast.checked = savedContrast;
@@ -6813,7 +6849,7 @@ function makeCardPayload(type, card, extra) {
 
     function applySnow(enable) {
         if (enable) startSnow();
-        else        stopSnow();
+        else stopSnow();
     }
 
     const savedSnow = localStorage.getItem("ui:snow") === "on";

@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ACIANexus – Em Manutenção</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet" />
+
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Inter", sans-serif; }
+
+  body {
+    height: 100vh;
+    background: #f5f7fa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Bolhas suaves */
+  .bg-circle {
+    position: absolute;
+    width: 380px;
+    height: 380px;
+    background: radial-gradient(circle, #9fa8ff40, transparent 70%);
+    border-radius: 50%;
+    filter: blur(60px);
+    animation: float 11s infinite alternate ease-in-out;
+    z-index: 1;
+  }
+  .bg1 { top: -80px; left: -80px; }
+  .bg2 { bottom: -90px; right: -100px; animation-delay: 2s; }
+
+  @keyframes float {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(22px); }
+  }
+
+  /* Bonequinhos pixel art (container) */
+  .pixel-guy {
+    position: absolute;
+    width: 16px;
+    height: 24px;
+    image-rendering: pixelated;
+    z-index: 2;
+    transform-origin: center bottom;
+  }
+
+  .px-part {
+    position: absolute;
+  }
+
+  /* Estrutura base */
+  .pixel-guy .head {
+    width: 8px;
+    height: 8px;
+    left: 4px;
+    top: 0;
+    background: #f5d7b2;
+  }
+
+  .pixel-guy .body {
+    width: 10px;
+    height: 8px;
+    left: 3px;
+    top: 8px;
+    background: #4c6fff;
+  }
+
+  .pixel-guy .arm-left,
+  .pixel-guy .arm-right {
+    width: 3px;
+    height: 7px;
+    top: 9px;
+    background: #f5d7b2;
+  }
+
+  .pixel-guy .arm-left { left: 0px; }
+  .pixel-guy .arm-right { right: 0px; }
+
+  .pixel-guy .leg-left,
+  .pixel-guy .leg-right {
+    width: 4px;
+    height: 8px;
+    top: 16px;
+    background: #333;
+  }
+
+  .pixel-guy .leg-left { left: 3px; }
+  .pixel-guy .leg-right { left: 9px; }
+
+  /* Variações de cor da camisa */
+  .pixel-guy.v1 .body { background: #4c6fff; }   /* azul */
+  .pixel-guy.v2 .body { background: #ff6b81; }   /* rosa */
+  .pixel-guy.v3 .body { background: #20c997; }   /* verde água */
+  .pixel-guy.v4 .body { background: #ffa94d; }   /* laranja */
+
+  /* Card */
+  .card {
+    z-index: 10;
+    background: #ffffffcc;
+    backdrop-filter: blur(14px);
+    padding: 45px;
+    border-radius: 18px;
+    max-width: 460px;
+    width: 90%;
+    text-align: center;
+    border: 1px solid #e7e9ef;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.05);
+  }
+
+  h1 { font-size: 28px; font-weight: 800; color: #313548; margin-bottom: 12px; }
+  p { font-size: 15px; color: #555c73; margin-bottom: 24px; }
+
+  .loader {
+    width: 42px;
+    height: 42px;
+    border: 3px solid #cfd3e0;
+    border-top-color: #7b6cff;
+    border-radius: 50%;
+    margin: 0 auto 25px;
+    animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn {
+    padding: 12px 20px;
+    background: #7b6cff;
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    box-shadow: 0 4px 14px #7b6cff40;
+    transition: 0.25s;
+  }
+  .btn:hover { background: #6c5ce7; transform: translateY(-2px); }
+</style>
+</head>
+
+<body>
+
+<!-- Fundo -->
+<div class="bg-circle bg1"></div>
+<div class="bg-circle bg2"></div>
+
+<!-- CARD -->
+<div class="card">
+  <div class="loader"></div>
+  <h1>Estamos em manutenção</h1>
+  <p>Estamos realizando melhorias no ACIANexus.<br>Voltamos em instantes!</p>
+  <a href="https://acianexusapp.netlify.app/" class="btn">Tentar novamente</a>
+</div>
+
+<script>
+/* ============================================================
+   BONEQUINHOS PIXEL ART ANDANDO + PULANDO (SEM IMAGENS EXTERNAS)
+   ============================================================ */
+
+function createPixelGuy() {
+  const guy = document.createElement("div");
+  const variant = Math.floor(Math.random() * 4) + 1; // v1..v4
+  guy.className = "pixel-guy v" + variant;
+
+  guy.innerHTML = `
+    <div class="px-part head"></div>
+    <div class="px-part body"></div>
+    <div class="px-part arm-left"></div>
+    <div class="px-part arm-right"></div>
+    <div class="px-part leg-left"></div>
+    <div class="px-part leg-right"></div>
+  `;
+
+  // posição inicial
+  guy.style.left = Math.random() * window.innerWidth + "px";
+  guy.style.bottom = (Math.random() * 80 + 20) + "px";
+
+  document.body.appendChild(guy);
+  animateGuy(guy);
+}
+
+// cria vários
+for (let i = 0; i < 7; i++) {
+  createPixelGuy();
+}
+
+function animateGuy(el) {
+  let x = parseFloat(el.style.left);
+  let y = parseFloat(el.style.bottom);
+  const baseY = y;
+  let direction = Math.random() < 0.5 ? 1 : -1;
+  let speed = Math.random() * 1.4 + 0.6;
+  let jumping = false;
+
+  function loop() {
+    x += direction * speed;
+
+    // inverter "sprite"
+    el.style.transform = direction === 1 ? "scaleX(2) scaleY(2)" : "scaleX(-2) scaleY(2)";
+
+    const width = window.innerWidth;
+
+    // saiu da tela? volta
+    if (x < -50) x = width + 50;
+    if (x > width + 50) x = -50;
+
+    el.style.left = x + "px";
+
+    // Pulo aleatório
+    if (!jumping && Math.random() < 0.007) {
+      jumping = true;
+      let jumpHeight = Math.random() * 35 + 25;
+      let up = true;
+      let currentY = baseY;
+
+      const jumpInterval = setInterval(() => {
+        if (up) {
+          currentY += 3;
+          if (currentY >= baseY + jumpHeight) up = false;
+        } else {
+          currentY -= 3;
+          if (currentY <= baseY) {
+            currentY = baseY;
+            jumping = false;
+            clearInterval(jumpInterval);
+          }
+        }
+        el.style.bottom = currentY + "px";
+      }, 16);
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+}
+
+// Ajustar posição se redimensionar a tela
+window.addEventListener("resize", () => {
+  const guys = document.querySelectorAll(".pixel-guy");
+  guys.forEach(g => {
+    let x = parseFloat(g.style.left);
+    if (x > window.innerWidth + 50) {
+      g.style.left = (Math.random() * window.innerWidth) + "px";
+    }
+  });
+});
+</script>
+
+</body>
+</html>
