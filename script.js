@@ -23,6 +23,15 @@ Se algo quebrar, lembre-se:
 Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
 */
 
+async function waitForEnv() {
+  while (!window.ENV || !window.ENV.VITE_FB_API_KEY) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+}
+
+await waitForEnv();
+
+
 /* ===========================
    CONFIG & HELPERS
 ============================ */
@@ -690,15 +699,14 @@ const GROQ_PROXY_URL = window?.ENV?.VITE_GROQ_PROXY;
 
 // Firebase (opcional). Sem as credenciais, roda em modo Local (localStorage).
 const firebaseConfig = {
-    apiKey: window?.ENV?.VITE_FB_API_KEY,
-    authDomain: window?.ENV?.VITE_FB_AUTH_DOMAIN,
-    projectId: window?.ENV?.VITE_FB_PROJECT_ID,
-    storageBucket: window?.ENV?.VITE_FB_STORAGE_BUCKET,
-    messagingSenderId: window?.ENV?.VITE_FB_MESSAGING_ID,
-    appId: window?.ENV?.VITE_FB_APP_ID,
-    measurementId: window?.ENV?.VITE_FB_MEASURE_ID
+  apiKey: window.ENV.VITE_FB_API_KEY,
+  authDomain: window.ENV.VITE_FB_AUTH_DOMAIN,
+  projectId: window.ENV.VITE_FB_PROJECT_ID,
+  storageBucket: window.ENV.VITE_FB_STORAGE_BUCKET,
+  messagingSenderId: window.ENV.VITE_FB_MESSAGING_ID,
+  appId: window.ENV.VITE_FB_APP_ID,
+  measurementId: window.ENV.VITE_FB_MEASURE_ID
 };
-
 
 
 async function loadProfileDataIntoModal() {

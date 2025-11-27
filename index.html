@@ -23,16 +23,22 @@
     rel="stylesheet">
 
   <script>
-    window.ENV = {
-      VITE_FB_API_KEY: "{{VITE_FB_API_KEY}}",
-      VITE_FB_AUTH_DOMAIN: "{{VITE_FB_AUTH_DOMAIN}}",
-      VITE_FB_PROJECT_ID: "{{VITE_FB_PROJECT_ID}}",
-      VITE_FB_STORAGE_BUCKET: "{{VITE_FB_STORAGE_BUCKET}}",
-      VITE_FB_MESSAGING_ID: "{{VITE_FB_MESSAGING_ID}}",
-      VITE_FB_APP_ID: "{{VITE_FB_APP_ID}}",
-      VITE_FB_MEASURE_ID: "{{VITE_FB_MEASURE_ID}}"
-    };
+    window.ENV = {};
+
+    async function loadEnv() {
+      try {
+        const res = await fetch('/.netlify/env.json');
+        const data = await res.json();
+        window.ENV = data;
+        console.log("ENV carregado:", window.ENV);
+      } catch (err) {
+        console.error("Erro ao carregar env:", err);
+      }
+    }
+
+    loadEnv();
   </script>
+
 
 
   <script>
