@@ -1,3 +1,8 @@
 [build]
-  publish = "/"
-  command = "npm run build"
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/.netlify/*"
+  [headers.values]
+  Access-Control-Allow-Origin = "*"
