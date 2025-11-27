@@ -23,12 +23,28 @@
     rel="stylesheet">
 
   <script>
-    (function () {
-      try {
-        var t = localStorage.getItem('theme');
-        if (t === 'light') document.documentElement.classList.add('light');
-      } catch (_) { }
-    })();
+    window.ENV = {
+      VITE_GROQ_KEY: "{{VITE_GROQ_KEY}}",
+      VITE_GROQ_MODEL: "{{VITE_GROQ_MODEL}}",
+      VITE_GROQ_PROXY: "{{VITE_GROQ_PROXY}}",
+
+      VITE_FB_API_KEY: "{{VITE_FB_API_KEY}}",
+      VITE_FB_AUTH_DOMAIN: "{{VITE_FB_AUTH_DOMAIN}}",
+      VITE_FB_PROJECT_ID: "{{VITE_FB_PROJECT_ID}}",
+      VITE_FB_STORAGE_BUCKET: "{{VITE_FB_STORAGE_BUCKET}}",
+      VITE_FB_MESSAGING_ID: "{{VITE_FB_MESSAGING_ID}}",
+      VITE_FB_APP_ID: "{{VITE_FB_APP_ID}}",
+      VITE_FB_MEASURE_ID: "{{VITE_FB_MEASURE_ID}}"
+    }
+  </script>
+
+  <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          if (t === 'light') document.documentElement.classList.add('light');
+        } catch (_) { }
+      })();
   </script>
 
 

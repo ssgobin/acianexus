@@ -684,24 +684,21 @@ INFORMAÇÕES ADICIONAIS
 Listar todas as informações pertinentes que contribuam para a ação mais efetiva e assertiva em sua execução.`;
 
 
-/* ========== IA (Groq) ========== */
-// Cole sua chave do Groq. Se vazio, usa fallback heurístico local.
-const GROQ_API_KEY = "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"; // <<< SUA GROQ KEY AQUI
-// Modelo Groq (sugestões: "llama3-70b-8192", "mixtral-8x7b-32768")
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-// Se encontrar CORS no navegador, publique um proxy simples e coloque a URL aqui:
-const GROQ_PROXY_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_API_KEY   = window?.ENV?.VITE_GROQ_KEY;
+const GROQ_MODEL     = window?.ENV?.VITE_GROQ_MODEL;
+const GROQ_PROXY_URL = window?.ENV?.VITE_GROQ_PROXY;
 
 // Firebase (opcional). Sem as credenciais, roda em modo Local (localStorage).
 const firebaseConfig = {
-    apiKey: "AIzaSyA7l0LovQnLdv9obeR3YSH6MTdR2d6xcug",
-    authDomain: "hubacia-407c1.firebaseapp.com",
-    projectId: "hubacia-407c1",
-    storageBucket: "hubacia-407c1.appspot.app",
-    messagingSenderId: "633355141941",
-    appId: "1:633355141941:web:e65270fdabe95da64cc27c",
-    measurementId: "G-LN9BEKHCD5"
+    apiKey: window?.ENV?.VITE_FB_API_KEY,
+    authDomain: window?.ENV?.VITE_FB_AUTH_DOMAIN,
+    projectId: window?.ENV?.VITE_FB_PROJECT_ID,
+    storageBucket: window?.ENV?.VITE_FB_STORAGE_BUCKET,
+    messagingSenderId: window?.ENV?.VITE_FB_MESSAGING_ID,
+    appId: window?.ENV?.VITE_FB_APP_ID,
+    measurementId: window?.ENV?.VITE_FB_MEASURE_ID
 };
+
 
 
 async function loadProfileDataIntoModal() {
