@@ -40,15 +40,16 @@
     <div class="xmas-garland"></div>
     <nav class="nav">
       <a href="#/" data-link><img id="logo" alt="ACIA Nexus" class="brand-logo" src="img/logoacianexus.png"></a>
-      <a href="#/agenda" data-link>Agenda</a>
-      <a href="#/criar" data-link>Criar Tarefa</a>
-      <a href="#/kanban" data-link>Kanban</a>
-      <a href="#/reportar">Abrir Ticket</a>
+      <a href="#/agenda" style="font-size: 11px;" data-link>Agenda</a>
+      <a href="#/criar" style="font-size: 11px;" data-link>Criar Tarefa</a>
+      <a href="#/kanban" style="font-size: 11px;" data-link>Kanban</a>
+      <a href="#/reportar" style="font-size: 11px;">Abrir Ticket</a>
+      <a href="#/report-history" style="font-size: 11px;" data-link>Histórico</a>
 
-      <a href="#/tickets" id="nav-tickets">Tickets</a>
-      <a hidden href="#/prospeccao">Prospecção</a>
-      <a href="#/indicadores" data-link>Indicadores</a>
-      <a href="#/ranking" data-link>Ranking</a>
+      <a href="#/tickets" style="font-size: 11px;" id="nav-tickets">Tickets</a>
+      <a hidden href="#/prospeccao" style="font-size: 11px;">Prospecção</a>
+      <a href="#/indicadores" style="font-size: 11px;" data-link>Indicadores</a>
+      <a href="#/ranking" style="font-size: 11px;" data-link>Ranking</a>
       <button id="themeToggle" class="btn secondary" type="button">🌙</button>
 
       <!-- HUD Gamificação -->
@@ -146,6 +147,24 @@
 
       </div>
     </section>
+
+    <section id="view-report-history" class="hidden">
+      <div class="card" style="max-width:900px;margin:0 auto">
+        <h2 style="margin:0 0 15px">Histórico do Report Diário</h2>
+
+        <div class="row" style="margin-bottom:12px">
+          <div class="field">
+            <label for="rh-date">Selecione o dia</label>
+            <input id="rh-date" type="date">
+          </div>
+          <button id="rh-load" class="btn" type="button">Carregar</button>
+          <button id="rh-new-interval" class="btn secondary" type="button">Novo intervalo</button>
+        </div>
+
+        <div id="rh-list" style="display:flex;flex-direction:column;gap:10px"></div>
+      </div>
+    </section>
+
 
     <!-- AUTH -->
     <section id="view-auth" class="hidden">
@@ -1106,6 +1125,7 @@
 
     </div><!-- modal-inner -->
 
+
     <!-- PAINEL DE ATIVIDADE (LADO DIREITO) -->
     <div id="card-activity-panel" class="activity-panel">
       <div class="activity-header">Comentários e atividade</div>
@@ -1121,6 +1141,41 @@
     </div>
 
   </div><!-- cardModal -->
+
+  <div id="reportHistoryModal" class="modal" style="display:none;">
+
+    <div class="modal-inner rh-card">
+
+      <div class="modal-head">
+        <strong id="rh-modal-title">Editar Intervalo</strong>
+        <button id="rh-modal-close" class="btn secondary">Fechar</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="field">
+          <label>Início</label>
+          <input id="rh-start" type="time" step="60">
+        </div>
+
+        <div class="field">
+          <label>Fim</label>
+          <input id="rh-end" type="time" step="60">
+        </div>
+
+        <div class="field">
+          <label>Descrição</label>
+          <textarea id="rh-desc" style="min-height:100px"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-foot" style="display:flex; justify-content:space-between;">
+        <button id="rh-delete" class="btn secondary">Excluir</button>
+        <button id="rh-save" class="btn">Salvar</button>
+      </div>
+
+    </div>
+  </div>
+
 
 
 

@@ -1064,28 +1064,28 @@ document.addEventListener("auth:changed", () => {
 
 // === CHECK MAINTENANCE MODE ===
 async function checkMaintenance() {
-  try {
-    const { doc, getDoc } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-    );
+    try {
+        const { doc, getDoc } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
 
-    const snap = await getDoc(doc(db, "admin", "broadcast"));
-    const data = snap.exists() ? snap.data() : {};
+        const snap = await getDoc(doc(db, "admin", "broadcast"));
+        const data = snap.exists() ? snap.data() : {};
 
-    if (data.maintenance === true) {
-      if (!location.href.includes("maintenance.html")) {
-        window.location.href = "maintenance.html";
-      }
+        if (data.maintenance === true) {
+            if (!location.href.includes("maintenance.html")) {
+                window.location.href = "maintenance.html";
+            }
+        }
+    } catch (e) {
+        console.warn("Erro ao checar manutenção:", e);
     }
-  } catch (e) {
-    console.warn("Erro ao checar manutenção:", e);
-  }
 }
 
 // só começa a checar após firebase + auth estarem prontos
 document.addEventListener("auth:changed", () => {
-  checkMaintenance();
-  setInterval(checkMaintenance, 5000);
+    checkMaintenance();
+    setInterval(checkMaintenance, 5000);
 });
 
 
@@ -6033,7 +6033,7 @@ function renderRoute() {
     const views = [
         '#view-home', '#view-create', '#view-kanban', '#view-members',
         '#view-metrics', '#view-auth', '#view-calendar',
-        '#view-report', '#view-tickets', '#view-prospec', '#view-ranking'
+        '#view-report', '#view-tickets', '#view-prospec', '#view-ranking', '#view-report-history'
     ];
     views.forEach(id => { const el = document.querySelector(id); el && el.classList.add('hidden'); });
 
@@ -6059,6 +6059,8 @@ function renderRoute() {
         try { loadAndRenderCalendar(); } catch { }
     } else if (hash.startsWith('#/ranking')) {
         document.querySelector('#view-ranking')?.classList.remove('hidden');
+    } else if (hash.startsWith('#/report-history')) {
+        document.querySelector('#view-report-history')?.classList.remove('hidden');
     } else {
         document.querySelector('#view-home')?.classList.remove('hidden');
     }
@@ -6068,8 +6070,10 @@ window.addEventListener('hashchange', renderRoute);
 
 (async function () {
     await initFirebase();
+    initReportHistory();   // <<< ADICIONE AQUI
     renderRoute();
 })();
+
 
 /* =========================================================
    Relatório de Tarefas Diárias (DRP) — popup obrigatório
@@ -7609,3 +7613,253 @@ document.getElementById("dm-back").onclick = () => {
     location.hash = "#/"; // ou voltar pro chat global
 };
 
+function initReportHistory() {
+  const view = document.getElementById("view-report-history");
+  if (!view) return;
+
+  const inpDate = document.getElementById("rh-date");
+  const btnLoad = document.getElementById("rh-load");
+  const btnNew = document.getElementById("rh-new-interval");
+  const list = document.getElementById("rh-list");
+
+  const modal = document.getElementById("reportHistoryModal");
+  const btnClose = document.getElementById("rh-modal-close");
+  const btnSave = document.getElementById("rh-save");
+  const btnDelete = document.getElementById("rh-delete");
+
+  const inputStart = document.getElementById("rh-start");
+  const inputEnd   = document.getElementById("rh-end");
+  const inputDesc  = document.getElementById("rh-desc");
+  const msgBox     = document.getElementById("rh-msg");
+
+  let editingIndex = null;
+  let currentDay = null;
+  let entries = [];
+  let currentDocId = null;
+
+  function setMsg(text, type = "info") {
+    if (!msgBox) return;
+    if (!text) {
+      msgBox.textContent = "";
+      msgBox.style.display = "none";
+      return;
+    }
+    msgBox.style.display = "block";
+    msgBox.textContent = text;
+    msgBox.className = "msg " + type;
+  }
+
+  // =========== MODAL ===========
+  function openModal(index) {
+    editingIndex = (index === undefined ? null : index);
+    setMsg("");
+
+    const data = (editingIndex === null ? {} : entries[editingIndex]) || {};
+
+    inputStart.value = (data.start || "").slice(0, 5);
+    inputEnd.value   = (data.end   || "").slice(0, 5);
+    inputDesc.value  = data.desc || "";
+
+    btnDelete.style.display =
+      editingIndex === null ? "none" : "inline-block";
+
+    modal.classList.add("show");
+    modal.style.display = "flex";
+  }
+
+  function closeModal() {
+    modal.classList.remove("show");
+    modal.style.display = "none";
+  }
+
+  btnClose.onclick = closeModal;
+  modal.onclick = (e) => {
+    if (e.target === modal) closeModal();
+  };
+
+  // =========== LISTA ===========
+  function formatTime(t) {
+    return t || "--:--";
+  }
+
+  function renderList() {
+    if (!entries.length) {
+      list.innerHTML = `<div class="muted">Nenhum intervalo neste dia.</div>`;
+      return;
+    }
+
+    entries.sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+
+    list.innerHTML = entries
+      .map(
+        (i, idx) => `
+        <div class="card" style="padding:10px;cursor:pointer" data-i="${idx}">
+          <strong>${formatTime(i.start)} – ${formatTime(i.end)}</strong><br>
+          <span class="muted">${i.desc || ""}</span>
+        </div>
+      `
+      )
+      .join("");
+
+    list.querySelectorAll(".card").forEach((c) => {
+      c.onclick = () => {
+        const index = Number(c.getAttribute("data-i"));
+        openModal(index);
+      };
+    });
+  }
+
+  // =========== CARREGAR ===========
+  btnLoad.onclick = async () => {
+    if (!currentUser) {
+      alert("Você precisa estar logado para ver o histórico.");
+      return;
+    }
+
+    currentDay = inpDate.value;
+    if (!currentDay) return alert("Escolha a data");
+
+    list.innerHTML = `<div class="muted">Carregando…</div>`;
+
+    const { collection, query, where, getDocs } = await import(
+      "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+    );
+
+    const col = collection(db, "users", currentUser.uid, "dailyReports");
+    const q = query(col, where("date", "==", currentDay));
+
+    const snap = await getDocs(q);
+
+    let docData = null;
+    let docId = null;
+
+    snap.forEach((d) => {
+      docData = d.data();
+      docId = d.id;
+    });
+
+    entries = docData?.entries || [];
+    currentDocId = docId;
+
+    renderList();
+  };
+
+  // =========== NOVO INTERVALO ===========
+  btnNew.onclick = () => {
+    if (!inpDate.value) {
+      alert("Escolha a data antes de criar um intervalo.");
+      return;
+    }
+    currentDay = inpDate.value; // garante que currentDay esteja setado
+    openModal(null);
+  };
+
+  // =========== SALVAR ===========
+  btnSave.onclick = async () => {
+    setMsg("");
+
+    if (!currentUser) {
+      setMsg("Você precisa estar logado para salvar.", "error");
+      return;
+    }
+
+    if (!currentDay) {
+      setMsg("Selecione um dia e clique em Carregar ou Novo intervalo.", "error");
+      return;
+    }
+
+    const start = inputStart.value.trim();
+    const end   = inputEnd.value.trim();
+    const desc  = inputDesc.value.trim();
+
+    if (!start || !end) {
+      setMsg("Preencha Início e Fim.", "error");
+      return;
+    }
+
+    if (editingIndex === null || editingIndex === undefined) {
+      entries.push({ start, end, desc });
+    } else {
+      entries[editingIndex] = { start, end, desc };
+    }
+
+    try {
+      const { doc, setDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+      );
+
+      const realId =
+        currentDocId ||
+        (window.crypto && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now()));
+
+      const ref = doc(
+        db,
+        "users",
+        currentUser.uid,
+        "dailyReports",
+        realId
+      );
+
+      await setDoc(ref, {
+        date: currentDay,
+        entries,
+        updatedAt: new Date().toISOString(),
+      });
+
+      currentDocId = realId;
+      closeModal();
+      renderList();
+    } catch (err) {
+      console.error("Erro ao salvar histórico:", err);
+      setMsg("Erro ao salvar. Veja o console para detalhes.", "error");
+    }
+  };
+
+  // =========== EXCLUIR ===========
+  btnDelete.onclick = async () => {
+    if (editingIndex === null || editingIndex === undefined) return;
+    if (!confirm("Excluir este intervalo?")) return;
+
+    entries.splice(editingIndex, 1);
+
+    try {
+      const { doc, setDoc } = await import(
+        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+      );
+
+      const realId =
+        currentDocId ||
+        (window.crypto && crypto.randomUUID
+          ? crypto.randomUUID()
+          : String(Date.now()));
+
+      const ref = doc(
+        db,
+        "users",
+        currentUser.uid,
+        "dailyReports",
+        realId
+      );
+
+      await setDoc(ref, {
+        date: currentDay,
+        entries,
+        updatedAt: new Date().toISOString(),
+      });
+
+      closeModal();
+      renderList();
+    } catch (err) {
+      console.error("Erro ao excluir intervalo:", err);
+      setMsg("Erro ao excluir. Veja o console para detalhes.", "error");
+    }
+  };
+}
+
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    initReportHistory();
+});

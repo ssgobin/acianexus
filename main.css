@@ -4407,3 +4407,62 @@ html.dyslexia-font .card,
 html.dyslexia-font * {
   font-family: "Atkinson Hyperlegible", Arial, sans-serif !important;
 }
+/* ============================
+   Modal de Histórico do Report
+============================ */
+#reportHistoryModal .modal-body {
+  padding: 16px;
+}
+
+.rh-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.rh-actions {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+
+#reportHistoryModal input,
+#reportHistoryModal textarea {
+  background: #0f172a;
+  border: 1px solid rgba(255,255,255,0.08);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+#reportHistoryModal label {
+  font-size: 13px;
+  color: #cbd5e1;
+}
+#reportHistoryModal {
+  z-index: 999999 !important;
+}
+/* ============================
+   Modal do Histórico (Nexus)
+============================ */
+#reportHistoryModal {
+  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.45);
+  align-items: center;
+  justify-content: center;
+}
+
+#reportHistoryModal .rh-card {
+  width: min(420px, 92vw);
+  background: rgba(17, 25, 40, 0.82);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 18px;
+  box-shadow: 0 0 35px rgba(0,0,0,0.45);
+  animation: fadeUp 0.25s ease;
+}
+
+/* Animação */
+@keyframes fadeUp {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
