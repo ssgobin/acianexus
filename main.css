@@ -4485,6 +4485,10 @@ html.dyslexia-font * {
   user-select: none;
 }
 
+html.light .menu-group {
+    color: #081226;
+}
+
 .menu-title {
   font-weight: 500;
   opacity: 0.92;
@@ -4537,4 +4541,31 @@ html.dyslexia-font * {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.menu-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* seta curvada estilo "gota triangular" */
+.arrow-blob {
+  width: 12px;
+  height: 10px;
+  background: #fff;
+  display: inline-block;
+  border-radius: 50% 50% 70% 70%;
+  clip-path: path("M 6 10 C -1 4, 1 0, 6 0 C 11 0, 13 4, 6 10 Z");
+  opacity: 0.85;
+  transition: .2s ease;
+  margin-top: 1px;
+}
+
+html.light .arrow-blob {
+    background: #081226;
+}
+
+.menu-group:hover .arrow-blob {
+  opacity: 1;
 }
