@@ -27,6 +27,8 @@ Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
    CONFIG & HELPERS
 ============================ */
 window._inboxItems = [];
+let MEMBER_SELECTED = [];
+
 let cloudOk = false, app = null, db = null, auth = null, currentUser = null, currentRole = 'editor';
 
 const emojiCategories = {
@@ -6974,7 +6976,6 @@ if (typeof document !== 'undefined') {
 ============================================================ */
 
 let MEMBER_TARGET = null;        // "c-members" ou "m-members"
-let MEMBER_SELECTED = {};        // cache por target
 
 async function openMembersModal(targetId, preselected = []) {
     MEMBER_TARGET = targetId;
