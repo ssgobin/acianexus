@@ -6072,6 +6072,7 @@ window.addEventListener('hashchange', renderRoute);
     await initFirebase();
     initReportHistory();   // <<< ADICIONE AQUI
     renderRoute();
+    initDailyReport();
 })();
 
 
@@ -6632,7 +6633,10 @@ function makeCardPayload(type, card, extra) {
 
     if (!modal || !body || !btnAdd || !btnSave) return;
 
-    let currentDocId = null; // ⭐ IMPORTANTE
+    let currentDocId = null;
+    const today = new Date().toISOString().split("T")[0];
+    inpDate.value = today;
+    currentDay = today;
 
     function todayKey() {
         return new Date().toISOString().slice(0, 10);
@@ -7614,248 +7618,262 @@ document.getElementById("dm-back").onclick = () => {
 };
 
 function initReportHistory() {
-  const view = document.getElementById("view-report-history");
-  if (!view) return;
+    const view = document.getElementById("view-report-history");
+    if (!view) return;
 
-  const inpDate = document.getElementById("rh-date");
-  const btnLoad = document.getElementById("rh-load");
-  const btnNew = document.getElementById("rh-new-interval");
-  const list = document.getElementById("rh-list");
+    
+    window.addEventListener("nexus:auth-ready", () => {
+        const today = new Date().toISOString().split("T")[0];
+        inpDate.value = today;
+        currentDay = today;
+        btnLoad.click();
+    });
 
-  const modal = document.getElementById("reportHistoryModal");
-  const btnClose = document.getElementById("rh-modal-close");
-  const btnSave = document.getElementById("rh-save");
-  const btnDelete = document.getElementById("rh-delete");
+    const inpDate = document.getElementById("rh-date");
+    const btnLoad = document.getElementById("rh-load");
+    const btnNew = document.getElementById("rh-new-interval");
+    const list = document.getElementById("rh-list");
 
-  const inputStart = document.getElementById("rh-start");
-  const inputEnd   = document.getElementById("rh-end");
-  const inputDesc  = document.getElementById("rh-desc");
-  const msgBox     = document.getElementById("rh-msg");
+    const modal = document.getElementById("reportHistoryModal");
+    const btnClose = document.getElementById("rh-modal-close");
+    const btnSave = document.getElementById("rh-save");
+    const btnDelete = document.getElementById("rh-delete");
 
-  let editingIndex = null;
-  let currentDay = null;
-  let entries = [];
-  let currentDocId = null;
+    const inputStart = document.getElementById("rh-start");
+    const inputEnd = document.getElementById("rh-end");
+    const inputDesc = document.getElementById("rh-desc");
+    const msgBox = document.getElementById("rh-msg");
 
-  function setMsg(text, type = "info") {
-    if (!msgBox) return;
-    if (!text) {
-      msgBox.textContent = "";
-      msgBox.style.display = "none";
-      return;
-    }
-    msgBox.style.display = "block";
-    msgBox.textContent = text;
-    msgBox.className = "msg " + type;
-  }
+    let editingIndex = null;
+    let currentDay = null;
+    let entries = [];
+    let currentDocId = null;
 
-  // =========== MODAL ===========
-  function openModal(index) {
-    editingIndex = (index === undefined ? null : index);
-    setMsg("");
 
-    const data = (editingIndex === null ? {} : entries[editingIndex]) || {};
+    // 👉 Preencher com data de hoje automaticamente
+    const today = new Date().toISOString().split("T")[0];
+    inpDate.value = today;
+    currentDay = today;
 
-    inputStart.value = (data.start || "").slice(0, 5);
-    inputEnd.value   = (data.end   || "").slice(0, 5);
-    inputDesc.value  = data.desc || "";
+    // 👉 Carregar automaticamente ao abrir
+    setTimeout(() => btnLoad.click(), 150);
 
-    btnDelete.style.display =
-      editingIndex === null ? "none" : "inline-block";
 
-    modal.classList.add("show");
-    modal.style.display = "flex";
-  }
-
-  function closeModal() {
-    modal.classList.remove("show");
-    modal.style.display = "none";
-  }
-
-  btnClose.onclick = closeModal;
-  modal.onclick = (e) => {
-    if (e.target === modal) closeModal();
-  };
-
-  // =========== LISTA ===========
-  function formatTime(t) {
-    return t || "--:--";
-  }
-
-  function renderList() {
-    if (!entries.length) {
-      list.innerHTML = `<div class="muted">Nenhum intervalo neste dia.</div>`;
-      return;
+    function setMsg(text, type = "info") {
+        if (!msgBox) return;
+        if (!text) {
+            msgBox.textContent = "";
+            msgBox.style.display = "none";
+            return;
+        }
+        msgBox.style.display = "block";
+        msgBox.textContent = text;
+        msgBox.className = "msg " + type;
     }
 
-    entries.sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+    // =========== MODAL ===========
+    function openModal(index) {
+        editingIndex = (index === undefined ? null : index);
+        setMsg("");
 
-    list.innerHTML = entries
-      .map(
-        (i, idx) => `
+        const data = (editingIndex === null ? {} : entries[editingIndex]) || {};
+
+        inputStart.value = (data.start || "").slice(0, 5);
+        inputEnd.value = (data.end || "").slice(0, 5);
+        inputDesc.value = data.desc || "";
+
+        btnDelete.style.display =
+            editingIndex === null ? "none" : "inline-block";
+
+        modal.classList.add("show");
+        modal.style.display = "flex";
+    }
+
+    function closeModal() {
+        modal.classList.remove("show");
+        modal.style.display = "none";
+    }
+
+    btnClose.onclick = closeModal;
+    modal.onclick = (e) => {
+        if (e.target === modal) closeModal();
+    };
+
+    // =========== LISTA ===========
+    function formatTime(t) {
+        return t || "--:--";
+    }
+
+    function renderList() {
+        if (!entries.length) {
+            list.innerHTML = `<div class="muted">Nenhum intervalo neste dia.</div>`;
+            return;
+        }
+
+        entries.sort((a, b) => (a.start || "").localeCompare(b.start || ""));
+
+        list.innerHTML = entries
+            .map(
+                (i, idx) => `
         <div class="card" style="padding:10px;cursor:pointer" data-i="${idx}">
           <strong>${formatTime(i.start)} – ${formatTime(i.end)}</strong><br>
           <span class="muted">${i.desc || ""}</span>
         </div>
       `
-      )
-      .join("");
+            )
+            .join("");
 
-    list.querySelectorAll(".card").forEach((c) => {
-      c.onclick = () => {
-        const index = Number(c.getAttribute("data-i"));
-        openModal(index);
-      };
-    });
-  }
-
-  // =========== CARREGAR ===========
-  btnLoad.onclick = async () => {
-    if (!currentUser) {
-      alert("Você precisa estar logado para ver o histórico.");
-      return;
+        list.querySelectorAll(".card").forEach((c) => {
+            c.onclick = () => {
+                const index = Number(c.getAttribute("data-i"));
+                openModal(index);
+            };
+        });
     }
 
-    currentDay = inpDate.value;
-    if (!currentDay) return alert("Escolha a data");
+    // =========== CARREGAR ===========
+    btnLoad.onclick = async () => {
 
-    list.innerHTML = `<div class="muted">Carregando…</div>`;
+        currentDay = inpDate.value;
+        if (!currentDay) return alert("Escolha a data");
 
-    const { collection, query, where, getDocs } = await import(
-      "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-    );
+        list.innerHTML = `<div class="muted">Carregando…</div>`;
 
-    const col = collection(db, "users", currentUser.uid, "dailyReports");
-    const q = query(col, where("date", "==", currentDay));
+        const { collection, query, where, getDocs } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
 
-    const snap = await getDocs(q);
+        const col = collection(db, "users", currentUser.uid, "dailyReports");
+        const q = query(col, where("date", "==", currentDay));
 
-    let docData = null;
-    let docId = null;
+        const snap = await getDocs(q);
 
-    snap.forEach((d) => {
-      docData = d.data();
-      docId = d.id;
-    });
+        let docData = null;
+        let docId = null;
 
-    entries = docData?.entries || [];
-    currentDocId = docId;
+        snap.forEach((d) => {
+            docData = d.data();
+            docId = d.id;
+        });
 
-    renderList();
-  };
+        entries = docData?.entries || [];
+        currentDocId = docId;
 
-  // =========== NOVO INTERVALO ===========
-  btnNew.onclick = () => {
-    if (!inpDate.value) {
-      alert("Escolha a data antes de criar um intervalo.");
-      return;
-    }
-    currentDay = inpDate.value; // garante que currentDay esteja setado
-    openModal(null);
-  };
+        renderList();
+    };
 
-  // =========== SALVAR ===========
-  btnSave.onclick = async () => {
-    setMsg("");
+    // =========== NOVO INTERVALO ===========
+    btnNew.onclick = () => {
+        if (!inpDate.value) {
+            alert("Escolha a data antes de criar um intervalo.");
+            return;
+        }
+        currentDay = inpDate.value; // garante que currentDay esteja setado
+        openModal(null);
+    };
 
-    if (!currentUser) {
-      setMsg("Você precisa estar logado para salvar.", "error");
-      return;
-    }
+    // =========== SALVAR ===========
+    btnSave.onclick = async () => {
+        setMsg("");
 
-    if (!currentDay) {
-      setMsg("Selecione um dia e clique em Carregar ou Novo intervalo.", "error");
-      return;
-    }
+        if (!currentUser) {
+            setMsg("Você precisa estar logado para salvar.", "error");
+            return;
+        }
 
-    const start = inputStart.value.trim();
-    const end   = inputEnd.value.trim();
-    const desc  = inputDesc.value.trim();
+        if (!currentDay) {
+            setMsg("Selecione um dia e clique em Carregar ou Novo intervalo.", "error");
+            return;
+        }
 
-    if (!start || !end) {
-      setMsg("Preencha Início e Fim.", "error");
-      return;
-    }
+        const start = inputStart.value.trim();
+        const end = inputEnd.value.trim();
+        const desc = inputDesc.value.trim();
 
-    if (editingIndex === null || editingIndex === undefined) {
-      entries.push({ start, end, desc });
-    } else {
-      entries[editingIndex] = { start, end, desc };
-    }
+        if (!start || !end) {
+            setMsg("Preencha Início e Fim.", "error");
+            return;
+        }
 
-    try {
-      const { doc, setDoc } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
+        if (editingIndex === null || editingIndex === undefined) {
+            entries.push({ start, end, desc });
+        } else {
+            entries[editingIndex] = { start, end, desc };
+        }
 
-      const realId =
-        currentDocId ||
-        (window.crypto && crypto.randomUUID
-          ? crypto.randomUUID()
-          : String(Date.now()));
+        try {
+            const { doc, setDoc } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
 
-      const ref = doc(
-        db,
-        "users",
-        currentUser.uid,
-        "dailyReports",
-        realId
-      );
+            const realId =
+                currentDocId ||
+                (window.crypto && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : String(Date.now()));
 
-      await setDoc(ref, {
-        date: currentDay,
-        entries,
-        updatedAt: new Date().toISOString(),
-      });
+            const ref = doc(
+                db,
+                "users",
+                currentUser.uid,
+                "dailyReports",
+                realId
+            );
 
-      currentDocId = realId;
-      closeModal();
-      renderList();
-    } catch (err) {
-      console.error("Erro ao salvar histórico:", err);
-      setMsg("Erro ao salvar. Veja o console para detalhes.", "error");
-    }
-  };
+            await setDoc(ref, {
+                date: currentDay,
+                entries,
+                updatedAt: new Date().toISOString(),
+            });
 
-  // =========== EXCLUIR ===========
-  btnDelete.onclick = async () => {
-    if (editingIndex === null || editingIndex === undefined) return;
-    if (!confirm("Excluir este intervalo?")) return;
+            currentDocId = realId;
+            closeModal();
+            renderList();
+        } catch (err) {
+            console.error("Erro ao salvar histórico:", err);
+            setMsg("Erro ao salvar. Veja o console para detalhes.", "error");
+        }
+    };
 
-    entries.splice(editingIndex, 1);
+    // =========== EXCLUIR ===========
+    btnDelete.onclick = async () => {
+        if (editingIndex === null || editingIndex === undefined) return;
+        if (!confirm("Excluir este intervalo?")) return;
 
-    try {
-      const { doc, setDoc } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-      );
+        entries.splice(editingIndex, 1);
 
-      const realId =
-        currentDocId ||
-        (window.crypto && crypto.randomUUID
-          ? crypto.randomUUID()
-          : String(Date.now()));
+        try {
+            const { doc, setDoc } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
 
-      const ref = doc(
-        db,
-        "users",
-        currentUser.uid,
-        "dailyReports",
-        realId
-      );
+            const realId =
+                currentDocId ||
+                (window.crypto && crypto.randomUUID
+                    ? crypto.randomUUID()
+                    : String(Date.now()));
 
-      await setDoc(ref, {
-        date: currentDay,
-        entries,
-        updatedAt: new Date().toISOString(),
-      });
+            const ref = doc(
+                db,
+                "users",
+                currentUser.uid,
+                "dailyReports",
+                realId
+            );
 
-      closeModal();
-      renderList();
-    } catch (err) {
-      console.error("Erro ao excluir intervalo:", err);
-      setMsg("Erro ao excluir. Veja o console para detalhes.", "error");
-    }
-  };
+            await setDoc(ref, {
+                date: currentDay,
+                entries,
+                updatedAt: new Date().toISOString(),
+            });
+
+            closeModal();
+            renderList();
+        } catch (err) {
+            console.error("Erro ao excluir intervalo:", err);
+            setMsg("Erro ao excluir. Veja o console para detalhes.", "error");
+        }
+    };
 }
 
 
