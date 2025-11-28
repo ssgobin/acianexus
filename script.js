@@ -28,6 +28,12 @@ Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
 ============================ */
 window._inboxItems = [];
 let MEMBER_SELECTED = [];
+let currentDM = null;
+let currentDMOtherUid = null;
+let dmUnsubMessages = null;
+let dmUnsubMeta = null;
+let dmConvsUnsub = null;
+let dmTypingTimeout = null;
 
 let cloudOk = false, app = null, db = null, auth = null, currentUser = null, currentRole = 'editor';
 
@@ -6074,7 +6080,6 @@ window.addEventListener('hashchange', renderRoute);
     await initFirebase();
     initReportHistory();   // <<< ADICIONE AQUI
     renderRoute();
-    initDailyReport();
 })();
 
 
@@ -7226,12 +7231,7 @@ function insertMention(name, uid) {
 // ====================================================
 //  DMs — Chat privado 1:1 (com avatar, online, lista, typing, edição)
 // ====================================================
-let currentDM = null;
-let currentDMOtherUid = null;
-let dmUnsubMessages = null;
-let dmUnsubMeta = null;
-let dmConvsUnsub = null;
-let dmTypingTimeout = null;
+
 
 // chatId determinístico
 function getDMChatId(uid1, uid2) {

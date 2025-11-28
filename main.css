@@ -4573,3 +4573,33 @@ html.light .arrow-blob {
 html.light .menu-dropdown {
     background: #fff;
 }
+
+html.light #rh-desc {
+    background-color: #fff;
+    color: #000000;
+    border-color: #000000;
+}
+html.light #rh-end {
+    background-color: #fff;
+    color: #000000;
+    border-color: #000000;
+}
+
+html.light #rh-start {
+    background-color: #fff;
+    color: #000000;
+    border-color: #000000;
+}
+
+html.light .auth-menu {
+    background: #fff;
+}
+
+html.light .auth-menu-item {
+    color: #000000;
+}
+
+html.light .auth-menu-item:hover {
+    background-color: #0ea5e9;
+    border-radius: 10px;
+}
