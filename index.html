@@ -40,16 +40,37 @@
     <div class="xmas-garland"></div>
     <nav class="nav">
       <a href="#/" data-link><img id="logo" alt="ACIA Nexus" class="brand-logo" src="img/logoacianexus.png"></a>
-      <a href="#/agenda" style="font-size: 11px;" data-link>Agenda</a>
-      <a href="#/criar" style="font-size: 11px;" data-link>Criar Tarefa</a>
-      <a href="#/kanban" style="font-size: 11px;" data-link>Kanban</a>
-      <a href="#/reportar" style="font-size: 11px;">Abrir Ticket</a>
-      <a href="#/report-history" style="font-size: 11px;" data-link>Histórico</a>
+      <div class="menu-group">
+        <span class="menu-title">Produtividade ▼</span>
+        <div class="menu-dropdown">
+          <a href="#/agenda">Agenda</a>
+          <a href="#/report-history">Histórico de Reports</a>
+        </div>
+      </div>
 
-      <a href="#/tickets" style="font-size: 11px;" id="nav-tickets">Tickets</a>
-      <a hidden href="#/prospeccao" style="font-size: 11px;">Prospecção</a>
-      <a href="#/indicadores" style="font-size: 11px;" data-link>Indicadores</a>
-      <a href="#/ranking" style="font-size: 11px;" data-link>Ranking</a>
+      <div class="menu-group">
+        <span class="menu-title">Tarefas ▼</span>
+        <div class="menu-dropdown">
+          <a href="#/criar">Criar Tarefa</a>
+          <a href="#/kanban">Kanban</a>
+        </div>
+      </div>
+
+      <div class="menu-group">
+        <span class="menu-title">Chamados ▼</span>
+        <div class="menu-dropdown">
+          <a href="#/aberticket">Abrir Ticket</a>
+          <a href="#/tickets">Tickets</a>
+        </div>
+      </div>
+
+      <div class="menu-group">
+        <span class="menu-title">Gestão ▼</span>
+        <div class="menu-dropdown">
+          <a href="#/indicadores">Indicadores</a>
+          <a href="#/ranking">Ranking</a>
+        </div>
+      </div>
       <button id="themeToggle" class="btn secondary" type="button">🌙</button>
 
       <!-- HUD Gamificação -->
