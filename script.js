@@ -27,13 +27,15 @@ Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
    CONFIG & HELPERS
 ============================ */
 window._inboxItems = [];
-let MEMBER_SELECTED = [];
 let currentDM = null;
 let currentDMOtherUid = null;
 let dmUnsubMessages = null;
 let dmUnsubMeta = null;
 let dmConvsUnsub = null;
 let dmTypingTimeout = null;
+
+let MEMBER_TARGET = null;        // "c-members" ou "m-members"
+const MEMBER_SELECTED = {};   // garante objeto global
 
 let cloudOk = false, app = null, db = null, auth = null, currentUser = null, currentRole = 'editor';
 
@@ -149,21 +151,19 @@ function getSelectedMembers(rootEl) {
     return [];
 }
 
-
-
-
 function computeGut(g, u, t) {
     const G = Math.max(1, Math.min(10, Number(g) || 0));
     const U = Math.max(1, Math.min(10, Number(u) || 0));
     const T = Math.max(1, Math.min(10, Number(t) || 0));
     return G * U * T;
 }
+
 function gutClass(gut) {
     if (gut > 100) return 'A';
     if (gut >= 50) return 'B';
     return 'C';
 }
-/* prioridade = GUT + bônus de urgência do prazo */
+
 function computePriority(dueISO, gut) {
     let bonus = 0;
     if (dueISO) {
@@ -176,7 +176,6 @@ function computePriority(dueISO, gut) {
     return (gut || 0) + bonus;
 }
 
-// === CHAT (por card) ===
 const Chat = {
     async addMessage(cardId, text) {
         const createdAt = new Date().toISOString();
@@ -681,16 +680,6 @@ const FLOWS = {
     EVENTOS: ["PENDENTE", "PROJETOS", "CRIAÇÃO", "DIVULGAÇÃO", "ORGANIZAÇÃO", "EXECUÇÃO", "PÓS-EVENTO", "CONCLUÍDO"],
     VENDAS: ["PROSPECÇÃO", "PENDENTE", "NEGOCIAÇÃO", "PROPOSTA", "FECHADO", "CONCLUÍDO"]
 };
-
-const DEFAULT_CARD_DESC = `TAREFA QUE DEVE SER FEITA
-Descrever todas as ações que devem ser aplicada para a execução e entrega da tarefa, com excelência.
-
-OBJETIVO DA TAREFA
-Descrever qual é a razão da execução desta tarefa e qual o resultado esperado.
-
-INFORMAÇÕES ADICIONAIS
-Listar todas as informações pertinentes que contribuam para a ação mais efetiva e assertiva em sua execução.`;
-
 
 /* ========== IA (Groq) ========== */
 // Cole sua chave do Groq. Se vazio, usa fallback heurístico local.
@@ -4029,7 +4018,12 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
                 .join('');
 
             // Agora sim — aplica a seleção pendente
-            applyPendingSelection?.();
+            setTimeout(() => {
+                if (mMembers && mMembers.options) {
+                    applyPendingSelection();
+                }
+            }, 25);
+
         };
 
 
@@ -4087,24 +4081,27 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
     // aplica seleção pendente no modal (responsável e membros)
     function applyPendingSelection() {
         if (!pendingModalSelection) return;
-        const { respUid, respLabel, memberUids, memberLabels } = pendingModalSelection;
+        const { respUid, respLabel } = pendingModalSelection;
 
-        // RESPONSÁVEL
+        // ========= RESPONSÁVEL =========
         let appliedResp = false;
-        if (respUid && mResp.querySelector(`option[value="${respUid}"]`)) {
+        if (respUid && mResp && mResp.querySelector(`option[value="${respUid}"]`)) {
             mResp.value = respUid;
             appliedResp = true;
-        } else if (respLabel) {
-            // tenta casar por label (caso legado)
-            const opt = Array.from(mResp.options).find(o => (o.dataset.label || o.textContent) === respLabel);
-            if (opt) { mResp.value = opt.value; appliedResp = true; }
+        } else if (respLabel && mResp) {
+            const opt = Array.from(mResp.options).find(
+                o => (o.dataset.label || o.textContent) === respLabel
+            );
+            if (opt) {
+                mResp.value = opt.value;
+                appliedResp = true;
+            }
         }
 
-        // se ainda não deu, adiciona uma opção “fantasma” só para exibir
-        if (!appliedResp && (respUid || respLabel)) {
+        if (!appliedResp && (respUid || respLabel) && mResp) {
             const val = respUid || `legacy_${Date.now()}`;
-            const lab = respLabel || respUid || '—';
-            const ghost = document.createElement('option');
+            const lab = respLabel || respUid || "—";
+            const ghost = document.createElement("option");
             ghost.value = val;
             ghost.dataset.label = lab;
             ghost.textContent = `${lab} (não cadastrado)`;
@@ -4112,24 +4109,11 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             mResp.value = val;
         }
 
-        // MEMBROS
-        const safeMemberUids = Array.isArray(memberUids) ? memberUids : [];
-        const want = new Set(safeMemberUids);
-
-        // também aceita labels legadas
-        const safeMemberLabels = Array.isArray(memberLabels) ? memberLabels : [];
-        const wantLabels = new Set(safeMemberLabels.map(s => String(s).trim()));
-
-
-        Array.from(mMembers.options).forEach(o => {
-            const byUid = want.has(o.value);
-            const byLabel = wantLabels.has(o.textContent) || wantLabels.has(o.dataset?.label || '');
-            o.selected = byUid || byLabel;
-        });
-
-        // limpa o pendente
+        // nada de mexer em membros aqui — isso agora é responsabilidade do modal global
         pendingModalSelection = null;
     }
+
+
 
     bindUsersToEdit();
 
@@ -4711,7 +4695,8 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
         // ===== Envolvidos (novo sistema — modal global) =====
         MEMBER_SELECTED["m-members"] = new Set(card.members || []);
-        updateMembersDisplay("m-members");
+        setTimeout(() => applyPendingSelection(), 50);
+
 
         // === ATIVIDADE DO CARD ===
         loadCardActivity(card.id);
@@ -6976,61 +6961,95 @@ if (typeof document !== 'undefined') {
     document.addEventListener('auth:changed', listenUserInbox);
 }
 
-/* ============================================================
-   SELETOR GLOBAL DE ENVOLVIDOS (criar + editar)
-============================================================ */
+function openMembersModal(targetId, preselected = []) {
+    console.log("---------------------------------------------------");
+    console.log("[OPEN MODAL] Abrindo modal de membros...");
+    console.log("[OPEN MODAL] targetId =", targetId);
+    console.log("[OPEN MODAL] preselected =", preselected);
 
-let MEMBER_TARGET = null;        // "c-members" ou "m-members"
-
-async function openMembersModal(targetId, preselected = []) {
     MEMBER_TARGET = targetId;
-    MEMBER_SELECTED[targetId] = new Set(preselected);
 
-    document.getElementById("members-modal").classList.remove("hidden");
-    document.getElementById("members-search").value = "";
+    if (!MEMBER_SELECTED[targetId]) {
+        console.warn("[OPEN MODAL] MEMBER_SELECTED[targetId] inexistente. Criando Set vazio.");
+        MEMBER_SELECTED[targetId] = new Set();
+    }
+
+    MEMBER_SELECTED[targetId] = new Set(preselected || []);
+    console.log("[OPEN MODAL] MEMBER_SELECTED[targetId] =", MEMBER_SELECTED[targetId]);
+
+    const modal = document.getElementById("members-modal");
+    if (!modal) console.error("[OPEN MODAL] ERRO: #members-modal não encontrado!");
+
+    modal.classList.remove("hidden");
+    console.log("[OPEN MODAL] Modal exibido.");
+
+    const search = document.getElementById("members-search");
+    if (search) search.value = "";
 
     loadMembersForModal();
 }
 
+
+// === CARREGAR MEMBROS ===
 async function loadMembersForModal() {
+    console.log("[LOAD] Carregando membros...");
+
     const listEl = document.getElementById("members-list");
+    if (!listEl) {
+        console.error("[LOAD] ERRO: #members-list não encontrado");
+        return;
+    }
+
     listEl.innerHTML = "Carregando...";
 
     let members = [];
 
-    if (cloudOk) {
-        const { collection, getDocs } = await import(
-            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-        );
+    try {
+        if (cloudOk) {
+            const { collection, getDocs } = await import(
+                "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+            );
 
-        const snap = await getDocs(collection(db, "presence"));
+            console.log("[LOAD] Lendo coleção 'presence' do Firestore...");
+            const snap = await getDocs(collection(db, "presence"));
 
-        snap.forEach(d => {
-            const u = d.data();
-
-            members.push({
-                id: d.id,
-                name: u.name || u.email,
-                email: u.email,
-                photo: u.photoURL || getGravatar(u.email, u.name)
+            snap.forEach(doc => {
+                const u = doc.data();
+                members.push({
+                    id: doc.id,
+                    name: u.name,
+                    email: u.email,
+                    photo: u.photoURL
+                });
             });
-        });
+
+            console.log("[LOAD] Quantidade de membros encontrados =", members.length);
+        }
+    } catch (err) {
+        console.error("[LOAD] ERRO ao carregar membros:", err);
     }
 
     renderMembersModalList(members);
 }
 
+
+// === RENDER ===
 function renderMembersModalList(arr) {
     const listEl = document.getElementById("members-list");
     listEl.innerHTML = "";
+
+    // Garante que sempre exista um Set para o TARGET atual
+    let selectedSet = MEMBER_SELECTED[MEMBER_TARGET];
+    if (!(selectedSet instanceof Set)) {
+        selectedSet = new Set();
+        MEMBER_SELECTED[MEMBER_TARGET] = selectedSet;
+    }
 
     arr.forEach(m => {
         const item = document.createElement("div");
         item.className = "member-item";
 
-        const checked = MEMBER_SELECTED[MEMBER_TARGET].has(m.id)
-            ? "checked"
-            : "";
+        const checked = selectedSet.has(m.id) ? "checked" : "";
 
         item.innerHTML = `
             <input type="checkbox" class="member-check" value="${m.id}" ${checked}>
@@ -7049,45 +7068,74 @@ function renderMembersModalList(arr) {
     });
 }
 
-// BUSCA
-document.getElementById("members-search").oninput = e => {
-    const term = e.target.value.toLowerCase();
-    document.querySelectorAll(".member-item").forEach(it => {
-        const name = it.innerText.toLowerCase();
-        it.style.display = name.includes(term) ? "flex" : "none";
-    });
-};
-
-// APLICAR
-document.getElementById("members-apply").onclick = () => {
+function onMembersApply(e) {
+    console.log("[APPLY] rodou!");
     const checks = [...document.querySelectorAll(".member-check:checked")];
     const ids = checks.map(c => c.value);
-
     MEMBER_SELECTED[MEMBER_TARGET] = new Set(ids);
-
     updateMembersDisplay(MEMBER_TARGET);
-
     document.getElementById("members-modal").classList.add("hidden");
-};
+}
 
-// FECHAR
-document.getElementById("members-close").onclick = () => {
+function onMembersClose() {
+    console.log("[CLOSE] rodou!");
     document.getElementById("members-modal").classList.add("hidden");
-};
+}
 
+
+// BUSCA – filtro em tempo real na lista de membros
+(() => {
+    const searchInput = document.getElementById("members-search");
+    if (!searchInput) {
+        console.warn("[members] #members-search não encontrado");
+        return;
+    }
+
+    searchInput.oninput = e => {
+        const term = (e.target.value || "").toLowerCase();
+        console.log("[members] buscando por:", term);
+
+        document.querySelectorAll(".member-item").forEach(row => {
+            const txt = row.innerText.toLowerCase();
+            row.style.display = txt.includes(term) ? "flex" : "none";
+        });
+    };
+})();
+
+// HANDLERS DO MODAL (Aplicar / Fechar)
+document.getElementById("members-apply")
+    .addEventListener("click", onMembersApply);
+
+document.getElementById("members-close")
+    .addEventListener("click", onMembersClose);
+
+
+// Atualiza o texto do botão/alvo (ex: "c-members")
 function updateMembersDisplay(targetId) {
     const el = document.getElementById(targetId);
-    const count = MEMBER_SELECTED[targetId].size;
+    if (!el) {
+        console.warn("[members] elemento alvo não encontrado:", targetId);
+        return;
+    }
 
-    el.innerHTML = count === 0
-        ? `<span class="muted">Selecione...</span>`
-        : `<span>${count} membro(s) selecionado(s)</span>`;
+    const set = MEMBER_SELECTED[targetId];
+    const count = set ? set.size : 0;
+
+    el.textContent =
+        count === 0 ? "Selecione..." : `${count} membro(s) selecionado(s)`;
+
+    console.log("[members] updateMembersDisplay:", targetId, "→", count, "membro(s)");
 }
 
-// EXPORTA PARA O SISTEMA
+// Exportar para salvar card
 function getMembersSelectedFor(targetId) {
-    return [...(MEMBER_SELECTED[targetId] || [])];
+    const set = MEMBER_SELECTED[targetId];
+    const arr = Array.from(set || []);
+    console.log("[members] getMembersSelectedFor:", targetId, "→", arr);
+    return arr;
 }
+
+
 
 // === NEVE ===
 function startSnow() {
@@ -7622,7 +7670,7 @@ function initReportHistory() {
     const view = document.getElementById("view-report-history");
     if (!view) return;
 
-    
+
     window.addEventListener("nexus:auth-ready", () => {
         const today = new Date().toISOString().split("T")[0];
         inpDate.value = today;
@@ -7877,8 +7925,31 @@ function initReportHistory() {
     };
 }
 
-
-
 document.addEventListener("DOMContentLoaded", () => {
     initReportHistory();
 });
+
+document.addEventListener("DOMContentLoaded", () => {
+    console.log("[BOOT] Inicializando modal de membros...");
+    initMembersModal();
+});
+
+function initMembersModalHandlers() {
+    const apply = document.getElementById("members-apply");
+    const close = document.getElementById("members-close");
+
+    if (apply) {
+        apply.removeEventListener("click", onMembersApply);
+        apply.addEventListener("click", onMembersApply);
+    }
+
+    if (close) {
+        close.removeEventListener("click", onMembersClose);
+        close.addEventListener("click", onMembersClose);
+    }
+
+    console.log("%c[Members] Handlers reinstalados", "color: #4CAF50");
+}
+
+document.addEventListener("DOMContentLoaded", initMembersModalHandlers);
+window.addEventListener("hashchange", initMembersModalHandlers);

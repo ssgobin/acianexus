@@ -3490,9 +3490,6 @@ body.dark #activity-msg {
   display: none;
 }
 
-.modal.show {
-  display: flex;
-}
 .modal-inner {
   min-height: 0;
   height: 100%;
