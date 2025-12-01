@@ -6061,11 +6061,7 @@ function renderRoute() {
 
 window.addEventListener('hashchange', renderRoute);
 
-(async function () {
-    await initFirebase();
-    initReportHistory();   // <<< ADICIONE AQUI
-    renderRoute();
-})();
+
 
 
 /* =========================================================
@@ -6609,305 +6605,169 @@ function makeCardPayload(type, card, extra) {
     }, (extra || {}));
 }
 
-// ===============================
-// POPUP DIÁRIO (11h e 17h) — persistente + visual melhorado
-// ===============================
-// POPUP DIÁRIO
 /* ============================================================
    DAILY MANUAL – abre pelo menu, carrega o dia e permite excluir
-============================================================ */
+   ============================================================ */
 (function initDailyManual() {
-    const modal = document.getElementById("dailyModal");
-    const body = document.getElementById("dailyBody");
-    const btnAdd = document.getElementById("addMore");
-    const btnSave = document.getElementById("saveDaily");
-    const btnClose = document.getElementById("dailyClose");
+  const modal = document.getElementById("dailyModal");
+  const body = document.getElementById("dailyBody");
+  const btnAdd = document.getElementById("addMore");
+  const btnSave = document.getElementById("saveDaily");
+  const btnClose = document.getElementById("dailyClose");
 
-    if (!modal || !body || !btnAdd || !btnSave) return;
+  // se não existir no DOM, não faz nada
+  if (!modal || !body || !btnAdd || !btnSave) return;
 
-    let currentDocId = null;
-    const today = new Date().toISOString().split("T")[0];
-    inpDate.value = today;
-    currentDay = today;
+  let currentDocId = null;
 
-    function todayKey() {
-        return new Date().toISOString().slice(0, 10);
-    }
+  function todayKey() {
+    return new Date().toISOString().slice(0, 10);
+  }
 
-    function createRow(start = "", end = "", desc = "") {
-        const wrap = document.createElement("div");
-        wrap.className = "daily-row";
-        wrap.innerHTML = `
-            <div class="row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
-                <div class="field" style="flex:1">
-                    <label>Início</label>
-                    <input type="time" class="start" value="${start}">
-                </div>
-                <div class="field" style="flex:1">
-                    <label>Fim</label>
-                    <input type="time" class="end" value="${end}">
-                </div>
-                <button type="button" class="btn secondary remove-row">Excluir</button>
-            </div>
-            <div class="field">
-                <label>O que fez nesse intervalo?</label>
-                <textarea class="desc">${desc}</textarea>
-            </div>
-        `;
+  function createRow(start = "", end = "", desc = "") {
+    const wrap = document.createElement("div");
+    wrap.className = "daily-row";
+    wrap.innerHTML = `
+      <div class="row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+        <div class="field" style="flex:1">
+          <label>Início</label>
+          <input type="time" class="start" value="${start}">
+        </div>
+        <div class="field" style="flex:1">
+          <label>Fim</label>
+          <input type="time" class="end" value="${end}">
+        </div>
+        <button type="button" class="btn secondary remove-row">Excluir</button>
+      </div>
+      <div class="field">
+        <label>O que fez nesse intervalo?</label>
+        <textarea class="desc">${desc}</textarea>
+      </div>
+    `;
 
-        wrap.querySelector(".remove-row").addEventListener("click", () => {
-            wrap.remove();
-            if (!body.querySelector(".daily-row")) createRow();
-        });
-
-        body.insertBefore(wrap, btnAdd);
-    }
-
-    async function loadDaily(period = "manual") {
-        const today = todayKey();
-        currentDocId = null;
-
-        if (cloudOk && currentUser?.uid && db) {
-            try {
-                const { collection, getDocs, query, where } =
-                    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-                const colRef = collection(db, "users", currentUser.uid, "dailyReports");
-                const q = query(colRef,
-                    where("date", "==", today),
-                    where("period", "==", period)
-                );
-
-                const snap = await getDocs(q);
-                if (!snap.empty) {
-                    const docSnap = snap.docs[0];
-                    currentDocId = docSnap.id; // ⭐ AQUI!
-                    return docSnap.data().entries || [];
-                }
-            } catch (e) {
-                console.warn("loadDaily Firebase:", e);
-            }
-        }
-
-        // localStorage
-        const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
-        const found = list.find(r => r.date === today && r.period === period);
-        return found ? found.entries : [];
-    }
-
-    async function openDaily() {
-        body.querySelectorAll(".daily-row").forEach(r => r.remove());
-
-        const entries = await loadDaily("manual");
-
-        if (entries.length) {
-            entries.forEach(e => createRow(e.start, e.end, e.desc));
-        } else {
-            createRow();
-        }
-
-        modal.dataset.period = "manual";
-        modal.style.display = "flex";
-    }
-
-    async function saveDaily() {
-        const rows = [...body.querySelectorAll(".daily-row")];
-        const period = modal.dataset.period || "manual";
-        const today = todayKey();
-
-        const entries = rows.map(r => ({
-            start: r.querySelector(".start").value.trim(),
-            end: r.querySelector(".end").value.trim(),
-            desc: r.querySelector(".desc").value.trim()
-        })).filter(e => e.start && e.end && e.desc);
-
-        if (!entries.length) {
-            alert("Preencha pelo menos um intervalo.");
-            return;
-        }
-
-        // FIREBASE
-        if (cloudOk && currentUser?.uid && db) {
-            try {
-                const { collection, addDoc, updateDoc, doc } =
-                    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-                if (currentDocId) {
-                    // ⭐ UPDATE — NÃO DUPLICA MAIS
-                    const ref = doc(db, "users", currentUser.uid, "dailyReports", currentDocId);
-                    await updateDoc(ref, { entries });
-                } else {
-                    // PRIMEIRA VEZ → ADD
-                    const colRef = collection(db, "users", currentUser.uid, "dailyReports");
-                    const newRef = await addDoc(colRef, {
-                        date: today,
-                        period,
-                        entries,
-                        createdAt: new Date().toISOString()
-                    });
-                    currentDocId = newRef.id;
-                }
-            } catch (e) {
-                console.warn("saveDaily Firebase:", e);
-            }
-        }
-
-        // LOCAL STORAGE
-        const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
-        const idx = list.findIndex(r => r.date === today && r.period === period);
-
-        if (idx >= 0) {
-            list[idx].entries = entries;
-        } else {
-            list.push({ date: today, period, entries });
-        }
-
-        localStorage.setItem("dailyReports", JSON.stringify(list));
-
-        alert("Relatório salvo!");
-        modal.style.display = "none";
-    }
-
-    // EVENTS
-    btnAdd.addEventListener("click", () => createRow());
-    btnSave.addEventListener("click", saveDaily);
-    btnClose.addEventListener("click", () => modal.style.display = "none");
-
-    document.getElementById("openDailyReport")
-        ?.addEventListener("click", openDaily);
-})();
-
-
-
-(function initSettings() {
-    const modal = document.getElementById("settingsModal");
-    const btnOpen = document.getElementById("openSettings");
-    const btnClose = document.getElementById("settingsClose");
-
-    const toggleSnow = document.getElementById("toggleSnow");
-    const toggleHighContrast = document.getElementById("toggleHighContrast");
-    const toggleReduceMotion = document.getElementById("toggleReduceMotion");
-    const toggleDyslexiaFont = document.getElementById("toggleDyslexiaFont");
-
-    // ============================
-    // VALIDAÇÃO DE ELEMENTOS
-    // ============================
-
-    if (!modal || !btnOpen || !btnClose) {
-        console.warn("Settings: modal ou botões principais não encontrados.");
-        return;
-    }
-
-    if (!toggleSnow) console.warn("Settings: toggleSnow não encontrado.");
-    if (!toggleHighContrast) console.warn("Settings: toggleHighContrast não encontrado.");
-    if (!toggleReduceMotion) console.warn("Settings: toggleReduceMotion não encontrado.");
-    if (!toggleDyslexiaFont) console.warn("Settings: toggleDyslexiaFont não encontrado.");
-
-    // ============================
-    // FUNÇÕES DE ACESSIBILIDADE
-    // ============================
-
-    function applyHighContrast(enable) {
-        document.documentElement.classList.toggle("high-contrast", enable);
-    }
-
-    function applyReduceMotion(enable) {
-        document.documentElement.classList.toggle("reduce-motion", enable);
-    }
-
-    function applyDyslexiaFont(enable) {
-        document.documentElement.classList.toggle("dyslexia-font", enable);
-    }
-
-    // ============================
-    // CARREGAR ESTADO SALVO
-    // ============================
-
-    const savedContrast = localStorage.getItem("ui:contrast") === "on";
-    const savedMotion = localStorage.getItem("ui:motion") === "off";
-    const savedDyslexia = localStorage.getItem("ui:dyslexia") === "on";
-
-    if (toggleHighContrast) toggleHighContrast.checked = savedContrast;
-    if (toggleReduceMotion) toggleReduceMotion.checked = savedMotion;
-    if (toggleDyslexiaFont) toggleDyslexiaFont.checked = savedDyslexia;
-
-    applyHighContrast(savedContrast);
-    applyReduceMotion(savedMotion);
-    applyDyslexiaFont(savedDyslexia);
-
-    // ============================
-    // FUNÇÕES DE NEVE
-    // ============================
-
-    function stopSnow() {
-        if (window._snowInterval) {
-            clearInterval(window._snowInterval);
-            window._snowInterval = null;
-        }
-        document.querySelectorAll(".snowflake").forEach(f => f.remove());
-    }
-
-    function applySnow(enable) {
-        if (enable) startSnow();
-        else stopSnow();
-    }
-
-    const savedSnow = localStorage.getItem("ui:snow") === "on";
-    if (toggleSnow) toggleSnow.checked = savedSnow;
-    applySnow(savedSnow);
-
-    // ============================
-    // EVENTOS DOS TOGGLES
-    // ============================
-
-    if (toggleSnow) {
-        toggleSnow.addEventListener("change", () => {
-            const enabled = toggleSnow.checked;
-            localStorage.setItem("ui:snow", enabled ? "on" : "off");
-            applySnow(enabled);
-        });
-    }
-
-    if (toggleHighContrast) {
-        toggleHighContrast.addEventListener("change", () => {
-            const enable = toggleHighContrast.checked;
-            localStorage.setItem("ui:contrast", enable ? "on" : "off");
-            applyHighContrast(enable);
-        });
-    }
-
-    if (toggleReduceMotion) {
-        toggleReduceMotion.addEventListener("change", () => {
-            const enable = toggleReduceMotion.checked;
-            localStorage.setItem("ui:motion", enable ? "off" : "on");
-            applyReduceMotion(enable);
-        });
-    }
-
-    if (toggleDyslexiaFont) {
-        toggleDyslexiaFont.addEventListener("change", () => {
-            const enable = toggleDyslexiaFont.checked;
-            localStorage.setItem("ui:dyslexia", enable ? "on" : "off");
-            applyDyslexiaFont(enable);
-        });
-    }
-
-    // ============================
-    // ABRIR E FECHAR MODAL
-    // ============================
-
-    btnOpen.addEventListener("click", () => {
-        modal.style.display = "flex";
-        document.getElementById("authMenu")?.classList.add("hidden");
+    wrap.querySelector(".remove-row").addEventListener("click", () => {
+      wrap.remove();
+      if (!body.querySelector(".daily-row")) createRow();
     });
 
-    btnClose.addEventListener("click", () => {
-        modal.style.display = "none";
-    });
+    body.insertBefore(wrap, btnAdd);
+  }
 
+  async function loadDaily(period = "manual") {
+    const today = todayKey();
+    currentDocId = null;
+
+    if (cloudOk && currentUser?.uid && db) {
+      try {
+        const { collection, getDocs, query, where } =
+          await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+        const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+        const q = query(
+          colRef,
+          where("date", "==", today),
+          where("period", "==", period)
+        );
+
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const docSnap = snap.docs[0];
+          currentDocId = docSnap.id;
+          return docSnap.data().entries || [];
+        }
+      } catch (e) {
+        console.warn("loadDaily Firebase:", e);
+      }
+    }
+
+    // localStorage
+    const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+    const found = list.find(r => r.date === today && r.period === period);
+    return found ? found.entries : [];
+  }
+
+  async function openDaily() {
+    body.querySelectorAll(".daily-row").forEach(r => r.remove());
+
+    const entries = await loadDaily("manual");
+
+    if (entries.length) {
+      entries.forEach(e => createRow(e.start, e.end, e.desc));
+    } else {
+      createRow();
+    }
+
+    modal.dataset.period = "manual";
+    modal.style.display = "flex";
+  }
+
+  async function saveDaily() {
+    const rows = [...body.querySelectorAll(".daily-row")];
+    const period = modal.dataset.period || "manual";
+    const today = todayKey();
+
+    const entries = rows
+      .map(r => ({
+        start: r.querySelector(".start").value.trim(),
+        end: r.querySelector(".end").value.trim(),
+        desc: r.querySelector(".desc").value.trim()
+      }))
+      .filter(e => e.start && e.end && e.desc);
+
+    if (!entries.length) {
+      alert("Preencha pelo menos um intervalo.");
+      return;
+    }
+
+    // FIREBASE
+    if (cloudOk && currentUser?.uid && db) {
+      try {
+        const { collection, addDoc, updateDoc, doc } =
+          await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+        if (currentDocId) {
+          const ref = doc(db, "users", currentUser.uid, "dailyReports", currentDocId);
+          await updateDoc(ref, { entries });
+        } else {
+          const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+          const newRef = await addDoc(colRef, {
+            date: today,
+            period,
+            entries,
+            createdAt: new Date().toISOString()
+          });
+          currentDocId = newRef.id;
+        }
+      } catch (e) {
+        console.warn("saveDaily Firebase:", e);
+      }
+    }
+
+    // LOCAL STORAGE
+    const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+    const idx = list.findIndex(r => r.date === today && r.period === period);
+
+    if (idx >= 0) {
+      list[idx].entries = entries;
+    } else {
+      list.push({ date: today, period, entries });
+    }
+
+    localStorage.setItem("dailyReports", JSON.stringify(list));
+
+    alert("Relatório salvo!");
+    modal.style.display = "none";
+  }
+
+  // EVENTS
+  btnAdd.addEventListener("click", () => createRow());
+  btnSave.addEventListener("click", saveDaily);
+  btnClose.addEventListener("click", () => (modal.style.display = "none"));
+
+  document
+    .getElementById("openDailyReport")
+    ?.addEventListener("click", openDaily);
 })();
-
-
 
 
 // === POPUP DE POLÍTICA DE PRIVACIDADE ===
@@ -7662,14 +7522,18 @@ document.getElementById("dm-input").addEventListener("keydown", (ev) => {
     }
 });
 
-document.getElementById("dm-back").onclick = () => {
-    location.hash = "#/"; // ou voltar pro chat global
-};
+const dmBack = document.getElementById("dm-back");
+if (dmBack) {
+    dmBack.onclick = () => {
+        location.hash = "#/"; // ou voltar pro chat global
+    };
+}
+
 
 function initReportHistory() {
+    const inpDate = document.getElementById("rh-date");
     const view = document.getElementById("view-report-history");
     if (!view) return;
-
 
     window.addEventListener("nexus:auth-ready", () => {
         const today = new Date().toISOString().split("T")[0];
@@ -7678,7 +7542,6 @@ function initReportHistory() {
         btnLoad.click();
     });
 
-    const inpDate = document.getElementById("rh-date");
     const btnLoad = document.getElementById("rh-load");
     const btnNew = document.getElementById("rh-new-interval");
     const list = document.getElementById("rh-list");
@@ -7782,6 +7645,10 @@ function initReportHistory() {
 
     // =========== CARREGAR ===========
     btnLoad.onclick = async () => {
+        if (!db || !currentUser || !currentUser.uid) {
+            console.log("Firestore ou usuário não disponível.");
+            return;
+        }
 
         currentDay = inpDate.value;
         if (!currentDay) return alert("Escolha a data");
@@ -7929,10 +7796,6 @@ document.addEventListener("DOMContentLoaded", () => {
     initReportHistory();
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-    console.log("[BOOT] Inicializando modal de membros...");
-    initMembersModal();
-});
 
 function initMembersModalHandlers() {
     const apply = document.getElementById("members-apply");
@@ -7953,3 +7816,9 @@ function initMembersModalHandlers() {
 
 document.addEventListener("DOMContentLoaded", initMembersModalHandlers);
 window.addEventListener("hashchange", initMembersModalHandlers);
+
+(async function () {
+    await initFirebase();
+    initReportHistory();   // <<< ADICIONE AQUI
+    renderRoute();
+})();
