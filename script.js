@@ -783,7 +783,7 @@ function initProfileModal() {
         fileInput.addEventListener("change", async (ev) => {
             const file = ev.target.files[0];
             if (!file) return;
-            const base64 = await uploadProfilePhoto(file);
+            const base64 = await uploadProfilePhotoLocal(file);
             const avatarImg = document.getElementById("profile-avatar-preview");
             if (avatarImg) avatarImg.src = base64;
         });
@@ -6142,6 +6142,37 @@ async function uploadProfilePhoto(file) {
     });
 }
 
+// === Upload local da foto de perfil (Base64) ===
+async function uploadProfilePhotoLocal(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = async function (e) {
+            const base64 = e.target.result; // DataURL
+
+            try {
+                const { doc, updateDoc } = await import(
+                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+                );
+
+                await updateDoc(doc(db, "presence", currentUser.uid), {
+                    photoURL: base64
+                });
+
+                resolve(base64);
+            } catch (err) {
+                console.error("[uploadProfilePhotoLocal] erro:", err);
+                reject(err);
+            }
+        };
+
+        reader.onerror = reject;
+
+        reader.readAsDataURL(file);
+    });
+}
+
+
 document.getElementById("profile-photo").addEventListener("change", async (ev) => {
     const file = ev.target.files[0];
     if (!file) return;
@@ -7821,5 +7852,4 @@ window.addEventListener("hashchange", initMembersModalHandlers);
     await initFirebase();
     initReportHistory();   // <<< ADICIONE AQUI
     renderRoute();
-
 })();
