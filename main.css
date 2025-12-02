@@ -4649,3 +4649,68 @@ html.light .auth-menu-item:hover {
   top: auto;
   bottom: -4px;
 }
+.dm-avatar-bubble {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    margin-right: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.dm-msg {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.dm-content {
+    background: var(--card-bg);
+    padding: 8px 12px;
+    border-radius: 14px;
+    max-width: 70%;
+}
+
+.dm-me {
+    flex-direction: row-reverse;
+}
+
+.dm-me .dm-content {
+    background: #2563eb;
+    color: white;
+}
+
+.dm-other .dm-content {
+    background: #1e293b;
+    color: white;
+}
+.dm-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.dm-me {
+  flex-direction: row-reverse;
+}
+
+.dm-avatar-bubble {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.dm-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+.dm-time {
+  font-size: 11px;
+  opacity: .6;
+  margin-top: 2px;
+}

@@ -1259,6 +1259,7 @@
 
     <div class="chat-header">
       <strong>💬 Chat Global</strong>
+      <button id="create-group-btn" class="btn secondary">+ Grupo</button>
     </div>
 
     <!-- Sidebar + Chat lado a lado -->
@@ -1437,6 +1438,29 @@
 
       </div>
 
+    </div>
+  </div>
+  <div id="groupModal" class="modal" style="display:none">
+    <div class="modal-head">
+      <strong>Novo Grupo</strong>
+      <button id="group-close" class="btn secondary">Fechar</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="field">
+        <label>Nome do grupo</label>
+        <input id="group-name" type="text" placeholder="Ex.: Equipe de Projetos">
+      </div>
+
+      <div class="field">
+        <label>Membros</label>
+        <div id="group-members-list"
+          style="max-height:200px;overflow:auto;border:1px solid #444;padding:6px;border-radius:6px"></div>
+      </div>
+    </div>
+
+    <div class="modal-foot">
+      <button id="group-create" class="btn">Criar Grupo</button>
     </div>
   </div>
 

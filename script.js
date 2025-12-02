@@ -56,6 +56,17 @@ function markChatGlobalRead() {
     } catch { }
 }
 
+// Pega a foto real do usuário direto do Firestore
+async function getUserPhoto(uid) {
+    const { doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    const snap = await getDoc(doc(db, "users", uid));
+    const data = snap.data() || {};
+
+    return data.photoURL || "";
+}
+
 // Marca as DMs como lidas
 function markDMRead() {
     try {
@@ -143,6 +154,7 @@ async function initChatBadges() {
 // Quando logar, liga os badges
 document.addEventListener("auth:changed", () => {
     initChatBadges();
+    initDMConversations();
 });
 
 const emojiCategories = {
@@ -1620,6 +1632,8 @@ function unlockProfileModal() {
 `;
 
                 li.onclick = () => openDM(d.id);
+
+
                 onlineList.appendChild(li);
             });
         });
@@ -1838,6 +1852,94 @@ function unlockProfileModal() {
             }
         );
     }
+
+    // === GRUPOS: abrir modal ===
+    function openGroupModal() {
+        const modal = document.getElementById("groupModal");
+        const list = document.getElementById("group-members-list");
+        const nameInput = document.getElementById("group-name");
+
+        modal.style.display = "flex";
+        list.innerHTML = "";
+        nameInput.value = "";
+
+        loadGroupMemberList();
+    }
+
+    // carrega usuários para seleção
+    async function loadGroupMemberList() {
+        const listEl = document.getElementById("group-members-list");
+        if (!listEl) return;
+
+        const { collection, getDocs } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+        const snap = await getDocs(collection(db, "users"));
+        listEl.innerHTML = "";
+
+        snap.forEach(docSnap => {
+            const u = docSnap.data();
+            const uid = docSnap.id;
+
+            if (uid === currentUser.uid) return; // sempre adicionado automaticamente
+
+            const div = document.createElement("div");
+            div.className = "group-user-item";
+            div.style = "padding:4px;cursor:pointer;border-bottom:1px solid #333";
+
+            div.innerHTML = `
+          <label style="display:flex;align-items:center;gap:8px">
+            <input type="checkbox" value="${uid}">
+            <span>${u.name || u.email}</span>
+          </label>
+        `;
+
+            listEl.appendChild(div);
+        });
+    }
+
+    document.getElementById("group-create")?.addEventListener("click", async () => {
+        const name = document.getElementById("group-name").value.trim();
+        const modal = document.getElementById("groupModal");
+
+        if (!name) {
+            alert("Dê um nome ao grupo!");
+            return;
+        }
+
+        const checkboxes = document.querySelectorAll("#group-members-list input[type=checkbox]:checked");
+        const members = [currentUser.uid];
+
+        checkboxes.forEach(c => members.push(c.value));
+
+        if (members.length < 2) {
+            alert("Selecione pelo menos 1 membro além de você.");
+            return;
+        }
+
+        const { collection, addDoc } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+        await addDoc(collection(db, "groupChats"), {
+            name,
+            members,
+            admins: [currentUser.uid], // criador é admin
+            createdAt: new Date().toISOString(),
+            lastAt: new Date().toISOString(),
+            lastText: "Grupo criado",
+        });
+
+        alert("Grupo criado com sucesso!");
+        modal.style.display = "none";
+    });
+
+
+
+    document.getElementById("create-group-btn")?.addEventListener("click", openGroupModal);
+    document.getElementById("group-close")?.addEventListener("click", () => {
+        document.getElementById("groupModal").style.display = "none";
+    });
+
 
     // === NOTIFICAÇÃO DO CHAT GLOBAL ===
     async function initGlobalChatBadge() {
@@ -7437,79 +7539,142 @@ async function setDMTyping(isTyping) {
     }
 }
 
-// Lista lateral de conversas
+// LISTA LATERAL FINAL — DMs + GRUPOS
 async function initDMConversations() {
     if (!cloudOk || !db || !currentUser) return;
-    if (dmConvsUnsub) return; // já inicializado
 
     const listEl = document.getElementById("dm-conv-list");
     if (!listEl) return;
 
-    const { collection, onSnapshot, query, where, orderBy } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-    );
+    // garantir que não tenham dois snapshots rodando
+    if (dmConvsUnsub) {
+        dmConvsUnsub();
+        dmConvsUnsub = null;
+    }
 
-    document.getElementById("dm-close").onclick = () => {
-        document.getElementById("dmModal").style.display = "none";
+    const {
+        collection,
+        onSnapshot,
+        query,
+        where,
+        orderBy,
+        doc,
+        getDoc
+    } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-        if (dmUnsubMessages) dmUnsubMessages();
-        if (dmUnsubMeta) dmUnsubMeta();
-    };
+    let dmList = [];
+    let groupList = [];
+
+    function renderList() {
+        listEl.innerHTML = "";
+
+        const combined = [...dmList, ...groupList];
+        combined.sort((a, b) => b.lastAt - a.lastAt);
+
+        for (const chat of combined) {
+            const li = document.createElement("li");
+            li.className = "dm-conv-item";
+
+            if (currentDM === chat.id) li.classList.add("active");
+
+            li.innerHTML = `
+                <strong>${chat.name}</strong>
+                <div class="dm-conv-last">${chat.lastText || ""}</div>
+            `;
+
+            li.onclick = () => {
+                if (chat.isGroup) openGroupChat(chat.id);
+                else openDM(chat.otherUid);
+            };
+
+            listEl.appendChild(li);
+        }
+    }
+
+    const dmClose = document.getElementById("dm-close");
+    if (dmClose) {
+        dmClose.onclick = () => {
+            document.getElementById("dmModal").style.display = "none";
+
+            if (dmUnsubMessages) dmUnsubMessages();
+            if (dmUnsubMeta) dmUnsubMeta();
+
+            currentDM = null;
+            currentDMOtherUid = null;
+        };
+    }
 
 
-    const q = query(
+    // SNAPSHOT DMs
+    const qDM = query(
         collection(db, "privateChats"),
         where("users", "array-contains", currentUser.uid),
         orderBy("lastAt", "desc")
     );
 
-    dmConvsUnsub = onSnapshot(q, async (snap) => {
-        listEl.innerHTML = "";
+    const unsubDM = onSnapshot(qDM, async (snap) => {
+        dmList = [];
 
-        const docs = [];
-        snap.forEach(d => docs.push({ id: d.id, ...d.data() }));
-
-        if (!docs.length) {
-            listEl.innerHTML = `<div class="dm-conv-item"><span class="dm-conv-last">Nenhuma conversa ainda.</span></div>`;
-            return;
-        }
-
-        for (const chat of docs) {
-            const otherUid = (chat.users || []).find(u => u !== currentUser.uid);
+        for (const d of snap.docs) {
+            const data = d.data();
+            const users = data.users || [];
+            const otherUid = users.find(u => u !== currentUser.uid);
             if (!otherUid) continue;
 
             let otherName = "Usuário";
             try {
-                const { doc, getDoc } = await import(
-                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-                );
-                const uSnap = await getDoc(doc(db, "users", otherUid));
-                if (uSnap.exists()) {
-                    const u = uSnap.data();
-                    otherName = u.name || u.email || otherName;
+                const snapU = await getDoc(doc(db, "users", otherUid));
+                if (snapU.exists()) {
+                    const u = snapU.data();
+                    otherName = u.name || u.email || "Usuário";
                 }
             } catch { }
 
-            const item = document.createElement("div");
-            item.className = "dm-conv-item";
-            if (currentDM === chat.id) item.classList.add("active");
-
-            const lastText = chat.lastText || "";
-            const when = chat.lastAt
-                ? new Date(chat.lastAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                : "";
-
-            item.innerHTML = `
-                <div class="dm-conv-name">${otherName}</div>
-                <div class="dm-conv-last">${lastText || "Nova conversa"}</div>
-                <div class="dm-conv-time">${when}</div>
-            `;
-
-            item.onclick = () => openDM(otherUid);
-            listEl.appendChild(item);
+            dmList.push({
+                id: d.id,
+                isGroup: false,
+                name: otherName,
+                otherUid,
+                lastText: data.lastText || "",
+                lastAt: data.lastAt ? new Date(data.lastAt).getTime() : 0
+            });
         }
+
+        renderList();
     });
+
+    // SNAPSHOT GRUPOS
+    const qGroups = query(
+        collection(db, "groupChats"),
+        where("members", "array-contains", currentUser.uid),
+        orderBy("lastAt", "desc")
+    );
+
+    const unsubGroups = onSnapshot(qGroups, (snap) => {
+        groupList = [];
+
+        snap.forEach(d => {
+            const data = d.data();
+            groupList.push({
+                id: d.id,
+                isGroup: true,
+                name: data.name || "Grupo",
+                lastText: data.lastText || "",
+                lastAt: data.lastAt ? new Date(data.lastAt).getTime() : 0
+            });
+        });
+
+        renderList();
+    });
+
+    // armazena função de parar listeners
+    dmConvsUnsub = () => {
+        unsubDM();
+        unsubGroups();
+        dmConvsUnsub = null;
+    };
 }
+
 
 // Abrir DM
 async function openDM(otherUid) {
@@ -7520,12 +7685,6 @@ async function openDM(otherUid) {
     currentDMOtherUid = otherUid;
 
     console.log("[DM] Abrindo DM com:", otherUid, "chatId:", chatId);
-    
-    markDMRead();
-
-    // marcar como lido
-    localStorage.setItem(`dm:lastRead:${otherUid}`, Date.now());
-
 
     // limpa listeners antigos
     if (dmUnsubMessages) dmUnsubMessages();
@@ -7536,7 +7695,9 @@ async function openDM(otherUid) {
     const view = document.querySelector("#view-dm");
     if (view) view.classList.remove("hidden");
 
-    initDMConversations(); // garante sidebar
+    // pode deixar essa chamada, porque initDMConversations tem o guard dmConvsUnsub
+    initDMConversations(); // só inicializa uma vez
+
 
     const titleEl = document.getElementById("dm-title");
     const statusEl = document.getElementById("dm-status");
@@ -7559,29 +7720,21 @@ async function openDM(otherUid) {
         orderBy
     } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-    // nome / avatar básico
+    // ==== DADOS DO OUTRO USUÁRIO ====
     try {
         const uSnap = await getDoc(doc(db, "users", otherUid));
         const u = uSnap.data() || {};
         if (titleEl) titleEl.textContent = u.name || u.email || "Usuário";
 
-        // tentar avatar (usa presence depois)
-        if (avatarEl) {
-            avatarEl.src =
-                (u.photoURL) ||
-                getGravatar?.(u.email, u.name) ||
-                getFallbackAvatar?.(u.name || "U") ||
-                "";
-        }
-    } catch {
+        if (avatarEl) avatarEl.src = u.photoURL || "";
+    } catch (e) {
         if (titleEl) titleEl.textContent = "Chat";
     }
 
-    // presence do outro usuário pro online/offline + avatar
+    // ==== PRESENÇA ====
     try {
-        const { onSnapshot: onSnapPresence, collection: collPres } = await import(
-            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-        );
+        const { onSnapshot: onSnapPresence, collection: collPres } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
         onSnapPresence(collPres(db, "presence"), (snap) => {
             snap.forEach(d => {
@@ -7590,18 +7743,14 @@ async function openDM(otherUid) {
                 const online = !!data.online && (Date.now() - data.lastSeen) < 20000;
 
                 if (statusEl) statusEl.textContent = online ? "Online" : "Offline";
+
                 if (avatarStatusEl) {
                     avatarStatusEl.classList.remove("online", "offline");
                     avatarStatusEl.classList.add(online ? "online" : "offline");
                 }
 
-                if (avatarEl) {
-                    const avatarURL =
-                        data.photoURL ||
-                        getGravatar?.(data.email, data.name) ||
-                        getFallbackAvatar?.(data.name || "U") ||
-                        avatarEl.src;
-                    avatarEl.src = avatarURL;
+                if (avatarEl && data.photoURL) {
+                    avatarEl.src = data.photoURL;
                 }
             });
         });
@@ -7609,11 +7758,12 @@ async function openDM(otherUid) {
         console.warn("[DM] Presence falhou:", e.message || e);
     }
 
-    // listener de mensagens
+    // ==== LISTENER DE MENSAGENS (DM) ====
     const messagesRef = query(
         collection(db, "privateChats", chatId, "messages"),
         orderBy("createdAt")
     );
+
     dmUnsubMessages = onSnapshot(messagesRef, (snap) => {
         if (!dmBox) return;
         dmBox.innerHTML = "";
@@ -7635,17 +7785,21 @@ async function openDM(otherUid) {
                 contentHtml = `<span class="dm-msg-deleted">Mensagem apagada</span>`;
             } else {
                 contentHtml = msg.text || "";
-                if (msg.edited) {
-                    contentHtml += ` <small>(editada)</small>`;
-                }
+                if (msg.edited) contentHtml += ` <small>(editada)</small>`;
             }
 
+            const avatar = mine
+                ? (currentUser.photoURL || "")
+                : (msg.authorPhoto || "");
+
             div.innerHTML = `
-                <div>${contentHtml}</div>
-                <small style="opacity:.6">${when}</small>
+                <img class="dm-avatar-bubble" src="${avatar}">
+                <div class="dm-content">
+                    <div>${contentHtml}</div>
+                    <small class="dm-time">${when}</small>
+                </div>
             `;
 
-            // ações de editar/apagar (apenas minhas e não deletadas)
             if (mine && !msg.deleted) {
                 const actions = document.createElement("div");
                 actions.className = "dm-msg-actions";
@@ -7668,7 +7822,7 @@ async function openDM(otherUid) {
         dmBox.scrollTop = dmBox.scrollHeight;
     });
 
-    // meta do chat (typing)
+    // ==== TYPING ====
     const metaRef = doc(db, "privateChats", chatId);
     dmUnsubMeta = onSnapshot(metaRef, (snap) => {
         const data = snap.data() || {};
@@ -7682,6 +7836,197 @@ async function openDM(otherUid) {
     });
 }
 
+
+async function openGroupChat(groupId) {
+    console.log("[GROUP] Abrindo grupo:", groupId);
+
+    currentDM = groupId;
+    currentDMOtherUid = null; // grupos não têm "outro uid"
+
+    // Abrir modal
+    document.getElementById("dmModal").style.display = "block";
+
+    const titleEl = document.getElementById("dm-title");
+    const statusEl = document.getElementById("dm-status");
+    const typingEl = document.getElementById("dm-typing");
+    const avatarEl = document.getElementById("dm-avatar");
+    const avatarStatusEl = document.getElementById("dm-avatar-status");
+    const dmBox = document.getElementById("dm-box");
+
+    if (dmBox) dmBox.innerHTML = "Carregando mensagens...";
+
+    const {
+        doc,
+        getDoc,
+        collection,
+        onSnapshot,
+        query,
+        orderBy
+    } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    const gSnap = await getDoc(doc(db, "groupChats", groupId));
+    const group = gSnap.data();
+
+    // TÍTULO DO MODAL
+    if (titleEl) titleEl.textContent = group.name;
+
+    // foto do grupo (futuramente adicionamos suporte total)
+    if (avatarEl) avatarEl.src = "img/group.png";
+
+    // grupo não tem “status”
+    if (statusEl) statusEl.textContent = `${group.members.length} membros`;
+
+    // limpar indicadores
+    if (typingEl) typingEl.textContent = "";
+    if (avatarStatusEl) avatarStatusEl.classList.remove("online", "offline");
+
+    // ============== LISTENER DE MENSAGENS ==============
+    const messagesRef = query(
+        collection(db, "groupChats", groupId, "messages"),
+        orderBy("createdAt")
+    );
+
+    if (dmUnsubMessages) dmUnsubMessages();
+    dmUnsubMessages = onSnapshot(messagesRef, (snap) => {
+        dmBox.innerHTML = "";
+
+        snap.forEach((d) => {
+            const msg = d.data();
+            const mine = msg.author === currentUser.uid;
+
+            const div = document.createElement("div");
+            div.className = "dm-msg " + (mine ? "dm-me" : "dm-other");
+
+            const when = msg.createdAt
+                ? new Date(msg.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : "";
+
+            const userLabel = mine ? "Você" : (msg.authorName || msg.author);
+
+            const avatar = msg.authorPhoto;
+
+
+            div.innerHTML = `
+    <img class="dm-avatar-bubble" src="${avatar}">
+    <div class="dm-content">
+        <div><strong>${userLabel}</strong><br>${msg.text}</div>
+        <small class="dm-time">${when}</small>
+    </div>
+`;
+
+
+
+            dmBox.appendChild(div);
+        });
+
+        dmBox.scrollTop = dmBox.scrollHeight;
+    });
+
+    // AO ABRIR → marca grupo como lido
+    markDMRead();
+
+    // CARREGAR MENU DE MEMBROS + BOTÕES DE ADMIN
+    loadGroupManagementUI(groupId);
+}
+
+async function loadGroupManagementUI(groupId) {
+    const panel = document.getElementById("dm-header"); // mesma área do topo
+    if (!panel) return;
+
+    // evita duplicar UI
+    const existing = document.getElementById("group-manage-ui");
+    if (existing) existing.remove();
+
+    const { doc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    const snap = await getDoc(doc(db, "groupChats", groupId));
+    const data = snap.data();
+    const isAdmin = data.admins.includes(currentUser.uid);
+
+    const box = document.createElement("div");
+    box.id = "group-manage-ui";
+    box.style = "padding:6px;margin-top:6px;border-top:1px solid #444;font-size:12px";
+
+    // LISTA DE MEMBROS
+    let membersHTML = `<strong>Membros:</strong><br>`;
+    for (const uid of data.members) {
+        const userSnap = await getDoc(doc(db, "users", uid));
+        const u = userSnap.data() || {};
+
+        const isAdm = data.admins.includes(uid);
+        const label = isAdm ? " (admin)" : "";
+
+        membersHTML += `• ${u.name || u.email}${label}<br>`;
+    }
+
+    // BOTÕES DE ADMIN
+    let adminButtons = "";
+    if (isAdmin) {
+        adminButtons = `
+            <button id="group-add-user" class="btn small secondary" style="margin-top:6px">Adicionar membro</button>
+            <button id="group-remove-user" class="btn small secondary" style="margin-top:6px">Remover membro</button>
+            <button id="group-promote-user" class="btn small secondary" style="margin-top:6px">Promover a admin</button>
+        `;
+    }
+
+    box.innerHTML = membersHTML + adminButtons;
+    panel.appendChild(box);
+
+    if (isAdmin) {
+        setupGroupAdminButtons(groupId, data);
+    }
+}
+
+function setupGroupAdminButtons(groupId, group) {
+    const addBtn = document.getElementById("group-add-user");
+    const remBtn = document.getElementById("group-remove-user");
+    const promBtn = document.getElementById("group-promote-user");
+
+    if (addBtn) addBtn.onclick = () => manageGroupMembers(groupId, group, "add");
+    if (remBtn) remBtn.onclick = () => manageGroupMembers(groupId, group, "remove");
+    if (promBtn) promBtn.onclick = () => manageGroupMembers(groupId, group, "promote");
+}
+
+async function manageGroupMembers(groupId, group, mode) {
+    const { doc, updateDoc, getDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    const snap = await getDoc(doc(db, "groupChats", groupId));
+    const data = snap.data();
+
+    let list = [...data.members];
+    let admins = [...data.admins];
+
+    let userId = prompt("Digite o UID do usuário:");
+
+    if (!userId) return;
+
+    if (mode === "add") {
+        if (!list.includes(userId)) list.push(userId);
+    }
+
+    if (mode === "remove") {
+        list = list.filter(u => u !== userId);
+        admins = admins.filter(a => a !== userId);
+    }
+
+    if (mode === "promote") {
+        if (!admins.includes(userId)) admins.push(userId);
+        if (!list.includes(userId)) list.push(userId);
+    }
+
+    await updateDoc(doc(db, "groupChats", groupId), {
+        members: list,
+        admins: admins
+    });
+
+    alert("Alterações atualizadas!");
+    loadGroupManagementUI(groupId);
+}
+
+
+
 // Enviar DM
 async function sendDM() {
     if (!currentDM || !currentUser || !cloudOk || !db) return;
@@ -7693,19 +8038,61 @@ async function sendDM() {
 
     input.value = "";
 
-    const { collection, addDoc } = await import(
-        "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-    );
+    const { collection, addDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    // FOTO REAL DO FIRESTORE
+    const authorPhoto = await getUserPhoto(currentUser.uid);
 
     await addDoc(collection(db, "privateChats", currentDM, "messages"), {
         text,
         author: currentUser.uid,
+        authorName: currentUser.displayName || currentUser.email || "Você",
+        authorPhoto,        // ← AQUI
         createdAt: new Date().toISOString()
     });
 
     await updateChatMeta(currentDM, text);
     await setDMTyping(false);
 }
+
+
+
+// ========================================
+// ENVIAR MENSAGEM EM GRUPO
+// ========================================
+async function sendGroupMessage() {
+    if (!currentDM || !currentUser || !cloudOk || !db) return;
+
+    const input = document.getElementById("dm-input");
+    if (!input) return;
+
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = "";
+
+    const { collection, addDoc, doc, updateDoc } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    const authorPhoto = await getUserPhoto(currentUser.uid);
+
+    await addDoc(collection(db, "groupChats", currentDM, "messages"), {
+        text,
+        author: currentUser.uid,
+        authorName: currentUser.displayName || currentUser.email || "Usuário",
+        authorPhoto,       // ← AQUI
+        createdAt: new Date().toISOString()
+    });
+
+    await updateDoc(doc(db, "groupChats", currentDM), {
+        lastText: text.slice(0, 100),
+        lastAt: new Date().toISOString()
+    });
+}
+
+
+
 
 // Editar mensagem
 async function editDMMessage(chatId, msgId, oldText) {
@@ -7746,14 +8133,27 @@ async function deleteDMMessage(chatId, msgId) {
     const backBtn = document.getElementById("dm-back");
 
     if (sendBtn) {
-        sendBtn.onclick = () => sendDM();
+        sendBtn.onclick = () => {
+            if (currentDMOtherUid) {
+                sendDM();
+            } else {
+                sendGroupMessage();
+            }
+        };
+
     }
 
     if (input) {
         input.addEventListener("keydown", (ev) => {
             if (ev.key === "Enter" && !ev.shiftKey) {
                 ev.preventDefault();
-                sendDM();
+                if (currentDMOtherUid) {
+                    // DM normal
+                    sendDM();
+                } else {
+                    // grupo
+                    sendGroupMessage();
+                }
             }
         });
 
@@ -7768,14 +8168,6 @@ async function deleteDMMessage(chatId, msgId) {
         };
     }
 })();
-
-
-document.getElementById("dm-input").addEventListener("keydown", (ev) => {
-    if (ev.key === "Enter" && !ev.shiftKey) {
-        ev.preventDefault();
-        sendDM();
-    }
-});
 
 const dmBack = document.getElementById("dm-back");
 if (dmBack) {
