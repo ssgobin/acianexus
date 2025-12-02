@@ -6143,34 +6143,66 @@ async function uploadProfilePhoto(file) {
 }
 
 // === Upload local da foto de perfil (Base64) ===
+// === Upload de foto de perfil em Base64 COM COMPRESSÃO ===
 async function uploadProfilePhotoLocal(file) {
-    return new Promise((resolve, reject) => {
+    // 1. Cria um canvas pra redimensionar
+    const img = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-
-        reader.onload = async function (e) {
-            const base64 = e.target.result; // DataURL
-
-            try {
-                const { doc, updateDoc } = await import(
-                    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
-                );
-
-                await updateDoc(doc(db, "presence", currentUser.uid), {
-                    photoURL: base64
-                });
-
-                resolve(base64);
-            } catch (err) {
-                console.error("[uploadProfilePhotoLocal] erro:", err);
-                reject(err);
-            }
+        reader.onload = e => {
+            const i = new Image();
+            i.onload = () => resolve(i);
+            i.onerror = reject;
+            i.src = e.target.result;
         };
-
         reader.onerror = reject;
-
         reader.readAsDataURL(file);
     });
+
+    // 2. Reduz a imagem para garantir < 1MB
+    const MAX_WIDTH = 600;   // Ajuste se quiser maior/menor
+    const MAX_HEIGHT = 600;
+
+    let w = img.width;
+    let h = img.height;
+
+    if (w > MAX_WIDTH || h > MAX_HEIGHT) {
+        const ratio = Math.min(MAX_WIDTH / w, MAX_HEIGHT / h);
+        w = w * ratio;
+        h = h * ratio;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(img, 0, 0, w, h);
+
+    // 3. Converte novamente para Base64 COM QUALIDADE REDUZIDA
+    let base64 = canvas.toDataURL("image/jpeg", 0.75);
+
+    // Garante que ficou menor que 1MB (tamanho base64 ≈ bytes*1.3)
+    while (base64.length > 900_000) {
+        base64 = canvas.toDataURL("image/jpeg", 0.6);
+    }
+
+    // 4. Salva no Firestore
+    try {
+        const { doc, updateDoc } = await import(
+            "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"
+        );
+
+        await updateDoc(doc(db, "presence", currentUser.uid), {
+            photoURL: base64
+        });
+
+        return base64;
+    } catch (err) {
+        console.error("[uploadProfilePhotoLocal] Erro ao salvar:", err);
+        throw err;
+    }
 }
+
 
 
 document.getElementById("profile-photo").addEventListener("change", async (ev) => {
