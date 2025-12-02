@@ -39,6 +39,112 @@ const MEMBER_SELECTED = {};   // garante objeto global
 
 let cloudOk = false, app = null, db = null, auth = null, currentUser = null, currentRole = 'editor';
 
+// Notificações do chat (global + DM)
+let chatBadgeUnsubGlobal = null;
+let chatBadgeUnsubDM = null;
+
+// Marca o chat GLOBAL como lido
+function markChatGlobalRead() {
+    try {
+        const now = Date.now();
+        localStorage.setItem("chatGlobal:lastRead", String(now));
+        const el = document.getElementById("chat-badge-global");
+        if (el) {
+            el.hidden = true;
+            el.textContent = "0";
+        }
+    } catch { }
+}
+
+// Marca as DMs como lidas
+function markDMRead() {
+    try {
+        const now = Date.now();
+        localStorage.setItem("dm:lastRead", String(now));
+        const el = document.getElementById("chat-badge-dm");
+        if (el) {
+            el.hidden = true;
+            el.textContent = "0";
+        }
+    } catch { }
+}
+
+// Inicia os listeners das bolinhas
+async function initChatBadges() {
+    if (!cloudOk || !db || !currentUser) return;
+
+    const globalEl = document.getElementById("chat-badge-global");
+    const dmEl = document.getElementById("chat-badge-dm");
+
+    if (!globalEl && !dmEl) return;
+
+    const {
+        collection,
+        onSnapshot,
+        query,
+        where
+    } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+    // ------------ GLOBAL ------------
+    if (globalEl && !chatBadgeUnsubGlobal) {
+        chatBadgeUnsubGlobal = onSnapshot(collection(db, "chatGlobal"), (snap) => {
+            const lastRead = Number(localStorage.getItem("chatGlobal:lastRead") || "0");
+            let count = 0;
+
+            snap.forEach((d) => {
+                const data = d.data() || {};
+                const created = data.createdAt ? new Date(data.createdAt).getTime() : 0;
+                if (!created) return;
+
+                // ignora mensagens que eu mesmo mandei
+                if (data.author && data.author === currentUser.uid) return;
+
+                if (created > lastRead) count++;
+            });
+
+            if (count > 0) {
+                globalEl.hidden = false;
+                globalEl.textContent = count > 9 ? "9+" : String(count);
+            } else {
+                globalEl.hidden = true;
+            }
+        });
+    }
+
+    // ------------ DMs ------------
+    if (dmEl && !chatBadgeUnsubDM) {
+        const qDM = query(
+            collection(db, "privateChats"),
+            where("users", "array-contains", currentUser.uid)
+        );
+
+        chatBadgeUnsubDM = onSnapshot(qDM, (snap) => {
+            const lastReadDM = Number(localStorage.getItem("dm:lastRead") || "0");
+            let count = 0;
+
+            snap.forEach((d) => {
+                const data = d.data() || {};
+                const lastAt = data.lastAt ? new Date(data.lastAt).getTime() : 0;
+                if (!lastAt) return;
+
+                if (lastAt > lastReadDM) count++;
+            });
+
+            if (count > 0) {
+                dmEl.hidden = false;
+                dmEl.textContent = count > 9 ? "9+" : String(count);
+            } else {
+                dmEl.hidden = true;
+            }
+        });
+    }
+}
+
+// Quando logar, liga os badges
+document.addEventListener("auth:changed", () => {
+    initChatBadges();
+});
+
 const emojiCategories = {
     "😀 Smileys & Emoção": [
         // Felizes / Risonhos
@@ -1733,6 +1839,78 @@ function unlockProfileModal() {
         );
     }
 
+    // === NOTIFICAÇÃO DO CHAT GLOBAL ===
+    async function initGlobalChatBadge() {
+        if (!cloudOk || !db || !currentUser) return;
+
+        const badge = document.getElementById("chat-badge-global");
+
+        const { collection, onSnapshot, where, orderBy, query } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+        const q = query(
+            collection(db, "chatGlobal"),
+            orderBy("createdAt", "desc")
+        );
+
+        onSnapshot(q, (snap) => {
+            let count = 0;
+
+            snap.forEach(d => {
+                const msg = d.data();
+                if (!msg.seenBy || !msg.seenBy[currentUser.uid]) {
+                    count++;
+                }
+            });
+
+            if (count > 0) {
+                badge.textContent = count;
+                badge.hidden = false;
+            } else {
+                badge.hidden = true;
+            }
+        });
+    }
+
+    // === NOTIFICAÇÃO DO CHAT PRIVADO (DM) ===
+    async function initDMChatBadge() {
+        if (!cloudOk || !db || !currentUser) return;
+
+        const badge = document.getElementById("chat-badge-dm");
+
+        const { collection, onSnapshot } =
+            await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+        const convRef = collection(db, "privateChats", currentUser.uid, "convs");
+
+        onSnapshot(convRef, (snap) => {
+            let totalNew = 0;
+
+            snap.forEach(docSnap => {
+                const convId = docSnap.id;
+                const meta = docSnap.data();
+
+                const lastAt = meta.lastAt ? new Date(meta.lastAt).getTime() : 0;
+
+                // última leitura salva no navegador
+                const localKey = `dm:lastRead:${convId}`;
+                const lastRead = Number(localStorage.getItem(localKey) || 0);
+
+                // mensagem é nova se o timestamp do servidor for maior que o visto localmente
+                if (lastAt > lastRead) {
+                    totalNew++;
+                }
+            });
+
+            if (totalNew > 0) {
+                badge.textContent = totalNew;
+                badge.hidden = false;
+            } else {
+                badge.hidden = true;
+            }
+        });
+    }
+
     // ------------------------------
     // GIF PICKER (Tenor)
     // ------------------------------
@@ -1913,6 +2091,7 @@ function unlockProfileModal() {
         const chatBtn = $id("chat-toggle-btn");
         const chatPanel = $id("chat-panel");
         const chatClose = $id("chat-close");
+        const icon = document.getElementById("chat-fab-icon");
 
         if (!chatBtn || !chatPanel) {
             console.warn(
@@ -1926,14 +2105,17 @@ function unlockProfileModal() {
         const openChat = () => {
             console.log("[ChatGlobal] Abrindo painel do chat");
             chatPanel.style.display = "flex";
-            chatBtn.innerHTML = "✖";
+            if (icon) icon.textContent = "✖";
             isOpen = true;
+
+            // marcou o chat global como lido ao abrir o painel
+            markChatGlobalRead();
         };
 
         const closeChat = () => {
             console.log("[ChatGlobal] Fechando painel do chat");
             chatPanel.style.display = "none";
-            chatBtn.innerHTML = "💬";
+            if (icon) icon.textContent = "💬";
             isOpen = false;
         };
 
@@ -1945,6 +2127,7 @@ function unlockProfileModal() {
             chatClose.onclick = () => closeChat();
         }
     }
+
 
     function openEmojiPicker() {
         const existing = document.querySelector(".emoji-modal");
@@ -2059,6 +2242,9 @@ function unlockProfileModal() {
             initTypingIndicator();
             initChatGlobal();
             ensureUserProfile();
+            initGlobalChatBadge();
+            initDMChatBadge();
+
         } else {
             console.warn("[ChatGlobal] Usuário deslogado ou cloudOk = false");
         }
@@ -6672,25 +6858,25 @@ function makeCardPayload(type, card, extra) {
    DAILY MANUAL – abre pelo menu, carrega o dia e permite excluir
    ============================================================ */
 (function initDailyManual() {
-  const modal = document.getElementById("dailyModal");
-  const body = document.getElementById("dailyBody");
-  const btnAdd = document.getElementById("addMore");
-  const btnSave = document.getElementById("saveDaily");
-  const btnClose = document.getElementById("dailyClose");
+    const modal = document.getElementById("dailyModal");
+    const body = document.getElementById("dailyBody");
+    const btnAdd = document.getElementById("addMore");
+    const btnSave = document.getElementById("saveDaily");
+    const btnClose = document.getElementById("dailyClose");
 
-  // se não existir no DOM, não faz nada
-  if (!modal || !body || !btnAdd || !btnSave) return;
+    // se não existir no DOM, não faz nada
+    if (!modal || !body || !btnAdd || !btnSave) return;
 
-  let currentDocId = null;
+    let currentDocId = null;
 
-  function todayKey() {
-    return new Date().toISOString().slice(0, 10);
-  }
+    function todayKey() {
+        return new Date().toISOString().slice(0, 10);
+    }
 
-  function createRow(start = "", end = "", desc = "") {
-    const wrap = document.createElement("div");
-    wrap.className = "daily-row";
-    wrap.innerHTML = `
+    function createRow(start = "", end = "", desc = "") {
+        const wrap = document.createElement("div");
+        wrap.className = "daily-row";
+        wrap.innerHTML = `
       <div class="row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
         <div class="field" style="flex:1">
           <label>Início</label>
@@ -6708,128 +6894,128 @@ function makeCardPayload(type, card, extra) {
       </div>
     `;
 
-    wrap.querySelector(".remove-row").addEventListener("click", () => {
-      wrap.remove();
-      if (!body.querySelector(".daily-row")) createRow();
-    });
+        wrap.querySelector(".remove-row").addEventListener("click", () => {
+            wrap.remove();
+            if (!body.querySelector(".daily-row")) createRow();
+        });
 
-    body.insertBefore(wrap, btnAdd);
-  }
+        body.insertBefore(wrap, btnAdd);
+    }
 
-  async function loadDaily(period = "manual") {
-    const today = todayKey();
-    currentDocId = null;
+    async function loadDaily(period = "manual") {
+        const today = todayKey();
+        currentDocId = null;
 
-    if (cloudOk && currentUser?.uid && db) {
-      try {
-        const { collection, getDocs, query, where } =
-          await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+        if (cloudOk && currentUser?.uid && db) {
+            try {
+                const { collection, getDocs, query, where } =
+                    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-        const colRef = collection(db, "users", currentUser.uid, "dailyReports");
-        const q = query(
-          colRef,
-          where("date", "==", today),
-          where("period", "==", period)
-        );
+                const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+                const q = query(
+                    colRef,
+                    where("date", "==", today),
+                    where("period", "==", period)
+                );
 
-        const snap = await getDocs(q);
-        if (!snap.empty) {
-          const docSnap = snap.docs[0];
-          currentDocId = docSnap.id;
-          return docSnap.data().entries || [];
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    const docSnap = snap.docs[0];
+                    currentDocId = docSnap.id;
+                    return docSnap.data().entries || [];
+                }
+            } catch (e) {
+                console.warn("loadDaily Firebase:", e);
+            }
         }
-      } catch (e) {
-        console.warn("loadDaily Firebase:", e);
-      }
+
+        // localStorage
+        const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+        const found = list.find(r => r.date === today && r.period === period);
+        return found ? found.entries : [];
     }
 
-    // localStorage
-    const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
-    const found = list.find(r => r.date === today && r.period === period);
-    return found ? found.entries : [];
-  }
+    async function openDaily() {
+        body.querySelectorAll(".daily-row").forEach(r => r.remove());
 
-  async function openDaily() {
-    body.querySelectorAll(".daily-row").forEach(r => r.remove());
+        const entries = await loadDaily("manual");
 
-    const entries = await loadDaily("manual");
-
-    if (entries.length) {
-      entries.forEach(e => createRow(e.start, e.end, e.desc));
-    } else {
-      createRow();
-    }
-
-    modal.dataset.period = "manual";
-    modal.style.display = "flex";
-  }
-
-  async function saveDaily() {
-    const rows = [...body.querySelectorAll(".daily-row")];
-    const period = modal.dataset.period || "manual";
-    const today = todayKey();
-
-    const entries = rows
-      .map(r => ({
-        start: r.querySelector(".start").value.trim(),
-        end: r.querySelector(".end").value.trim(),
-        desc: r.querySelector(".desc").value.trim()
-      }))
-      .filter(e => e.start && e.end && e.desc);
-
-    if (!entries.length) {
-      alert("Preencha pelo menos um intervalo.");
-      return;
-    }
-
-    // FIREBASE
-    if (cloudOk && currentUser?.uid && db) {
-      try {
-        const { collection, addDoc, updateDoc, doc } =
-          await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-
-        if (currentDocId) {
-          const ref = doc(db, "users", currentUser.uid, "dailyReports", currentDocId);
-          await updateDoc(ref, { entries });
+        if (entries.length) {
+            entries.forEach(e => createRow(e.start, e.end, e.desc));
         } else {
-          const colRef = collection(db, "users", currentUser.uid, "dailyReports");
-          const newRef = await addDoc(colRef, {
-            date: today,
-            period,
-            entries,
-            createdAt: new Date().toISOString()
-          });
-          currentDocId = newRef.id;
+            createRow();
         }
-      } catch (e) {
-        console.warn("saveDaily Firebase:", e);
-      }
+
+        modal.dataset.period = "manual";
+        modal.style.display = "flex";
     }
 
-    // LOCAL STORAGE
-    const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
-    const idx = list.findIndex(r => r.date === today && r.period === period);
+    async function saveDaily() {
+        const rows = [...body.querySelectorAll(".daily-row")];
+        const period = modal.dataset.period || "manual";
+        const today = todayKey();
 
-    if (idx >= 0) {
-      list[idx].entries = entries;
-    } else {
-      list.push({ date: today, period, entries });
+        const entries = rows
+            .map(r => ({
+                start: r.querySelector(".start").value.trim(),
+                end: r.querySelector(".end").value.trim(),
+                desc: r.querySelector(".desc").value.trim()
+            }))
+            .filter(e => e.start && e.end && e.desc);
+
+        if (!entries.length) {
+            alert("Preencha pelo menos um intervalo.");
+            return;
+        }
+
+        // FIREBASE
+        if (cloudOk && currentUser?.uid && db) {
+            try {
+                const { collection, addDoc, updateDoc, doc } =
+                    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+                if (currentDocId) {
+                    const ref = doc(db, "users", currentUser.uid, "dailyReports", currentDocId);
+                    await updateDoc(ref, { entries });
+                } else {
+                    const colRef = collection(db, "users", currentUser.uid, "dailyReports");
+                    const newRef = await addDoc(colRef, {
+                        date: today,
+                        period,
+                        entries,
+                        createdAt: new Date().toISOString()
+                    });
+                    currentDocId = newRef.id;
+                }
+            } catch (e) {
+                console.warn("saveDaily Firebase:", e);
+            }
+        }
+
+        // LOCAL STORAGE
+        const list = JSON.parse(localStorage.getItem("dailyReports") || "[]");
+        const idx = list.findIndex(r => r.date === today && r.period === period);
+
+        if (idx >= 0) {
+            list[idx].entries = entries;
+        } else {
+            list.push({ date: today, period, entries });
+        }
+
+        localStorage.setItem("dailyReports", JSON.stringify(list));
+
+        alert("Relatório salvo!");
+        modal.style.display = "none";
     }
 
-    localStorage.setItem("dailyReports", JSON.stringify(list));
+    // EVENTS
+    btnAdd.addEventListener("click", () => createRow());
+    btnSave.addEventListener("click", saveDaily);
+    btnClose.addEventListener("click", () => (modal.style.display = "none"));
 
-    alert("Relatório salvo!");
-    modal.style.display = "none";
-  }
-
-  // EVENTS
-  btnAdd.addEventListener("click", () => createRow());
-  btnSave.addEventListener("click", saveDaily);
-  btnClose.addEventListener("click", () => (modal.style.display = "none"));
-
-  document
-    .getElementById("openDailyReport")
-    ?.addEventListener("click", openDaily);
+    document
+        .getElementById("openDailyReport")
+        ?.addEventListener("click", openDaily);
 })();
 
 
@@ -7334,6 +7520,12 @@ async function openDM(otherUid) {
     currentDMOtherUid = otherUid;
 
     console.log("[DM] Abrindo DM com:", otherUid, "chatId:", chatId);
+    
+    markDMRead();
+
+    // marcar como lido
+    localStorage.setItem(`dm:lastRead:${otherUid}`, Date.now());
+
 
     // limpa listeners antigos
     if (dmUnsubMessages) dmUnsubMessages();

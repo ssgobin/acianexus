@@ -1339,7 +1339,17 @@
 
 
   <!-- BOTÃO FLUTUANTE -->
-  <button id="chat-toggle-btn" class="chat-fab">💬</button>
+  <!-- BOTÃO FLUTUANTE -->
+  <button id="chat-toggle-btn" class="chat-fab">
+    <span id="chat-fab-icon">💬</span>
+
+    <!-- Bolinha do chat GLOBAL -->
+    <span id="chat-badge-global" class="chat-badge chat-badge-global" hidden>0</span>
+
+    <!-- Bolinha das DMs -->
+    <span id="chat-badge-dm" class="chat-badge chat-badge-dm" hidden>0</span>
+  </button>
+
 
   <script type="module" src="script.js"></script>
   <script>
