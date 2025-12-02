@@ -783,7 +783,7 @@ function initProfileModal() {
         fileInput.addEventListener("change", async (ev) => {
             const file = ev.target.files[0];
             if (!file) return;
-            const base64 = await uploadProfilePhotoLocal(file);
+            const base64 = await uploadProfilePhoto(file);
             const avatarImg = document.getElementById("profile-avatar-preview");
             if (avatarImg) avatarImg.src = base64;
         });
@@ -7821,4 +7821,5 @@ window.addEventListener("hashchange", initMembersModalHandlers);
     await initFirebase();
     initReportHistory();   // <<< ADICIONE AQUI
     renderRoute();
+
 })();
