@@ -1562,7 +1562,6 @@ function unlockProfileModal() {
 
 
         console.log("[ChatGlobal] marcado como online.");
-        givePoints(currentUser.uid, 2, "Check-in diário");
         unlockBadge(currentUser.uid, "presenca-diaria");
 
 
@@ -8468,4 +8467,5 @@ window.addEventListener("hashchange", initMembersModalHandlers);
     await initFirebase();
     initReportHistory();   // <<< ADICIONE AQUI
     renderRoute();
+
 })();
