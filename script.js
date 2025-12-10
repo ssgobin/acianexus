@@ -8290,14 +8290,21 @@ function initReportHistory() {
     }
 
     // =========== CARREGAR ===========
+    // =========== CARREGAR ===========
     btnLoad.onclick = async () => {
+        // limpa mensagem, se estiver usando rh-msg
+        setMsg && setMsg("");
+
         if (!db || !currentUser || !currentUser.uid) {
             console.log("Firestore ou usuário não disponível.");
             return;
         }
 
         currentDay = inpDate.value;
-        if (!currentDay) return alert("Escolha a data");
+        if (!currentDay) {
+            alert("Escolha a data");
+            return;
+        }
 
         list.innerHTML = `<div class="muted">Carregando…</div>`;
 
@@ -8310,19 +8317,28 @@ function initReportHistory() {
 
         const snap = await getDocs(q);
 
-        let docData = null;
-        let docId = null;
+        // sempre pega o registro MAIS RECENTE desse dia
+        let latestDoc = null;
 
         snap.forEach((d) => {
-            docData = d.data();
-            docId = d.id;
+            const data = d.data() || {};
+            const ts = Date.parse(data.updatedAt || data.createdAt || 0) || 0;
+
+            if (!latestDoc || ts > latestDoc.ts) {
+                latestDoc = {
+                    id: d.id,
+                    data,
+                    ts,
+                };
+            }
         });
 
-        entries = docData?.entries || [];
-        currentDocId = docId;
+        entries = latestDoc?.data?.entries || [];
+        currentDocId = latestDoc?.id || null;
 
         renderList();
     };
+
 
     // =========== NOVO INTERVALO ===========
     btnNew.onclick = () => {
