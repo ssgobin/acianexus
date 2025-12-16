@@ -7094,13 +7094,13 @@ function makeCardPayload(type, card, extra) {
 
                 if (currentDocId) {
                     const ref = doc(db, "users", currentUser.uid, "dailyReports", currentDocId);
-                    await updateDoc(ref, { entries });
+                    await updateDoc(ref, { entries: structuredClone(entries) });
                 } else {
                     const colRef = collection(db, "users", currentUser.uid, "dailyReports");
                     const newRef = await addDoc(colRef, {
                         date: today,
                         period,
-                        entries,
+                        entries: structuredClone(entries),
                         createdAt: new Date().toISOString()
                     });
                     currentDocId = newRef.id;
@@ -8350,7 +8350,7 @@ function initReportHistory() {
             }
         });
 
-        entries = latestDoc?.data?.entries || [];
+        entries = structuredClone(latestDoc?.data?.entries || []);
         currentDocId = latestDoc?.id || null;
 
         renderList();
@@ -8417,7 +8417,7 @@ function initReportHistory() {
 
             await setDoc(ref, {
                 date: currentDay,
-                entries,
+                entries: structuredClone(entries),
                 updatedAt: new Date().toISOString(),
             });
 
@@ -8458,7 +8458,7 @@ function initReportHistory() {
 
             await setDoc(ref, {
                 date: currentDay,
-                entries,
+                entries: structuredClone(entries),
                 updatedAt: new Date().toISOString(),
             });
 
