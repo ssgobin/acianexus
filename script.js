@@ -3963,7 +3963,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             currentUser?.email ||
             "Desconhecido";
 
-        
+
 
         // cria o card
         const rec = await Cards.add({
@@ -7607,6 +7607,7 @@ async function initDMConversations() {
         }
     }
 
+
     const dmClose = document.getElementById("dm-close");
     if (dmClose) {
         dmClose.onclick = () => {
@@ -8194,6 +8195,7 @@ if (dmBack) {
 
 
 function initReportHistory() {
+
     const inpDate = document.getElementById("rh-date");
     const view = document.getElementById("view-report-history");
     if (!view) return;
@@ -8305,6 +8307,91 @@ function initReportHistory() {
             };
         });
     }
+
+    function printDailyReport() {
+        if (!currentDay || !entries.length) {
+            alert("Abrindo impressão...");
+            return;
+        }
+
+        const win = window.open("", "_blank");
+
+        const rowsHtml = entries
+            .map(
+                e => `
+        <tr>
+          <td>${e.start || "--:--"}</td>
+          <td>${e.end || "--:--"}</td>
+          <td>${e.desc || ""}</td>
+        </tr>
+      `
+            )
+            .join("");
+
+        win.document.write(`
+    <html>
+      <head>
+        <title>Relatório Diário - ${currentDay}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            padding: 40px;
+            color: #000;
+          }
+          h1 {
+            margin-bottom: 10px;
+          }
+          .date {
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #555;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+          th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            vertical-align: top;
+          }
+          th {
+            background: #f0f0f0;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Relatório Diário</h1>
+        <div class="date">Data: ${currentDay}</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Início</th>
+              <th>Fim</th>
+              <th>Descrição</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+
+        <script>
+          window.onload = () => {
+            window.print();
+            window.onafterprint = () => window.close();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+
+        win.document.close();
+    }
+
+    document.getElementById("rh-print")?.addEventListener("click", printDailyReport);
+
 
     // =========== CARREGAR ===========
     // =========== CARREGAR ===========
