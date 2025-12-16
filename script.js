@@ -2361,6 +2361,7 @@ const Cards = {
             board: card.board || 'PROJETOS',
             status: (card.status || FLOWS[card.board || 'PROJETOS'][0]),
             resp: card.resp,
+            autoChecklist: card.autoChecklist !== false,
             respUid: card.respUid || null,                 // NOVO
             solicitante: card.solicitante,
             due: card.due || null,
@@ -3799,6 +3800,15 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
     // ======= IA: gerar checklist com Groq =======
     btnAI?.addEventListener('click', async () => {
+
+        const isAutoChecklistEnabled =
+            document.getElementById("autoChecklist")?.checked ?? true;
+
+        if (!isAutoChecklistEnabled) {
+            setMsg(msg, 'err', 'Ative a criação automática para usar a checklist por IA.');
+            return;
+        }
+
         const title = (cTitle.value || '').trim();
         if (!title) { setMsg(msg, 'err', 'Informe o título antes de gerar a checklist.'); return; }
 
@@ -3808,6 +3818,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
         // chame o gerador Groq padrão (já presente no seu código)
         const aiItems = await generateChecklistGroq({ title, desc, board });
+
 
         // mescla IA + básicos, sem duplicar
         const basic = basicChecklistFromModel().map(i => i.text);
@@ -3922,7 +3933,11 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
         // descrição + checklist do buffer atual (IA ou básica)
         const desc = cDesc.value || buildDescFromModel();
-        const checklistItems = setDescAndPreview._buffer || basicChecklistFromModel();
+        const autoChecklist = document.getElementById("autoChecklist")?.checked ?? true;
+        const checklistItems = autoChecklist
+            ? (setDescAndPreview._buffer || basicChecklistFromModel())
+            : [];
+
 
         try {
             await validarCardAntesDeCriar({
@@ -3948,7 +3963,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             currentUser?.email ||
             "Desconhecido";
 
-
+        
 
         // cria o card
         const rec = await Cards.add({
@@ -3964,6 +3979,7 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
             gut: gutVal,
             gutGrade,
             priority,
+            autoChecklist,
             gutG: Number($('#c-g')?.value) || 5,
             gutU: Number($('#c-u')?.value) || 5,
             gutT: Number($('#c-t')?.value) || 5,
@@ -3983,11 +3999,12 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
 
         // checklist (em paralelo)
-        if (checklistItems.length) {
+        if (autoChecklist && checklistItems.length) {
             await Promise.all(
                 checklistItems.map(it => Sub.addChecklistItem(rec.id, it.text, it.done))
             );
         }
+
 
         setMsg(msg, 'ok', '✅ Card criado!');
         // reset mínimos
