@@ -1133,6 +1133,12 @@ async function initFirebase() {
             }
         }
 
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                listenUserForceReload(db, user);
+            }
+        });
+
 
         // Observa autenticação
         onAuthStateChanged(auth, async (u) => {
@@ -5595,6 +5601,50 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
         if (location.hash.startsWith('#/ranking')) fetchRanking();
     });
 })();
+
+async function listenUserForceReload(db, user) {
+  if (!db || !user) return;
+
+  const { doc, onSnapshot } =
+    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+
+  const ref = doc(db, "users", user.uid, "control", "reload");
+
+  let last = Number(localStorage.getItem("last_user_reload") || 0);
+
+  onSnapshot(ref, async (snap) => {
+    if (!snap.exists()) return;
+
+    const data = snap.data() || {};
+    const ts = Number(data.forceReloadAt || 0);
+
+    if (!ts || ts <= last) return;
+
+    localStorage.setItem("last_user_reload", String(ts));
+
+    // 🧠 CONFIRMAÇÃO COM OK
+    await Swal.fire({
+      title: "🔄 Atualização disponível",
+      html: `
+        <p style="margin-bottom:8px">
+          Liberamos uma atualização rápida no sistema 🚀
+        </p>
+        <small class="muted">
+          Clique em <b>OK</b> para aplicar agora.
+        </small>
+      `,
+      icon: "info",
+      confirmButtonText: "OK, atualizar",
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    });
+
+    location.reload(true);
+  });
+}
+
+
+
 
 /* ===========================
    UI dos Tickets (apenas TI)
