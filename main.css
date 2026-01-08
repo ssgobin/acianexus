@@ -4978,3 +4978,32 @@ html.theme-carnaval body::after {
     opacity: 0.50;
   }
 }
+html:not(.theme-carnaval) .carnaval-header-msg {
+  display: none;
+}
+
+.carnaval-header-msg {
+  position: sticky;
+  top: 56px; /* ajuste conforme altura do header */
+  z-index: 30;
+
+  margin: 0 auto;
+  padding: 8px 16px;
+  width: fit-content;
+
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a0b2e;
+
+  background: linear-gradient(
+    90deg,
+    rgba(255, 0, 170, 0.9),
+    rgba(255, 209, 0, 0.9),
+    rgba(0, 255, 214, 0.9)
+  );
+
+  border-radius: 999px;
+  box-shadow:
+    0 8px 18px rgba(0,0,0,.35),
+    0 0 0 1px rgba(255,255,255,.35) inset;
+}
