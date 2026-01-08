@@ -80,6 +80,26 @@ function markDMRead() {
     } catch { }
 }
 
+
+
+async function listenAdminThemeFlags() {
+  if (!cloudOk) return; // se quiser, dá pra colocar fallback localStorage aqui também
+
+  const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+  const ref = doc(db, "admin", "broadcast");
+
+  return onSnapshot(ref, (snap) => {
+    const data = snap.exists() ? snap.data() : {};
+    applyCarnavalTheme(data.carnavalTheme === true);
+  }, (err) => {
+    console.warn("Theme flags listener falhou:", err?.message || err);
+  });
+}
+
+document.addEventListener('auth:changed', listenAdminThemeFlags);
+listenAdminThemeFlags();
+
+
 // Inicia os listeners das bolinhas
 async function initChatBadges() {
     if (!cloudOk || !db || !currentUser) return;
@@ -1183,6 +1203,17 @@ document.addEventListener("auth:changed", () => {
     }, 500);
 });
 
+function applyCarnavalTheme(enabled) {
+  const root = document.documentElement;
+  const on = !!enabled;
+
+  root.classList.toggle("theme-carnaval", on);
+
+  // opcional: persistir localmente pra ficar estável entre reloads
+  try { localStorage.setItem("theme:carnaval", on ? "1" : "0"); } catch {}
+}
+
+
 // === CHECK MAINTENANCE MODE ===
 async function checkMaintenance() {
     try {
@@ -1192,6 +1223,7 @@ async function checkMaintenance() {
 
         const snap = await getDoc(doc(db, "admin", "broadcast"));
         const data = snap.exists() ? snap.data() : {};
+        applyCarnavalTheme(data.carnavalTheme === true);
 
         if (data.maintenance === true) {
             if (!location.href.includes("maintenance.html")) {

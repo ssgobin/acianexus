@@ -3251,80 +3251,11 @@ html.light #online-list {
   100% { transform: translateY(110vh) translateX(20px); }
 }
 
-/* === LUZES DE NATAL NO TOPO === */
-.christmas-lights {
-  width: 100%;
-  height: 40px;
-  background-image: url('https://i.imgur.com/1yVlEby.png');
-  background-size: contain;
-  background-repeat: repeat-x;
-  animation: blink 1.4s infinite;
-  margin-bottom: -12px;
-  background-color: #0ea5e9;
-}
 
 @keyframes blink {
   0% { filter: brightness(1); }
   50% { filter: brightness(1.4); }
   100% { filter: brightness(1); }
-}
-
-/* ---------------------- */
-/*     FAIXA DE NATAL     */
-/* ---------------------- */
-
-.christmas-banner {
-    width: 100%;
-    text-align: center;
-    background: linear-gradient(90deg, #c62828, #d32f2f, #b71c1c);
-    padding: 10px 0;
-    font-size: 18px;
-    font-weight: 700;
-    color: #fff;
-    letter-spacing: 1px;
-    border-bottom: 2px solid #ffeb3b;
-    box-shadow: 0 4px 8px rgba(0,0,0,.25);
-    z-index: 49;
-    position: relative;
-}
-
-/* ---------------------- */
-/*     LUZINHAS NATAL     */
-/* ---------------------- */
-
-.christmas-lights {
-    width: 100%;
-    display: flex;
-    justify-content: space-around;
-    padding: 8px 0;
-    background: transparent;
-    position: relative;
-    z-index: 48;
-}
-
-.christmas-lights span {
-    width: 14px;
-    height: 20px;
-    background: red;
-    border-radius: 50% 50% 40% 40%;
-    display: inline-block;
-    box-shadow: 0 4px 10px rgba(255, 0, 0, .5);
-    animation: christmasBlink 1.2s infinite alternate;
-}
-
-.christmas-lights span:nth-child(2n) {
-    background: #00e676;
-    box-shadow: 0 4px 10px rgba(0, 230, 118, .5);
-}
-
-.christmas-lights span:nth-child(3n) {
-    background: #2979ff;
-    box-shadow: 0 4px 10px rgba(41, 121, 255, .5);
-}
-
-@keyframes christmasBlink {
-    0% { opacity: .4; transform: translateY(0px); }
-    100% { opacity: 1; transform: translateY(3px); }
 }
 
 /* Wrapper do avatar */
@@ -3334,15 +3265,6 @@ html.light #online-list {
     display: inline-block;
 }
 
-.santa-hat {
-    position: absolute;
-    top: -15px;
-    right: -5px;
-    width: 50px;
-    transform: rotate(25deg);
-    pointer-events: none;
-    z-index: 10;
-}
 
 /* --- Lado esquerdo (conteúdo do card) --- */
 #cardModal .modal-inner {
@@ -4713,4 +4635,346 @@ html.light .auth-menu-item:hover {
   font-size: 11px;
   opacity: .6;
   margin-top: 2px;
+}
+
+/* =========================================================
+   TEMA CARNAVAL 🎭✨ (COLE NO FIM DO main.css)
+========================================================= */
+html.theme-carnaval {
+  --bg: #07020f;
+  --text: #fff3ff;
+  --surface: rgba(18, 8, 35, 0.78);
+
+  /* extras que dão “cara” */
+  --border: rgba(255, 255, 255, 0.10);
+  --muted: rgba(255, 255, 255, 0.75);
+}
+
+/* fundo com auroras + brilho */
+html.theme-carnaval body {
+  background:
+    radial-gradient(1200px 700px at 15% 25%, rgba(255, 0, 170, .25), transparent 55%),
+    radial-gradient(1000px 700px at 85% 20%, rgba(0, 255, 214, .20), transparent 55%),
+    radial-gradient(1200px 800px at 60% 85%, rgba(255, 209, 0, .18), transparent 60%),
+    linear-gradient(180deg, #06010d, #07020f 40%, #05010c);
+  color: var(--text);
+}
+
+/* cards e painéis com “vidro neon” */
+html.theme-carnaval .card,
+html.theme-carnaval .panel,
+html.theme-carnaval .header {
+  background: linear-gradient(180deg, rgba(20, 10, 45, .78), rgba(10, 5, 25, .68));
+  border: 1px solid rgba(255,255,255,.10);
+  box-shadow:
+    0 10px 28px rgba(0,0,0,.45),
+    0 0 0 1px rgba(255,255,255,.04) inset;
+  backdrop-filter: blur(10px);
+}
+
+/* bordas “carnaval” nos cards (discreto e chique) */
+html.theme-carnaval .card {
+  position: relative;
+  overflow: hidden;
+}
+html.theme-carnaval .card::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(
+    from 180deg,
+    rgba(255, 0, 170, .45),
+    rgba(255, 210, 0, .45),
+    rgba(0, 255, 214, .45),
+    rgba(124, 58, 237, .45),
+    rgba(255, 0, 170, .45)
+  );
+  filter: blur(10px);
+  opacity: .35;
+  pointer-events: none;
+}
+
+/* botões com brilho */
+html.theme-carnaval button,
+html.theme-carnaval .btn {
+  box-shadow: 0 10px 18px rgba(0,0,0,.35);
+}
+html.theme-carnaval .btn-primary {
+  background: linear-gradient(90deg, rgba(255, 0, 170, .85), rgba(255, 209, 0, .85));
+  border: 1px solid rgba(255,255,255,.14);
+  color: #140018;
+}
+html.theme-carnaval .btn-primary:hover {
+  filter: brightness(1.08);
+}
+
+
+html.theme-carnaval body::before {
+  background:
+    radial-gradient(circle, rgba(255,0,170,.9) 0 2px, transparent 3px) 0 0/90px 90px,
+    radial-gradient(circle, rgba(255,209,0,.9) 0 2px, transparent 3px) 30px 20px/110px 110px,
+    radial-gradient(circle, rgba(0,255,214,.9) 0 2px, transparent 3px) 10px 40px/130px 130px,
+    radial-gradient(circle, rgba(124,58,237,.9) 0 2px, transparent 3px) 60px 10px/120px 120px;
+  animation: carnaval-fall 10s linear infinite;
+  transform: rotate(-4deg);
+}
+
+html.theme-carnaval body::after {
+  opacity: .12;
+  background:
+    repeating-linear-gradient(
+      115deg,
+      rgba(255,0,170,.55) 0 8px,
+      transparent 8px 26px,
+      rgba(255,209,0,.55) 26px 34px,
+      transparent 34px 54px,
+      rgba(0,255,214,.55) 54px 62px,
+      transparent 62px 82px
+    );
+  filter: blur(0.3px);
+  animation: carnaval-sweep 14s ease-in-out infinite;
+}
+
+@keyframes carnaval-fall {
+  0%   { transform: translateY(-6%) rotate(-4deg); }
+  100% { transform: translateY(10%) rotate(-4deg); }
+}
+
+@keyframes carnaval-sweep {
+  0%   { transform: translateX(-2%) translateY(-2%) rotate(2deg); }
+  50%  { transform: translateX(2%)  translateY(2%)  rotate(-2deg); }
+  100% { transform: translateX(-2%) translateY(-2%) rotate(2deg); }
+}
+
+/* título/itens com glow sutil (não explode a retina) */
+html.theme-carnaval h1,
+html.theme-carnaval h2 {
+  text-shadow: 0 0 18px rgba(255, 0, 170, .22);
+}
+/* =========================================================
+   CARNAVAL MODE 🎭✨ (COLE NO FIM DO main.css)
+========================================================= */
+
+/* Ícones em SVG (data-uri) */
+html.theme-carnaval {
+  --carnaval-mask: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2040%27%3E%0A%3Cpath%20d%3D%27M6%2020c0-8%207-14%2016-14%204%200%207%201%2010%203%203-2%206-3%2010-3%209%200%2016%206%2016%2014%200%209-8%2016-20%2016-5%200-9-1-12-4-3%203-7%204-12%204C14%2036%206%2029%206%2020Z%27%20fill%3D%27white%27/%3E%0A%3Ccircle%20cx%3D%2722%27%20cy%3D%2720%27%20r%3D%275%27%20fill%3D%27black%27/%3E%3Ccircle%20cx%3D%2742%27%20cy%3D%2720%27%20r%3D%275%27%20fill%3D%27black%27/%3E%0A%3Cpath%20d%3D%27M30%2024c2%202%202%202%204%200%27%20stroke%3D%27black%27%20stroke-width%3D%272%27%20fill%3D%27none%27%20stroke-linecap%3D%27round%27/%3E%0A%3C/svg%3E");
+  --carnaval-confetti: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%2064%2064%27%3E%0A%3Ccircle%20cx%3D%2714%27%20cy%3D%2718%27%20r%3D%273%27%20fill%3D%27white%27/%3E%0A%3Ccircle%20cx%3D%2746%27%20cy%3D%2716%27%20r%3D%273%27%20fill%3D%27white%27/%3E%0A%3Ccircle%20cx%3D%2752%27%20cy%3D%2736%27%20r%3D%273%27%20fill%3D%27white%27/%3E%0A%3Ccircle%20cx%3D%2718%27%20cy%3D%2746%27%20r%3D%273%27%20fill%3D%27white%27/%3E%0A%3Cpath%20d%3D%27M10%2030l8-6%202%209-10-3Z%27%20fill%3D%27white%27/%3E%0A%3Cpath%20d%3D%27M38%2048l9-3-3%209-6-6Z%27%20fill%3D%27white%27/%3E%0A%3Cpath%20d%3D%27M28%2010l6%209-9%202%203-11Z%27%20fill%3D%27white%27/%3E%0A%3C/svg%3E");
+}
+
+/* Banner só aparece com tema */
+html:not(.theme-carnaval) .carnaval-topbanner { display: none; }
+
+html.theme-carnaval .carnaval-topbanner {
+  position: sticky;
+  top: 56px; /* ajuste se seu header for maior/menor */
+  z-index: 49;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  padding: 10px 16px;
+  border-bottom: 1px solid rgba(255,255,255,.10);
+  backdrop-filter: blur(12px) saturate(1.2);
+  background:
+    radial-gradient(900px 120px at 10% 50%, rgba(255,0,170,.25), transparent 60%),
+    radial-gradient(900px 120px at 60% 50%, rgba(0,255,214,.18), transparent 60%),
+    radial-gradient(900px 120px at 90% 50%, rgba(255,209,0,.20), transparent 60%),
+    linear-gradient(180deg, rgba(12,6,26,.85), rgba(12,6,26,.55));
+}
+
+/* Badge e micro-info */
+html.theme-carnaval .carnaval-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.18);
+  box-shadow: 0 10px 26px rgba(0,0,0,.35);
+}
+html.theme-carnaval .carnaval-sub { opacity: .85; font-size: 12px; }
+
+html.theme-carnaval .carnaval-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  opacity: .85;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+/* Ícones */
+html.theme-carnaval .carnaval-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
+  opacity: .95;
+}
+html.theme-carnaval .carnaval-icon-mask { background-image: var(--carnaval-mask); }
+html.theme-carnaval .carnaval-icon-confetti { background-image: var(--carnaval-confetti); }
+
+/* Pontinho animado */
+html.theme-carnaval .carnaval-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: linear-gradient(90deg, rgba(255,0,170,.95), rgba(255,209,0,.95));
+  box-shadow: 0 0 18px rgba(255,0,170,.35);
+  animation: carnaval-pulse 1.2s ease-in-out infinite;
+}
+@keyframes carnaval-pulse {
+  0%,100% { transform: scale(1); opacity: .85; }
+  50% { transform: scale(1.35); opacity: 1; }
+}
+
+/* ===== Máscaras/ícones no MENU (antes dos títulos) ===== */
+html.theme-carnaval .menu-title {
+  position: relative;
+  padding-left: 26px; /* espaço pro ícone */
+}
+html.theme-carnaval .menu-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  background-image: var(--carnaval-mask);
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: .9;
+  filter: drop-shadow(0 8px 14px rgba(0,0,0,.35));
+}
+
+/* ===== Máscaras “sticker” no header ===== */
+html.theme-carnaval header {
+  position: sticky; /* já é, mas garantimos */
+}
+html.theme-carnaval header::before,
+html.theme-carnaval header::after {
+  content: "";
+  position: absolute;
+  top: 10px;
+  width: 44px;
+  height: 28px;
+  opacity: .22;
+  background-image: var(--carnaval-mask);
+  background-repeat: no-repeat;
+  background-size: contain;
+  pointer-events: none;
+  filter: blur(.1px) drop-shadow(0 10px 18px rgba(0,0,0,.35));
+}
+html.theme-carnaval header::before { left: 14px; transform: rotate(-8deg); }
+html.theme-carnaval header::after  { right: 14px; transform: rotate(10deg) scaleX(-1); }
+
+/* =========================================================
+   CARNAVAL COMPLETO – FLORES + FOLHAS + CONFETES + BRILHOS
+   (sem conflitar pseudo-elements)
+   Cole no FINAL do main.css
+========================================================= */
+
+html.theme-carnaval {
+  /* CANTOS (folhas + flores) */
+  --carnaval-corner-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 240'%3E%3Cdefs%3E%3ClinearGradient id='g1' x1='0' y1='1' x2='1' y2='0'%3E%3Cstop offset='0%25' stop-color='%2300ffb2'/%3E%3Cstop offset='60%25' stop-color='%2300b36b'/%3E%3Cstop offset='100%25' stop-color='%23007a52'/%3E%3C/linearGradient%3E%3ClinearGradient id='g2' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%23ff00aa'/%3E%3Cstop offset='55%25' stop-color='%23ffd100'/%3E%3Cstop offset='100%25' stop-color='%2300ffd6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 240 C42 178 108 142 176 110 C212 92 252 58 276 0 L0 0 Z' fill='url(%23g1)' opacity='0.58'/%3E%3Cpath d='M32 240 C60 198 98 170 136 148 C158 136 178 120 194 98' fill='none' stroke='rgba(255,255,255,0.16)' stroke-width='3' stroke-linecap='round'/%3E%3Cg transform='translate(92 184)' opacity='0.82'%3E%3Ccircle r='8' fill='%23ffd100'/%3E%3Cg fill='%23ff3ea5'%3E%3Cellipse cx='0' cy='-14' rx='11' ry='7'/%3E%3Cellipse cx='12' cy='-7' rx='11' ry='7' transform='rotate(45 12 -7)'/%3E%3Cellipse cx='14' cy='0' rx='11' ry='7' transform='rotate(90 14 0)'/%3E%3Cellipse cx='12' cy='7' rx='11' ry='7' transform='rotate(135 12 7)'/%3E%3Cellipse cx='0' cy='14' rx='11' ry='7'/%3E%3Cellipse cx='-12' cy='7' rx='11' ry='7' transform='rotate(45 -12 7)'/%3E%3Cellipse cx='-14' cy='0' rx='11' ry='7' transform='rotate(90 -14 0)'/%3E%3Cellipse cx='-12' cy='-7' rx='11' ry='7' transform='rotate(135 -12 -7)'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate(160 206)' opacity='0.72'%3E%3Ccircle r='6' fill='%23ffffff'/%3E%3Cg fill='url(%23g2)'%3E%3Cellipse cx='0' cy='-11' rx='9' ry='6'/%3E%3Cellipse cx='9' cy='-5' rx='9' ry='6' transform='rotate(45 9 -5)'/%3E%3Cellipse cx='11' cy='0' rx='9' ry='6' transform='rotate(90 11 0)'/%3E%3Cellipse cx='9' cy='5' rx='9' ry='6' transform='rotate(135 9 5)'/%3E%3Cellipse cx='0' cy='11' rx='9' ry='6'/%3E%3Cellipse cx='-9' cy='5' rx='9' ry='6' transform='rotate(45 -9 5)'/%3E%3Cellipse cx='-11' cy='0' rx='9' ry='6' transform='rotate(90 -11 0)'/%3E%3Cellipse cx='-9' cy='-5' rx='9' ry='6' transform='rotate(135 -9 -5)'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+
+  --carnaval-corner-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 240'%3E%3Cdefs%3E%3ClinearGradient id='g1' x1='1' y1='1' x2='0' y2='0'%3E%3Cstop offset='0%25' stop-color='%2300ffd6'/%3E%3Cstop offset='60%25' stop-color='%2300b36b'/%3E%3Cstop offset='100%25' stop-color='%23007a52'/%3E%3C/linearGradient%3E%3ClinearGradient id='g2' x1='1' y1='0' x2='0' y2='1'%3E%3Cstop offset='0%25' stop-color='%237c3aed'/%3E%3Cstop offset='55%25' stop-color='%23ffd100'/%3E%3Cstop offset='100%25' stop-color='%23ff00aa'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M320 240 C278 178 212 142 144 110 C108 92 68 58 44 0 L320 0 Z' fill='url(%23g1)' opacity='0.58'/%3E%3Cpath d='M288 240 C260 198 222 170 184 148 C162 136 142 120 126 98' fill='none' stroke='rgba(255,255,255,0.16)' stroke-width='3' stroke-linecap='round'/%3E%3Cg transform='translate(228 184)' opacity='0.80'%3E%3Ccircle r='7' fill='%23ffffff'/%3E%3Cg fill='%237c3aed'%3E%3Cellipse cx='0' cy='-13' rx='10' ry='6'/%3E%3Cellipse cx='11' cy='-6' rx='10' ry='6' transform='rotate(45 11 -6)'/%3E%3Cellipse cx='13' cy='0' rx='10' ry='6' transform='rotate(90 13 0)'/%3E%3Cellipse cx='11' cy='6' rx='10' ry='6' transform='rotate(135 11 6)'/%3E%3Cellipse cx='0' cy='13' rx='10' ry='6'/%3E%3Cellipse cx='-11' cy='6' rx='10' ry='6' transform='rotate(45 -11 6)'/%3E%3Cellipse cx='-13' cy='0' rx='10' ry='6' transform='rotate(90 -13 0)'/%3E%3Cellipse cx='-11' cy='-6' rx='10' ry='6' transform='rotate(135 -11 -6)'/%3E%3C/g%3E%3C/g%3E%3Cg transform='translate(162 206)' opacity='0.70'%3E%3Ccircle r='6' fill='%23ffd100'/%3E%3Cg fill='url(%23g2)'%3E%3Cellipse cx='0' cy='-11' rx='9' ry='6'/%3E%3Cellipse cx='9' cy='-5' rx='9' ry='6' transform='rotate(45 9 -5)'/%3E%3Cellipse cx='11' cy='0' rx='9' ry='6' transform='rotate(90 11 0)'/%3E%3Cellipse cx='9' cy='5' rx='9' ry='6' transform='rotate(135 9 5)'/%3E%3Cellipse cx='0' cy='11' rx='9' ry='6'/%3E%3Cellipse cx='-9' cy='5' rx='9' ry='6' transform='rotate(45 -9 5)'/%3E%3Cellipse cx='-11' cy='0' rx='9' ry='6' transform='rotate(90 -11 0)'/%3E%3Cellipse cx='-9' cy='-5' rx='9' ry='6' transform='rotate(135 -9 -5)'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* =====================
+   CONFETES (camada 1)
+   usa html::before
+===================== */
+html.theme-carnaval::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.24;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(circle, rgba(255,0,170,.9) 0 2px, transparent 3px) 0 0/90px 90px,
+    radial-gradient(circle, rgba(255,209,0,.9) 0 2px, transparent 3px) 30px 20px/110px 110px,
+    radial-gradient(circle, rgba(0,255,214,.9) 0 2px, transparent 3px) 10px 40px/130px 130px,
+    radial-gradient(circle, rgba(124,58,237,.9) 0 2px, transparent 3px) 60px 10px/120px 120px;
+  animation: carnaval-fall 10s linear infinite;
+  transform: rotate(-4deg);
+}
+
+/* =====================
+   BRILHOS (camada 2)
+   usa html::after
+===================== */
+html.theme-carnaval::after {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.14;
+  mix-blend-mode: screen;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255,255,255,.9) 0 1px, transparent 2px) 0 0/180px 180px,
+    radial-gradient(circle at 68% 32%, rgba(255,255,255,.75) 0 1px, transparent 2px) 0 0/220px 220px,
+    radial-gradient(circle at 88% 78%, rgba(255,255,255,.85) 0 1px, transparent 2px) 0 0/200px 200px,
+    radial-gradient(circle at 32% 84%, rgba(255,255,255,.7) 0 1px, transparent 2px) 0 0/240px 240px;
+  filter: blur(.2px);
+  animation: carnaval-twinkle 4.6s ease-in-out infinite;
+}
+
+/* animações */
+@keyframes carnaval-fall {
+  0%   { transform: translateY(-6%) rotate(-4deg); }
+  100% { transform: translateY(10%) rotate(-4deg); }
+}
+@keyframes carnaval-twinkle {
+  0%,100% { opacity: .10; transform: translateY(0) translateX(0); }
+  50%     { opacity: .18; transform: translateY(1.2%) translateX(-0.8%); }
+}
+
+/* ==============================
+   FLORES + FOLHAS (cantos)
+   usa body::before/body::after
+============================== */
+html.theme-carnaval body::before,
+html.theme-carnaval body::after {
+  content: "";
+  position: fixed;
+  bottom: -14px;
+  width: 190px;
+  height: 150px;
+  pointer-events: none;
+  z-index: 1;          /* fica acima do fundo, abaixo do conteúdo */
+  opacity: 0.60;
+  background-repeat: no-repeat;
+  background-size: contain;
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.40));
+}
+
+html.theme-carnaval body::before {
+  left: -16px;
+  background-image: var(--carnaval-corner-left);
+}
+
+html.theme-carnaval body::after {
+  right: -16px;
+  background-image: var(--carnaval-corner-right);
+}
+
+/* mobile menor */
+@media (max-width: 768px) {
+  html.theme-carnaval body::before,
+  html.theme-carnaval body::after {
+    width: 125px;
+    height: 100px;
+    opacity: 0.50;
+  }
 }
