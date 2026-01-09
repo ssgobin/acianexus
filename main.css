@@ -5007,3 +5007,119 @@ html:not(.theme-carnaval) .carnaval-header-msg {
     0 8px 18px rgba(0,0,0,.35),
     0 0 0 1px rgba(255,255,255,.35) inset;
 }
+/* =========================================================
+   PÁSCOA DECORATIVA 🐰🥚 (SEM MEXER NO TEMA BASE)
+========================================================= */
+
+/* Mensagem no cabeçalho */
+html.theme-pascoa header {
+  position: relative;
+}
+
+html.theme-pascoa header::after {
+  content: "🐰 Feliz Páscoa, equipe ACIA! 🥚";
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  transform: translateX(-50%);
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+
+  color: #2f2a26;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,125,184,.95),
+      rgba(255,210,90,.95),
+      rgba(98,199,255,.95)
+    );
+
+  border-radius: 999px;
+  box-shadow:
+    0 10px 24px rgba(0,0,0,.18),
+    0 0 0 2px rgba(255,255,255,.55) inset;
+
+  z-index: 20;
+}
+
+/* Ovinhos decorativos espalhados (sem confete carnavalesco) */
+html.theme-pascoa::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.16;
+
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(255,125,184,.55) 0 6px, transparent 7px) 0 0/180px 180px,
+    radial-gradient(ellipse at 60% 40%, rgba(98,199,255,.50) 0 6px, transparent 7px) 40px 30px/210px 210px,
+    radial-gradient(ellipse at 30% 70%, rgba(255,210,90,.55) 0 6px, transparent 7px) 20px 70px/200px 200px,
+    radial-gradient(ellipse at 80% 75%, rgba(167,139,250,.45) 0 6px, transparent 7px) 90px 20px/240px 240px;
+}
+
+/* Brilhos leves (açúcar/chocolate) */
+html.theme-pascoa::after {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.10;
+  mix-blend-mode: overlay;
+
+  background:
+    radial-gradient(circle at 18% 26%, rgba(255,255,255,.9) 0 1px, transparent 2px),
+    radial-gradient(circle at 72% 22%, rgba(255,255,255,.85) 0 1px, transparent 2px),
+    radial-gradient(circle at 55% 78%, rgba(255,255,255,.8) 0 1px, transparent 2px),
+    radial-gradient(circle at 30% 86%, rgba(255,255,255,.85) 0 1px, transparent 2px);
+  background-size: 220px 220px;
+}
+
+/* Cantos inferiores: coelho + ovos (DECORATIVO) */
+html.theme-pascoa {
+  --pascoa-corner-left: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 240'%3E%3Cpath d='M90 210c-12-26 0-62 26-78 28-18 66-10 84 18 17 26 9 62-18 80-28 18-78 8-92-20Z' fill='%23ffffff' opacity='.9'/%3E%3Cpath d='M126 120c-10-24-7-54 8-66 10-8 22 4 20 16' fill='none' stroke='%23ffffff' stroke-width='18' stroke-linecap='round' opacity='.9'/%3E%3Cpath d='M170 120c-10-24-7-54 8-66 10-8 22 4 20 16' fill='none' stroke='%23ffffff' stroke-width='18' stroke-linecap='round' opacity='.9'/%3E%3Ccircle cx='150' cy='170' r='6' fill='%232f2a26' opacity='.6'/%3E%3Ccircle cx='184' cy='170' r='6' fill='%232f2a26' opacity='.6'/%3E%3Cpath d='M167 185c4 4 4 4 8 0' stroke='%232f2a26' stroke-width='4' stroke-linecap='round' fill='none'/%3E%3C/svg%3E");
+
+  --pascoa-corner-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 320 240'%3E%3Cpath d='M88 210c0-18 14-33 32-33h80c18 0 32 15 32 33l-10 28H98l-10-28Z' fill='%235a3a2a' opacity='.95'/%3E%3Cpath d='M105 178c10-30 30-48 55-48s45 18 55 48' fill='none' stroke='%238a5a3b' stroke-width='10' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+html.theme-pascoa body::before,
+html.theme-pascoa body::after {
+  content: "";
+  position: fixed;
+  bottom: -14px;
+  width: 200px;
+  height: 150px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.75;
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+html.theme-pascoa body::before {
+  left: -16px;
+  background-image: var(--pascoa-corner-left);
+}
+
+html.theme-pascoa body::after {
+  right: -16px;
+  background-image: var(--pascoa-corner-right);
+}
+
+/* mobile */
+@media (max-width: 768px) {
+  html.theme-pascoa body::before,
+  html.theme-pascoa body::after {
+    width: 130px;
+    height: 100px;
+    opacity: 0.65;
+  }
+
+  html.theme-pascoa header::after {
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+}

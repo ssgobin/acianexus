@@ -969,6 +969,14 @@ document.addEventListener("DOMContentLoaded", () => {
     initProfileModal();
 });
 
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
 
 async function initFirebase() {
     try {
@@ -1156,6 +1164,7 @@ async function initFirebase() {
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 listenUserForceReload(db, user);
+                listenThemeBroadcast();
             }
         });
 
@@ -1213,6 +1222,21 @@ function applyCarnavalTheme(enabled) {
   try { localStorage.setItem("theme:carnaval", on ? "1" : "0"); } catch {}
 }
 
+function listenThemeBroadcast() {
+  const ref = doc(db, "admin", "broadcast");
+
+  onSnapshot(ref, (snap) => {
+    if (!snap.exists()) return;
+    applySeasonThemes(snap.data());
+  });
+}
+
+
+function applySeasonThemes(data = {}) {
+  const root = document.documentElement;
+
+  root.classList.toggle("theme-pascoa", data.themePascoa === true);
+}
 
 // === CHECK MAINTENANCE MODE ===
 async function checkMaintenance() {
