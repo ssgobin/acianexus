@@ -10,7 +10,7 @@ Se você é hinduísta, reze para Shiva.
 Se você é ateu, boa sorte mesmo assim.
 Se você é agnóstico, boa sorte também.
 
-Se algo quebrar, lembre-se:
+Segue uma lista de dicas:
 1. Não fui eu.
 2. Já estava assim quando cheguei.
 3. Se funcionar, eu chamo de feature.
@@ -19,6 +19,48 @@ Se algo quebrar, lembre-se:
 6. Lembre-se: "Funciona na minha máquina".
 7. Não me peça para documentar o código, isso é trabalho para os fracos.
 8. Você pode consertar, mas não me peça para explicar como funciona.
+9. Eu não sou responsável pelo que você fizer com esse código.
+10. Não me peça para testar, isso é trabalho para os fracos.
+11. Sim, eu sei que está uma bagunça, mas funciona.
+12. Cuidado ao editar, você pode desencadear forças além do nosso entendimento.
+13. Também não me peça para otimizar, isso é trabalho para os fracos.
+14. Se você chegou até aqui, parabéns, você é corajoso.
+15. Talvez você deva considerar uma carreira em TI, se sobreviveu a isso.
+16. Aqui é o código mais amaldiçoado que você verá hoje.
+17. Existe uma chance de 50% de que algo quebre se você tocar aqui.
+18. Se algo explodir, não diga que eu não avisei.
+19. Lembre-se: "Se não está quebrado, não conserte".
+20. Se alguém perguntar, diga que é um código legado.
+21. Se ninguém viu, não aconteceu.
+22. Se alguém viu, diga que foi um acidente.
+23. Se você conseguiu entender isso, você merece um prêmio.
+24. Cuidado com os bugs, eles são traiçoeiros.
+25. Se te pedirem para refatorar, fuja.
+26. Modularização é para os fracos.
+27. Código limpo é para os fracos.
+28. Código com menos de 5000 linhas é para os fracos.
+29. Se você acha que pode melhorar, vá em frente, mas não diga que eu não avisei.
+30. Deploy de sexta-feira à tarde é para os corajosos.
+31. Não tem como voltar atrás depois de mexer aqui.
+32. Se algo der errado, culpe o estagiário.
+33. Se você chegou até aqui, você é um verdadeiro guerreiro do código.
+34. Nunca subestime o poder do café para resolver bugs.
+35. Seu chefe não vai acreditar que você conseguiu consertar isso.
+36. Um aumento é a maior mentira que você pode receber.
+37. Se te prometerem um bônus por consertar isso, desconfie.
+38. Desconfie de qualquer promessa de melhoria de performance.
+39. Se roda com menos de 500mb de RAM, é uma vitória.
+40. Você está sozinho nessa luta.
+41. ChatGPT nunca é demais.
+42. Não tente organizar esse código, é uma armadilha.
+43. Funções duplicadas existem por um motivo.
+44. Não tente apagar nada, é um código vivo.
+45. Se parar de funcionar, reze.
+46. Não chore se algo der errado, chore se conseguir consertar.
+47. Seu gestor não vai entender o que você fez, mas vai agradecer.
+48. Ele não entende de prazos.
+49. Ele não entende de tecnologia.
+50. E por último, mas não menos importante: boa sorte, você vai precisar.
 
 Ass: O programador que já desistiu 3 vezes antes de escrever esse comentário.
 */
@@ -83,17 +125,17 @@ function markDMRead() {
 
 
 async function listenAdminThemeFlags() {
-  if (!cloudOk) return; // se quiser, dá pra colocar fallback localStorage aqui também
+    if (!cloudOk) return; // se quiser, dá pra colocar fallback localStorage aqui também
 
-  const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
-  const ref = doc(db, "admin", "broadcast");
+    const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const ref = doc(db, "admin", "broadcast");
 
-  return onSnapshot(ref, (snap) => {
-    const data = snap.exists() ? snap.data() : {};
-    applyCarnavalTheme(data.carnavalTheme === true);
-  }, (err) => {
-    console.warn("Theme flags listener falhou:", err?.message || err);
-  });
+    return onSnapshot(ref, (snap) => {
+        const data = snap.exists() ? snap.data() : {};
+        applyCarnavalTheme(data.carnavalTheme === true);
+    }, (err) => {
+        console.warn("Theme flags listener falhou:", err?.message || err);
+    });
 }
 
 document.addEventListener('auth:changed', listenAdminThemeFlags);
@@ -970,11 +1012,11 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 import {
-  getFirestore,
-  doc,
-  getDoc,
-  setDoc,
-  onSnapshot
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 
@@ -1213,29 +1255,29 @@ document.addEventListener("auth:changed", () => {
 });
 
 function applyCarnavalTheme(enabled) {
-  const root = document.documentElement;
-  const on = !!enabled;
+    const root = document.documentElement;
+    const on = !!enabled;
 
-  root.classList.toggle("theme-carnaval", on);
+    root.classList.toggle("theme-carnaval", on);
 
-  // opcional: persistir localmente pra ficar estável entre reloads
-  try { localStorage.setItem("theme:carnaval", on ? "1" : "0"); } catch {}
+    // opcional: persistir localmente pra ficar estável entre reloads
+    try { localStorage.setItem("theme:carnaval", on ? "1" : "0"); } catch { }
 }
 
 function listenThemeBroadcast() {
-  const ref = doc(db, "admin", "broadcast");
+    const ref = doc(db, "admin", "broadcast");
 
-  onSnapshot(ref, (snap) => {
-    if (!snap.exists()) return;
-    applySeasonThemes(snap.data());
-  });
+    onSnapshot(ref, (snap) => {
+        if (!snap.exists()) return;
+        applySeasonThemes(snap.data());
+    });
 }
 
 
 function applySeasonThemes(data = {}) {
-  const root = document.documentElement;
+    const root = document.documentElement;
 
-  root.classList.toggle("theme-pascoa", data.themePascoa === true);
+    root.classList.toggle("theme-pascoa", data.themePascoa === true);
 }
 
 // === CHECK MAINTENANCE MODE ===
@@ -5659,29 +5701,29 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 })();
 
 async function listenUserForceReload(db, user) {
-  if (!db || !user) return;
+    if (!db || !user) return;
 
-  const { doc, onSnapshot } =
-    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const { doc, onSnapshot } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-  const ref = doc(db, "users", user.uid, "control", "reload");
+    const ref = doc(db, "users", user.uid, "control", "reload");
 
-  let last = Number(localStorage.getItem("last_user_reload") || 0);
+    let last = Number(localStorage.getItem("last_user_reload") || 0);
 
-  onSnapshot(ref, async (snap) => {
-    if (!snap.exists()) return;
+    onSnapshot(ref, async (snap) => {
+        if (!snap.exists()) return;
 
-    const data = snap.data() || {};
-    const ts = Number(data.forceReloadAt || 0);
+        const data = snap.data() || {};
+        const ts = Number(data.forceReloadAt || 0);
 
-    if (!ts || ts <= last) return;
+        if (!ts || ts <= last) return;
 
-    localStorage.setItem("last_user_reload", String(ts));
+        localStorage.setItem("last_user_reload", String(ts));
 
-    // 🧠 CONFIRMAÇÃO COM OK
-    await Swal.fire({
-      title: "🔄 Atualização disponível",
-      html: `
+        // 🧠 CONFIRMAÇÃO COM OK
+        await Swal.fire({
+            title: "🔄 Atualização disponível",
+            html: `
         <p style="margin-bottom:8px">
           Liberamos uma atualização rápida no sistema 🚀
         </p>
@@ -5689,14 +5731,14 @@ async function listenUserForceReload(db, user) {
           Clique em <b>OK</b> para aplicar agora.
         </small>
       `,
-      icon: "info",
-      confirmButtonText: "OK, atualizar",
-      allowOutsideClick: false,
-      allowEscapeKey: false
-    });
+            icon: "info",
+            confirmButtonText: "OK, atualizar",
+            allowOutsideClick: false,
+            allowEscapeKey: false
+        });
 
-    location.reload(true);
-  });
+        location.reload(true);
+    });
 }
 
 
