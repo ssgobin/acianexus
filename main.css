@@ -3290,7 +3290,7 @@ html.light #online-list {
     display: flex;
     flex-direction: column;
     padding: 16px;
-    overflow-y: auto;
+    /* overflow-y: auto; */
     box-shadow: -4px 0 10px rgba(0,0,0,0.15);
 }
 
@@ -3421,17 +3421,6 @@ body.dark #activity-msg {
     position: relative;
 }
 
-#cardModal .modal-content-2col {
-    display: flex;
-    flex-direction: row;
-    height: 100%;
-    width: 100%;
-    overflow: hidden;
-}
-.modal {
-    width: min(1200px, 98vw);
-    max-height: 94vh;
-}
 #cardModal .modal-inner {
     flex: 1;
     overflow-y: auto;     /* AGORA TEM SCROLL */
@@ -3456,9 +3445,9 @@ body.dark #activity-msg {
     border-radius: 4px;
 }
 
-.activity-panel {
+/* .activity-panel {
     overflow-y: auto;
-}
+} */
 
 /* ===========================
    GAMIFICAÇÃO – HUD / RANKING
@@ -5121,5 +5110,109 @@ html.theme-pascoa body::after {
   html.theme-pascoa header::after {
     font-size: 11px;
     padding: 6px 12px;
+  }
+}
+
+/* ================================
+   CARD MODAL: chat/atividade na direita (sem cortar embaixo)
+   ================================ */
+
+
+#cardModal .modal-inner{
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: auto !important; /* scroll só no conteúdo da esquerda */
+}
+
+/* painel da direita */
+#cardModal #card-activity-panel.activity-panel{
+  flex: 0 0 360px !important;   /* largura do painel */
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;  /* não corta mais embaixo */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* quem scrolla é só a lista */
+#cardModal #card-activity-panel .activity-list{
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+/* input fica sempre visível */
+#cardModal #card-activity-panel .activity-input{
+  flex: 0 0 auto !important;
+}
+/* ===============================
+   CARD MODAL: 2 colunas + chat fixo
+   =============================== */
+
+/* o modal do card vira 2 colunas */
+#cardModal.show{
+  display: flex !important;
+  gap: 14px;
+  align-items: stretch;
+}
+
+/* tamanhos só pro cardModal (não vaza pros outros) */
+#cardModal{
+  width: min(1200px, 98vw);
+  max-height: 94vh;
+}
+
+/* lado esquerdo (conteúdo do card) */
+#cardModal > .modal-inner{
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 94vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* quem scrolla é o corpo do modal (não o modal inteiro) */
+#cardModal > .modal-inner .modal-body{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 22px;
+}
+
+/* painel direito (chat/atividade) */
+#cardModal > #card-activity-panel.activity-panel{
+  flex: 0 0 auto;
+  width: 360px;
+  max-width: min(38vw, 420px);
+  max-height: 94vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* a lista é a única parte que rola */
+#cardModal > #card-activity-panel .activity-list{
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* input fica sempre visível (não corta embaixo) */
+#cardModal > #card-activity-panel .activity-input{
+  flex: 0 0 auto;
+}
+
+/* responsivo: no mobile vira "um em cima do outro" */
+@media (max-width: 980px){
+  #cardModal.show{
+    flex-direction: column;
+  }
+
+  #cardModal > #card-activity-panel.activity-panel{
+    width: 100%;
+    max-width: none;
+    max-height: 40vh;
   }
 }
