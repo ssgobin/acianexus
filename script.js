@@ -4637,14 +4637,17 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 
     function renderKPIs(list) {
         const total = list.length;
-        const overdue = list.filter(c => c.due && new Date(c.due) < new Date()).length;
+        const overdue = list.filter(c =>
+            c.due &&
+            c.status !== 'CONCLUÍDO' &&
+            new Date(c.due) < new Date()
+        ).length;
         const exec = list.filter(c => c.status === 'EXECUÇÃO').length;
         const pend = list.filter(c => ['PENDENTE', 'BACKLOG'].includes(c.status)).length;
         const concl = list.filter(c => c.status === 'CONCLUÍDO').length;
         const card = (t, v) => `<div class="kpi-card"><div class="kpi-title">${t}</div><div class="kpi-val">${v}</div></div>`;
         kpiWrap.innerHTML = card('Total', total) + card('Vencidos', overdue) + card('Em execução', exec) + card('Pendentes', pend) + card('Concluídos', concl);
     }
-
     function renderRisks(allCards) {
         if (!riskPanel) return;
 
@@ -8737,3 +8740,4 @@ window.addEventListener("hashchange", initMembersModalHandlers);
     renderRoute();
 
 })();
+
