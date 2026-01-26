@@ -5761,6 +5761,19 @@ async function listenUserForceReload(db, user) {
     location.reload();
   });
 
+  // helper simples pra não permitir HTML injection
+  function escapeHtml(str) {
+    return String(str || "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    }[c]));
+  }
+}
+
+
 /* ===========================
    UI dos Tickets (apenas TI)
 =========================== */
@@ -8754,5 +8767,6 @@ window.addEventListener("hashchange", initMembersModalHandlers);
     renderRoute();
 
 })();
+
 
 
