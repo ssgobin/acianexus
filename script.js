@@ -5704,48 +5704,62 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 })();
 
 async function listenUserForceReload(db, user) {
-    if (!db || !user) return;
+  if (!db || !user) return;
 
-    const { doc, onSnapshot } =
-        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+  const { doc, onSnapshot } =
+    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-    const ref = doc(db, "users", user.uid, "control", "reload");
+  const ref = doc(db, "users", user.uid, "control", "reload");
 
-    let last = Number(localStorage.getItem("last_user_reload") || 0);
+  const KEY_LAST = "last_user_reload";
+  const KEY_NOTICE = "nexus:pendingReloadNotice";
 
-    onSnapshot(ref, async (snap) => {
-        if (!snap.exists()) return;
+  let last = Number(localStorage.getItem(KEY_LAST) || 0);
 
-        const data = snap.data() || {};
-        const ts = Number(data.forceReloadAt || 0);
+  onSnapshot(ref, async (snap) => {
+    if (!snap.exists()) return;
 
-        if (!ts || ts <= last) return;
+    const data = snap.data() || {};
+    const ts = Number(data.forceReloadAt || 0);
 
-        localStorage.setItem("last_user_reload", String(ts));
+    if (!ts || ts <= last) return;
 
-        // 🧠 CONFIRMAÇÃO COM OK
-        await Swal.fire({
-            title: "🔄 Atualização disponível",
-            html: `
-        <p style="margin-bottom:8px">
-          Liberamos uma atualização rápida no sistema 🚀
-        </p>
-        <small class="muted">
-          Clique em <b>OK</b> para aplicar agora.
-        </small>
+    // atualiza "last" local (evita repetir se o snapshot disparar mais de uma vez)
+    last = ts;
+    localStorage.setItem(KEY_LAST, String(ts));
+
+    // 👇 mensagem personalizada (com fallback)
+    const category = (data.category || "🔄 Atualização disponível").trim();
+    const message = (data.message || "Liberamos uma atualização rápida no sistema 🚀").trim();
+    const refTxt = (data.ref || "").trim();
+    const byTxt = (data.by || "").trim();
+
+    // (opcional) salva aviso pra mostrar pós-reload também
+    try {
+      localStorage.setItem(
+        KEY_NOTICE,
+        JSON.stringify({ ts, category, message, ref: refTxt, by: byTxt })
+      );
+    } catch {}
+
+    // 🧠 CONFIRMAÇÃO COM OK (agora com texto custom)
+    await Swal.fire({
+      title: category,
+      html: `
+        <p style="margin-bottom:8px">${escapeHtml(message)}</p>
+        ${refTxt ? `<small class="muted">Referência: <b>${escapeHtml(refTxt)}</b></small><br>` : ""}
+        ${byTxt ? `<small class="muted">Enviado por: ${escapeHtml(byTxt)}</small><br>` : ""}
+        <small class="muted">Clique em <b>OK</b> para aplicar agora.</small>
       `,
-            icon: "info",
-            confirmButtonText: "OK, atualizar",
-            allowOutsideClick: false,
-            allowEscapeKey: false
-        });
-
-        location.reload(true);
+      icon: "info",
+      confirmButtonText: "OK, atualizar",
+      allowOutsideClick: false,
+      allowEscapeKey: false
     });
-}
 
-
-
+    // reload normal
+    location.reload();
+  });
 
 /* ===========================
    UI dos Tickets (apenas TI)
@@ -8740,4 +8754,5 @@ window.addEventListener("hashchange", initMembersModalHandlers);
     renderRoute();
 
 })();
+
 
