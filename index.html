@@ -489,12 +489,35 @@
       <div class="modal-body">
         <div class="field"><label>Data</label><input id="evt-date" type="date" /></div>
         <div class="field"><label>Horário</label><input id="evt-time" type="time" /></div>
-        <div class="field"><label>Título</label><input id="evt-title" type="text" /></div>
-        <div class="field"><label>Responsáveis (vírgula)</label><input id="evt-resp" type="text"
-            placeholder="Maria, João" /></div>
-        <div class="field"><label>Descrição</label><textarea id="evt-desc"></textarea></div>
+
+        <div class="field"><label>Nome do evento</label><input id="evt-title" type="text" /></div>
+
+        <div class="field"><label>Nome da empresa</label><input id="evt-company" type="text" /></div>
+
+        <div class="field"><label>Código de associado</label><input id="evt-assoc" type="text"
+            placeholder="Ex: 000123" /></div>
+
+        <div class="field"><label>Local (sala)</label><input id="evt-local" type="text" placeholder="Ex: Sala 02" />
+        </div>
+
+        <div class="field">
+          <label>Coffee</label>
+          <select id="evt-coffee">
+            <option value="">Selecione…</option>
+            <option value="sim">Sim</option>
+            <option value="nao">Não</option>
+          </select>
+        </div>
+
+        <div class="field"><label>Quantidade de pessoas</label><input id="evt-people" type="number" min="1" step="1" />
+        </div>
+
+        <div class="field"><label>Requisição</label><textarea id="evt-req"
+            placeholder="Descreva o que precisa…"></textarea></div>
+
         <div id="evt-msg" class="msg"></div>
       </div>
+
 
       <div class="modal-foot">
         <button id="evt-delete" class="btn secondary" type="button">Excluir</button>

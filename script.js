@@ -5704,73 +5704,73 @@ ${inf || 'Listar todas as informações pertinentes que contribuam para a ação
 })();
 
 async function listenUserForceReload(db, user) {
-  if (!db || !user) return;
+    if (!db || !user) return;
 
-  const { doc, onSnapshot } =
-    await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const { doc, onSnapshot } =
+        await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
 
-  const ref = doc(db, "users", user.uid, "control", "reload");
+    const ref = doc(db, "users", user.uid, "control", "reload");
 
-  const KEY_LAST = "last_user_reload";
-  const KEY_NOTICE = "nexus:pendingReloadNotice";
+    const KEY_LAST = "last_user_reload";
+    const KEY_NOTICE = "nexus:pendingReloadNotice";
 
-  let last = Number(localStorage.getItem(KEY_LAST) || 0);
+    let last = Number(localStorage.getItem(KEY_LAST) || 0);
 
-  onSnapshot(ref, async (snap) => {
-    if (!snap.exists()) return;
+    onSnapshot(ref, async (snap) => {
+        if (!snap.exists()) return;
 
-    const data = snap.data() || {};
-    const ts = Number(data.forceReloadAt || 0);
+        const data = snap.data() || {};
+        const ts = Number(data.forceReloadAt || 0);
 
-    if (!ts || ts <= last) return;
+        if (!ts || ts <= last) return;
 
-    // atualiza "last" local (evita repetir se o snapshot disparar mais de uma vez)
-    last = ts;
-    localStorage.setItem(KEY_LAST, String(ts));
+        // atualiza "last" local (evita repetir se o snapshot disparar mais de uma vez)
+        last = ts;
+        localStorage.setItem(KEY_LAST, String(ts));
 
-    // 👇 mensagem personalizada (com fallback)
-    const category = (data.category || "🔄 Atualização disponível").trim();
-    const message = (data.message || "Liberamos uma atualização rápida no sistema 🚀").trim();
-    const refTxt = (data.ref || "").trim();
-    const byTxt = (data.by || "").trim();
+        // 👇 mensagem personalizada (com fallback)
+        const category = (data.category || "🔄 Atualização disponível").trim();
+        const message = (data.message || "Liberamos uma atualização rápida no sistema 🚀").trim();
+        const refTxt = (data.ref || "").trim();
+        const byTxt = (data.by || "").trim();
 
-    // (opcional) salva aviso pra mostrar pós-reload também
-    try {
-      localStorage.setItem(
-        KEY_NOTICE,
-        JSON.stringify({ ts, category, message, ref: refTxt, by: byTxt })
-      );
-    } catch {}
+        // (opcional) salva aviso pra mostrar pós-reload também
+        try {
+            localStorage.setItem(
+                KEY_NOTICE,
+                JSON.stringify({ ts, category, message, ref: refTxt, by: byTxt })
+            );
+        } catch { }
 
-    // 🧠 CONFIRMAÇÃO COM OK (agora com texto custom)
-    await Swal.fire({
-      title: category,
-      html: `
+        // 🧠 CONFIRMAÇÃO COM OK (agora com texto custom)
+        await Swal.fire({
+            title: category,
+            html: `
         <p style="margin-bottom:8px">${escapeHtml(message)}</p>
         ${refTxt ? `<small class="muted">Referência: <b>${escapeHtml(refTxt)}</b></small><br>` : ""}
         ${byTxt ? `<small class="muted">Enviado por: ${escapeHtml(byTxt)}</small><br>` : ""}
         <small class="muted">Clique em <b>OK</b> para aplicar agora.</small>
       `,
-      icon: "info",
-      confirmButtonText: "OK, atualizar",
-      allowOutsideClick: false,
-      allowEscapeKey: false
+            icon: "info",
+            confirmButtonText: "OK, atualizar",
+            allowOutsideClick: false,
+            allowEscapeKey: false
+        });
+
+        // reload normal
+        location.reload();
     });
 
-    // reload normal
-    location.reload();
-  });
-
-  // helper simples pra não permitir HTML injection
-  function escapeHtml(str) {
-    return String(str || "").replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[c]));
-  }
+    // helper simples pra não permitir HTML injection
+    function escapeHtml(str) {
+        return String(str || "").replace(/[&<>"']/g, (c) => ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;"
+        }[c]));
+    }
 }
 
 
@@ -6865,17 +6865,68 @@ document.querySelector('#m-send-attach')?.addEventListener('click', async () => 
     const inDate = document.getElementById('evt-date');
     const inTime = document.getElementById('evt-time');
     const inTitle = document.getElementById('evt-title');
-    const inResp = document.getElementById('evt-resp');
-    const inDesc = document.getElementById('evt-desc');
+    const inCompany = document.getElementById('evt-company');
+    const inAssoc = document.getElementById('evt-assoc');
+    const inLocal = document.getElementById('evt-local');
+    const inCoffee = document.getElementById('evt-coffee');
+    const inPeople = document.getElementById('evt-people');
+    const inReq = document.getElementById('evt-req');
     const msg = document.getElementById('evt-msg');
     const btnSave = document.getElementById('evt-save');
     const btnClose = document.getElementById('cal-close');
     const btnDelete = document.getElementById('evt-delete');
     let editing = null; // {date, idx}
 
-    function openAddModal(e) { const d = e.currentTarget.dataset.date; editing = { date: d, idx: null }; inDate.value = d; inTime.value = ''; inTitle.value = ''; inResp.value = ''; inDesc.value = ''; msg.classList.remove('show'); modal.classList.add('show'); modalBack?.classList.add('show'); btnDelete.style.display = 'none'; }
+    function openAddModal(e) {
+        const d = e.currentTarget.dataset.date;
+        editing = { date: d, idx: null };
 
-    function openEditModal(e) { const iso = e.currentTarget.dataset.date; const idx = Number(e.currentTarget.dataset.idx); const events = loadAll(); const list = events[iso] || []; const ev = list[idx]; if (!ev) return; editing = { date: iso, idx }; inDate.value = iso; inTime.value = ev.time || ''; inTitle.value = ev.title || ''; inResp.value = ev.resp || ''; inDesc.value = ev.desc || ''; msg.classList.remove('show'); modal.classList.add('show'); modalBack?.classList.add('show'); btnDelete.style.display = 'inline-block'; }
+        inDate.value = d;
+        inTime.value = '';
+        inTitle.value = '';
+
+        inCompany.value = '';
+        inAssoc.value = '';
+        inLocal.value = '';
+        inCoffee.value = '';
+        inPeople.value = '';
+        inReq.value = '';
+
+        msg.classList.remove('show');
+        modal.classList.add('show');
+        modalBack?.classList.add('show');
+        btnDelete.style.display = 'none';
+    }
+
+
+    function openEditModal(e) {
+        const iso = e.currentTarget.dataset.date;
+        const idx = Number(e.currentTarget.dataset.idx);
+
+        const events = loadAll();
+        const list = events[iso] || [];
+        const ev = list[idx];
+        if (!ev) return;
+
+        editing = { date: iso, idx };
+
+        inDate.value = iso;
+        inTime.value = ev.time || '';
+        inTitle.value = ev.title || '';
+
+        inCompany.value = ev.company || '';
+        inAssoc.value = ev.assocCode || '';
+        inLocal.value = ev.local || '';
+        inCoffee.value = ev.coffee || '';
+        inPeople.value = ev.peopleQty || '';
+        inReq.value = ev.req || '';
+
+        msg.classList.remove('show');
+        modal.classList.add('show');
+        modalBack?.classList.add('show');
+        btnDelete.style.display = 'inline-block';
+    }
+
 
     btnClose?.addEventListener('click', () => { modal.classList.remove('show'); modalBack?.classList.remove('show'); });
 
@@ -6982,7 +7033,15 @@ async function loadAndRenderCalendar() {
                     const time = ev.time ? `<div style="font-weight:700">${ev.time}</div>` : '';
                     return `<div class="card-item" ${idAttr} style="margin-bottom:8px;cursor:pointer;padding:8px" onclick="__openCalendarModal('${ev.id || ''}')">
                     <div class="title"><div class="title-text">${escapeHtml(ev.title || '—')}</div><div class="title-badges"></div></div>
-                    <div class="meta">${time}<div style="margin-top:6px">${escapeHtml((ev.resp || '') + (ev.desc ? ' — ' + ev.desc : ''))}</div></div>
+                    <div class="meta">${time}<div style="margin-top:6px">${escapeHtml(
+                        (ev.company ? `Empresa: ${ev.company}` : '') +
+                        (ev.local ? ` | Local: ${ev.local}` : '') +
+                        (ev.coffee ? ` | Coffee: ${ev.coffee}` : '') +
+                        (ev.peopleQty ? ` | Pessoas: ${ev.peopleQty}` : '') +
+                        (ev.assocCode ? ` | Assoc: ${ev.assocCode}` : '') +
+                        (ev.req ? `\nReq: ${ev.req}` : '')
+                    )}
+</div></div>
                   </div>`;
                 }).join('');
             return `<div style="margin-bottom:14px"><h4 style="margin:6px 0">${d}</h4>${items}</div>`;
@@ -7004,59 +7063,92 @@ function escapeHtml(s) {
 
 // open modal and populate fields for event id (or create new)
 window.__openCalendarModal = async function (id) {
-    __currentCalendarEventId = id || null;
-    const modal = $('#calendarModal');
-    if (!modal) return;
-    if (!id) {
-        $('#cal-modal-title').textContent = 'Novo evento';
-        $('#evt-date').value = '';
-        $('#evt-time').value = '';
-        $('#evt-title').value = '';
-        $('#evt-resp').value = '';
-        $('#evt-desc').value = '';
-        $('#evt-delete').classList.add('hidden');
+  __currentCalendarEventId = id || null;
+
+  const modal = $('#calendarModal');
+  if (!modal) return;
+
+  if (!id) {
+    $('#cal-modal-title').textContent = 'Nova locação';
+
+    $('#evt-date').value = '';
+    $('#evt-time').value = '';
+    $('#evt-title').value = '';
+
+    $('#evt-company').value = '';
+    $('#evt-assoc').value = '';
+    $('#evt-local').value = '';
+    $('#evt-coffee').value = '';
+    $('#evt-people').value = '';
+    $('#evt-req').value = '';
+
+    $('#evt-delete').classList.add('hidden');
+  } else {
+    const events = await CalendarDB.list();
+    const ev = events.find(x => String(x.id) === String(id));
+
+    if (ev) {
+      $('#cal-modal-title').textContent = 'Editar locação';
+
+      $('#evt-date').value = ev.date || '';
+      $('#evt-time').value = ev.time || '';
+      $('#evt-title').value = ev.title || '';
+
+      $('#evt-company').value = ev.company || '';
+      $('#evt-assoc').value = ev.assocCode || '';
+      $('#evt-local').value = ev.local || '';
+      $('#evt-coffee').value = ev.coffee || '';
+      $('#evt-people').value = ev.peopleQty ?? '';
+      $('#evt-req').value = ev.req || '';
+
+      $('#evt-delete').classList.remove('hidden');
     } else {
-        // load event
-        const events = await CalendarDB.list();
-        const ev = events.find(x => String(x.id) === String(id));
-        if (ev) {
-            $('#cal-modal-title').textContent = 'Editar evento';
-            $('#evt-date').value = ev.date || '';
-            $('#evt-time').value = ev.time || '';
-            $('#evt-title').value = ev.title || '';
-            $('#evt-resp').value = ev.resp || '';
-            $('#evt-desc').value = ev.desc || '';
-            $('#evt-delete').classList.remove('hidden');
-        } else {
-            // not found
-            $('#evt-delete').classList.add('hidden');
-        }
+      $('#evt-delete').classList.add('hidden');
     }
-    modal.classList.add('show');
+  }
+
+  modal.classList.add('show');
 };
+
 
 // attach save handler
 $('#evt-save').addEventListener('click', async () => {
     const date = $('#evt-date').value;
     const time = $('#evt-time').value;
     const title = $('#evt-title').value.trim();
-    const resp = $('#evt-resp').value.trim();
-    const desc = $('#evt-desc').value.trim();
+
+    const company = $('#evt-company').value.trim();
+    const assocCode = $('#evt-assoc').value.trim();
+    const local = $('#evt-local').value.trim();
+    const coffee = $('#evt-coffee').value;
+    const peopleQty = Number($('#evt-people').value || 0) || null;
+    const req = $('#evt-req').value.trim();
+
     const createdBy = currentUser?.uid || 'anon';
     const createdByName = currentUser?.displayName || currentUser?.email || '—';
-    if (!date || !title) { setMsg($('#evt-msg'), 'err', 'Preencha data e título.'); return; }
-    const payload = { date, time, title, resp, desc, createdBy, createdByName };
+
+    if (!date || !title) { setMsg($('#evt-msg'), 'err', 'Preencha data e nome do evento.'); return; }
+
+    const payload = {
+        date, time, title,
+        company, assocCode, local, coffee, peopleQty, req,
+        createdBy, createdByName
+    };
+
     if (__currentCalendarEventId) payload.id = __currentCalendarEventId;
+
     try {
         const r = await CalendarDB.add(payload);
-        setMsg($('#evt-msg'), 'ok', 'Evento salvo.');
+        setMsg($('#evt-msg'), 'ok', 'Locação salva.');
         __currentCalendarEventId = r.id || payload.id;
         $('#calendarModal').classList.remove('show');
         await loadAndRenderCalendar();
     } catch (e) {
-        console.error(e); setMsg($('#evt-msg'), 'err', 'Falha ao salvar.');
+        console.error(e);
+        setMsg($('#evt-msg'), 'err', 'Falha ao salvar.');
     }
 });
+
 
 // attach delete handler
 $('#evt-delete').addEventListener('click', async () => {
