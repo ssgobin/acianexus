@@ -310,12 +310,37 @@ document.querySelector('#m-send-attach')?.addEventListener('click', async () => 
     document.getElementById('cal-prev')?.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() - 1); render(); });
     document.getElementById('cal-next')?.addEventListener('click', () => { viewDate.setMonth(viewDate.getMonth() + 1); render(); });
     document.getElementById('cal-today')?.addEventListener('click', () => { viewDate = new Date(); render(); });
+    function ensureEvtEndTimeInput() {
+        let el = document.getElementById('evt-end');
+        if (el) return el;
+
+        const start = document.getElementById('evt-time');
+        if (!start) return null;
+
+        const startField = start.closest('.field') || start.parentElement;
+
+        const wrap = document.createElement('div');
+        wrap.className = startField?.className || 'field';
+
+        // tenta reaproveitar a classe do input existente
+        const inputClass = start.className || 'input';
+
+        wrap.innerHTML = `
+    <label for="evt-end">Término</label>
+    <input id="evt-end" type="time" class="${inputClass}" />
+  `;
+
+        startField?.after(wrap);
+
+        return document.getElementById('evt-end');
+    }
 
     // modal
     const modal = document.getElementById('calendarModal');
     const modalBack = document.getElementById('modalBack');
     const inDate = document.getElementById('evt-date');
     const inTime = document.getElementById('evt-time');
+    const inEnd = ensureEvtEndTimeInput();
     const inTitle = document.getElementById('evt-title');
     const inCompany = document.getElementById('evt-company');
     const inAssoc = document.getElementById('evt-assoc');
@@ -335,6 +360,7 @@ document.querySelector('#m-send-attach')?.addEventListener('click', async () => 
 
         inDate.value = d;
         inTime.value = '';
+        if (inEnd) inEnd.value = '';
         inTitle.value = '';
 
         inCompany.value = '';
@@ -364,6 +390,7 @@ document.querySelector('#m-send-attach')?.addEventListener('click', async () => 
 
         inDate.value = iso;
         inTime.value = ev.time || '';
+        if (inEnd) inEnd.value = ev.endTime || '';
         inTitle.value = ev.title || '';
 
         inCompany.value = ev.company || '';
@@ -384,7 +411,15 @@ document.querySelector('#m-send-attach')?.addEventListener('click', async () => 
 
     btnSave?.addEventListener('click', () => {
         const date = inDate.value; if (!date) { msg.className = 'msg err show'; msg.textContent = 'Informe a data'; return; }
-        const ev = { title: inTitle.value.trim(), time: inTime.value, resp: inResp.value.trim(), desc: inDesc.value.trim(), createdAt: new Date().toISOString() };
+        const ev = {
+            title: inTitle.value.trim(),
+            time: inTime.value,
+            endTime: (inEnd?.value || ''),
+            resp: inResp.value.trim(),
+            desc: inDesc.value.trim(),
+            createdAt: new Date().toISOString()
+        };
+
         const all = loadAll(); all[date] = all[date] || [];
         if (editing && editing.idx !== null) { all[date][editing.idx] = { ...all[date][editing.idx], ...ev }; }
         else { all[date].push(ev); }
@@ -482,7 +517,13 @@ async function loadAndRenderCalendar() {
             const items = grouped[d].sort((a, b) => (a.time || '').localeCompare(b.time || ''))
                 .map(ev => {
                     const idAttr = ev.id ? `data-evt-id="${ev.id}"` : '';
-                    const time = ev.time ? `<div style="font-weight:700">${ev.time}</div>` : '';
+                    const timeLabel =
+                        (ev.time && ev.endTime) ? `${ev.time}–${ev.endTime}` :
+                            (ev.time) ? ev.time :
+                                (ev.endTime) ? `—–${ev.endTime}` : '';
+
+                    const time = timeLabel ? `<div style="font-weight:700">${escapeHtml(timeLabel)}</div>` : '';
+
                     return `<div class="card-item" ${idAttr} style="margin-bottom:8px;cursor:pointer;padding:8px" onclick="__openCalendarModal('${ev.id || ''}')">
                     <div class="title"><div class="title-text">${escapeHtml(ev.title || '—')}</div><div class="title-badges"></div></div>
                     <div class="meta">${time}<div style="margin-top:6px">${escapeHtml(
@@ -512,54 +553,83 @@ function escapeHtml(s) {
         .replace(/'/g, '&#39;');
 }
 
+// ====== Ensure "Término" input (global) ======
+window.ensureEvtEndTimeInput = function ensureEvtEndTimeInput() {
+  let el = document.getElementById('evt-end');
+  if (el) return el;
+
+  const start = document.getElementById('evt-time');
+  if (!start) return null;
+
+  const startField = start.closest('.field') || start.parentElement;
+
+  const wrap = document.createElement('div');
+  wrap.className = startField?.className || 'field';
+
+  const inputClass = start.className || 'input';
+
+  wrap.innerHTML = `
+    <label for="evt-end">Término</label>
+    <input id="evt-end" type="time" class="${inputClass}" />
+  `;
+
+  startField?.after(wrap);
+
+  return document.getElementById('evt-end');
+};
+
 
 // open modal and populate fields for event id (or create new)
 window.__openCalendarModal = async function (id) {
-  __currentCalendarEventId = id || null;
+    __currentCalendarEventId = id || null;
 
-  const modal = $('#calendarModal');
-  if (!modal) return;
+    const modal = $('#calendarModal');
+    if (!modal) return;
 
-  if (!id) {
-    $('#cal-modal-title').textContent = 'Nova locação';
+    if (!id) {
+        $('#cal-modal-title').textContent = 'Nova locação';
 
-    $('#evt-date').value = '';
-    $('#evt-time').value = '';
-    $('#evt-title').value = '';
+        $('#evt-date').value = '';
+        $('#evt-time').value = '';
+        ensureEvtEndTimeInput();
+        $('#evt-end').value = '';
+        $('#evt-title').value = '';
 
-    $('#evt-company').value = '';
-    $('#evt-assoc').value = '';
-    $('#evt-local').value = '';
-    $('#evt-coffee').value = '';
-    $('#evt-people').value = '';
-    $('#evt-req').value = '';
+        $('#evt-company').value = '';
+        $('#evt-assoc').value = '';
+        $('#evt-local').value = '';
+        $('#evt-coffee').value = '';
+        $('#evt-people').value = '';
+        $('#evt-req').value = '';
 
-    $('#evt-delete').classList.add('hidden');
-  } else {
-    const events = await CalendarDB.list();
-    const ev = events.find(x => String(x.id) === String(id));
-
-    if (ev) {
-      $('#cal-modal-title').textContent = 'Editar locação';
-
-      $('#evt-date').value = ev.date || '';
-      $('#evt-time').value = ev.time || '';
-      $('#evt-title').value = ev.title || '';
-
-      $('#evt-company').value = ev.company || '';
-      $('#evt-assoc').value = ev.assocCode || '';
-      $('#evt-local').value = ev.local || '';
-      $('#evt-coffee').value = ev.coffee || '';
-      $('#evt-people').value = ev.peopleQty ?? '';
-      $('#evt-req').value = ev.req || '';
-
-      $('#evt-delete').classList.remove('hidden');
+        $('#evt-delete').classList.add('hidden');
     } else {
-      $('#evt-delete').classList.add('hidden');
-    }
-  }
+        const events = await CalendarDB.list();
+        const ev = events.find(x => String(x.id) === String(id));
 
-  modal.classList.add('show');
+        if (ev) {
+            $('#cal-modal-title').textContent = 'Editar locação';
+
+            $('#evt-date').value = ev.date || '';
+            $('#evt-time').value = ev.time || '';
+            window.ensureEvtEndTimeInput();
+            $('#evt-end').value = ev.endTime || '';
+            $('#evt-title').value = ev.title || '';
+
+            $('#evt-company').value = ev.company || '';
+            $('#evt-assoc').value = ev.assocCode || '';
+            $('#evt-local').value = ev.local || '';
+            $('#evt-coffee').value = ev.coffee || '';
+            $('#evt-people').value = ev.peopleQty ?? '';
+            $('#evt-req').value = ev.req || '';
+
+            $('#evt-delete').classList.remove('hidden');
+        } else {
+            $('#evt-delete').classList.add('hidden');
+        }
+    }
+
+    modal.classList.add('show');
 };
 
 
@@ -571,6 +641,7 @@ $('#evt-save').addEventListener('click', async () => {
 
     const company = $('#evt-company').value.trim();
     const assocCode = $('#evt-assoc').value.trim();
+    const endTime = $('#evt-end')?.value || '';
     const local = $('#evt-local').value.trim();
     const coffee = $('#evt-coffee').value;
     const peopleQty = Number($('#evt-people').value || 0) || null;
@@ -582,10 +653,11 @@ $('#evt-save').addEventListener('click', async () => {
     if (!date || !title) { setMsg($('#evt-msg'), 'err', 'Preencha data e nome do evento.'); return; }
 
     const payload = {
-        date, time, title,
+        date, time, endTime, title,
         company, assocCode, local, coffee, peopleQty, req,
         createdBy, createdByName
     };
+
 
     if (__currentCalendarEventId) payload.id = __currentCalendarEventId;
 

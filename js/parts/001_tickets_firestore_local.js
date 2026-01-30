@@ -17,7 +17,9 @@ const Tickets = {
         if (cloudOk) {
             const { addDoc, collection } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             const ref = await addDoc(collection(db, 'tickets'), base);
-            return { id: ref.id, ...base };
+            all.tickets.push({ id, ...base });
+            return { id, ...base };
+
         } else {
             const all = LocalDB.load();
             all.tickets = all.tickets || [];

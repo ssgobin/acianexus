@@ -364,3 +364,17 @@ const Members = {
     }
 };
 
+// =========================
+// Core: Firestore import cache
+// =========================
+window.Core = window.Core || {};
+
+Core.fs = (() => {
+  let p = null;
+  return async () => {
+    if (!p) {
+      p = import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    }
+    return p;
+  };
+})();

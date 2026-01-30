@@ -1096,7 +1096,10 @@ const Cards = {
             const { collection, addDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
             const ref = collection(db, 'cards');
             const docRef = await addDoc(ref, base);
-            return { id: docRef.id, ...base };
+            const rec = { id, ...base };
+            LocalDB.upsert(rec);
+            return rec;
+
         } else {
             const id = String(Date.now() + Math.random());
             const rec = { id, ...base };
