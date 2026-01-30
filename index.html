@@ -1369,8 +1369,49 @@
     <span id="chat-badge-dm" class="chat-badge chat-badge-dm" hidden>0</span>
   </button>
 
+  <!-- Prelude (lines 1-366) -->
+  <script defer src="./js/parts/000_prelude.js"></script>
+  <!-- Tickets (Firestore + Local) (lines 367-467) -->
+  <script defer src="./js/parts/001_tickets_firestore_local.js"></script>
+  <!-- Inbox efêmero (não persiste no Firestore) (lines 468-508) -->
+  <script defer src="./js/parts/002_inbox_efemero_nao_persiste_no_firestore.js"></script>
+  <!-- Mural Service (Firestore / Local) (lines 509-631) -->
+  <script defer src="./js/parts/003_mural_service_firestore_local.js"></script>
+  <!-- UI do Mural (sino, badge, dropdown) (lines 632-1320) -->
+  <script defer src="./js/parts/004_ui_do_mural_sino_badge_dropdown.js"></script>
+  <!-- LocalDB Fallback (lines 1321-2801) -->
+  <script defer src="./js/parts/005_localdb_fallback.js"></script>
+  <!-- IA Checklist (Groq + fallback) (lines 2802-2922) -->
+  <script defer src="./js/parts/006_ia_checklist_groq_fallback.js"></script>
+  <!-- Checklist UI helpers (lines 2923-3339) -->
+  <script defer src="./js/parts/007_checklist_ui_helpers.js"></script>
+  <!-- GAMIFICAÇÃO – Pontos (lines 3340-3383) -->
+  <script defer src="./js/parts/008_gamificacao_pontos.js"></script>
+  <!-- GAMIFICAÇÃO – Upgrade automático de nível (lines 3384-3420) -->
+  <script defer src="./js/parts/009_gamificacao_upgrade_automatico_de_nivel.js"></script>
+  <!-- GAMIFICAÇÃO – Badges / Conquistas (lines 3421-3505) -->
+  <script defer src="./js/parts/010_gamificacao_badges_conquistas.js"></script>
+  <!-- UI: Criar card (lines 3506-4111) -->
+  <script defer src="./js/parts/011_ui_criar_card.js"></script>
+  <!-- Kanbans (3 abas), KPIs, Modal, Drag (lines 4112-5463) -->
+  <script defer src="./js/parts/012_kanbans_3_abas_kpis_modal_drag.js"></script>
+  <!-- Bug Reporter (lines 5464-5507) -->
+  <script defer src="./js/parts/013_bug_reporter.js"></script>
+  <!-- GAMIFICAÇÃO – Ranking (lines 5508-5706) -->
+  <script defer src="./js/parts/014_gamificacao_ranking.js"></script>
+  <!-- UI dos Tickets (apenas TI) (lines 5707-5868) -->
+  <script defer src="./js/parts/015_ui_dos_tickets_apenas_ti.js"></script>
+  <!-- Membros (admin) (lines 5869-6220) -->
+  <script defer src="./js/parts/016_membros_admin.js"></script>
+  <!-- Indicadores (KPIs/Gráficos/XLSX) (lines 6221-6424) -->
+  <script defer src="./js/parts/017_indicadores_kpis_graficos_xlsx.js"></script>
+  <!-- Router + Boot (lines 6425-6478) -->
+  <script defer src="./js/parts/018_router_boot.js"></script>
+  <!-- Relatório de Tarefas Diárias (DRP) — popup obrigatório (lines 6479-7174) -->
+  <script defer src="./js/parts/019_relatorio_de_tarefas_diarias_drp_popup_obrigatorio.js"></script>
+  <!-- DAILY MANUAL – abre pelo menu, carrega o dia e permite excluir (lines 7175-8791) -->
+  <script defer src="./js/parts/020_daily_manual_abre_pelo_menu_carrega_o_dia_e_permite_excluir.js"></script>
 
-  <script type="module" src="script.js"></script>
   <script>
     UPLOADCARE_PUBLIC_KEY = 'bec8b0653d0455ca2d7d'; // substitua pela sua chave
   </script>
