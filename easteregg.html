@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>ACIANexus • Folia Secreta 🎭</title>
+    <meta name="theme-color" content="#0b0016" />
+    <style>
+        :root {
+            --bg1: #090014;
+            --bg2: #140026;
+            --bg3: #1b0033;
+            --white: rgba(255, 255, 255, .92);
+            --muted: rgba(255, 255, 255, .78);
+
+            --pink: #ff2fb3;
+            --cyan: #2fe7ff;
+            --lime: #b7ff3a;
+            --gold: #ffd24a;
+            --purple: #8f5bff;
+            --red: #ff3d3d;
+
+            --shadow: 0 22px 60px rgba(0, 0, 0, .55);
+            --radius: 22px;
+            --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            font-family: var(--font);
+            color: var(--white);
+            background:
+                radial-gradient(1000px 700px at 15% 20%, rgba(255, 47, 179, .24), transparent 60%),
+                radial-gradient(900px 600px at 85% 25%, rgba(47, 231, 255, .18), transparent 60%),
+                radial-gradient(900px 700px at 50% 100%, rgba(183, 255, 58, .14), transparent 60%),
+                linear-gradient(180deg, var(--bg1), var(--bg2), var(--bg3));
+            overflow: hidden;
+        }
+
+        /* Video palco */
+        /* Video palco: agora é "fundo" (background), com o vídeo menor e cabendo inteiro */
+        .stage {
+            position: fixed;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            z-index: 1;
+            padding: 0;
+            /* tira bordas */
+        }
+
+        .videoWrap {
+            width: 100vw;
+            height: 100vh;
+            border-radius: 0;
+            border: 0;
+            box-shadow: none;
+            background: transparent;
+            overflow: hidden;
+        }
+
+        /* aqui é o pulo do gato: CONTAIN = cabe inteiro */
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            /* <<< caber inteiro */
+            object-position: center;
+            display: block;
+            transform: none;
+            /* tira zoom */
+            filter: saturate(1.08) contrast(1.03);
+        }
+
+        /* se quiser o vídeo mais "fraquinho" pra virar fundo mesmo */
+        video {
+            opacity: .55;
+            /* ajuste: 0.35 a 0.75 */
+        }
+
+
+        .videoWrap::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(600px 360px at 20% 25%, rgba(255, 47, 179, .20), transparent 60%),
+                radial-gradient(520px 340px at 80% 30%, rgba(47, 231, 255, .16), transparent 60%),
+                radial-gradient(600px 420px at 55% 90%, rgba(183, 255, 58, .12), transparent 65%),
+                radial-gradient(1200px 900px at 50% 50%, rgba(0, 0, 0, .12), rgba(0, 0, 0, .45));
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+
+        /* Confetti canvas */
+        #confetti {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        /* Bandeirinhas */
+        .flags {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 120px;
+            z-index: 4;
+            pointer-events: none;
+            opacity: .95;
+            filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .25));
+        }
+
+        .flags svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* HUD */
+        .hud {
+            position: fixed;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            z-index: 5;
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: rgba(0, 0, 0, .55);
+            border: 2px solid rgba(255, 255, 255, .14);
+            border-radius: 18px;
+            padding: 12px 14px;
+            box-shadow: var(--shadow);
+            max-width: min(620px, 100%);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            user-select: none;
+        }
+
+        .logo {
+            width: 44px;
+            height: 44px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, var(--pink), var(--purple), var(--cyan));
+            border: 2px solid rgba(255, 255, 255, .22);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, .35);
+            font-size: 22px;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 13px;
+            letter-spacing: .16em;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .brand p {
+            margin: 6px 0 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.35;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        button {
+            border: 0;
+            cursor: pointer;
+            padding: 12px 14px;
+            border-radius: 16px;
+            font-weight: 900;
+            letter-spacing: .02em;
+            box-shadow: 0 10px 0 rgba(0, 0, 0, .25);
+            transform: translateY(0);
+            transition: transform .08s ease;
+            user-select: none;
+            white-space: nowrap;
+        }
+
+        button:active {
+            transform: translateY(2px);
+            box-shadow: 0 8px 0 rgba(0, 0, 0, .25);
+        }
+
+        .btnStart {
+            color: #2b153d;
+            background: linear-gradient(135deg, var(--gold), #fff19a);
+        }
+
+        .btnConfetti {
+            color: #fff;
+            background: linear-gradient(135deg, var(--pink), var(--purple));
+        }
+
+        .btnRain {
+            color: #fff;
+            background: linear-gradient(135deg, var(--cyan), #2aa0ff);
+        }
+
+        .btnMute {
+            color: #fff;
+            background: linear-gradient(135deg, #2b153d, #3b1b63);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, .08);
+            border: 2px dashed rgba(255, 255, 255, .18);
+            color: rgba(255, 255, 255, .92);
+            font-weight: 900;
+            letter-spacing: .02em;
+            box-shadow: 0 10px 0 rgba(0, 0, 0, .20);
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 999px;
+            background: var(--red);
+            box-shadow: 0 0 16px rgba(255, 61, 61, .85);
+        }
+
+        /* Volume slider */
+        .volWrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 16px;
+            background: rgba(0, 0, 0, .55);
+            border: 2px solid rgba(255, 255, 255, .14);
+            box-shadow: var(--shadow);
+        }
+
+        .volWrap label {
+            font-weight: 900;
+            font-size: 12px;
+            color: rgba(255, 255, 255, .88);
+        }
+
+        input[type="range"] {
+            width: 140px;
+            accent-color: var(--gold);
+            cursor: pointer;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 118px;
+            transform: translateX(-50%);
+            z-index: 6;
+            background: rgba(0, 0, 0, .78);
+            border: 2px solid rgba(255, 255, 255, .14);
+            padding: 10px 14px;
+            border-radius: 999px;
+            box-shadow: var(--shadow);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .18s ease, transform .18s ease;
+            max-width: min(760px, calc(100% - 28px));
+            text-align: center;
+            font-weight: 900;
+            letter-spacing: .01em;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(-2px);
+        }
+
+        /* Overlay start */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 10;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(900px 600px at 50% 40%, rgba(255, 47, 179, .20), transparent 60%),
+                radial-gradient(900px 600px at 70% 50%, rgba(47, 231, 255, .16), transparent 60%),
+                linear-gradient(180deg, rgba(0, 0, 0, .60), rgba(0, 0, 0, .78));
+            padding: 18px;
+        }
+
+        .panel {
+            width: min(760px, 100%);
+            border-radius: 26px;
+            background: #fff6de;
+            color: #2b153d;
+            border: 6px solid rgba(255, 210, 74, .95);
+            box-shadow: var(--shadow);
+            padding: 18px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: "";
+            position: absolute;
+            inset: -40px;
+            background:
+                radial-gradient(30px 30px at 18% 22%, rgba(255, 47, 179, .28), transparent 65%),
+                radial-gradient(32px 32px at 82% 26%, rgba(47, 231, 255, .22), transparent 65%),
+                radial-gradient(32px 32px at 50% 85%, rgba(183, 255, 58, .18), transparent 65%);
+            pointer-events: none;
+        }
+
+        .panel h2 {
+            margin: 0 0 8px;
+            font-size: clamp(24px, 3.4vw, 38px);
+            letter-spacing: -.03em;
+            position: relative;
+        }
+
+        .panel h2 span {
+            background: linear-gradient(90deg, var(--pink), var(--purple), var(--cyan), var(--gold));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .panel p {
+            margin: 0 auto 14px;
+            max-width: 60ch;
+            font-weight: 800;
+            opacity: .9;
+            position: relative;
+        }
+
+        .panel .tip {
+            font-size: 12px;
+            font-weight: 900;
+            opacity: .75;
+            position: relative;
+        }
+
+        .bigBtn {
+            margin-top: 12px;
+            padding: 14px 18px;
+            border-radius: 18px;
+            background: linear-gradient(135deg, var(--gold), #fff19a);
+            border: 0;
+            font-weight: 1000;
+            box-shadow: 0 12px 0 rgba(0, 0, 0, .18);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .bigBtn:active {
+            transform: translateY(2px);
+            box-shadow: 0 10px 0 rgba(0, 0, 0, .18);
+        }
+
+        .smallRow {
+            margin-top: 12px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+            position: relative;
+        }
+
+        .smallRow .mini {
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 2px solid rgba(43, 21, 61, .20);
+            background: rgba(255, 255, 255, .85);
+            font-weight: 900;
+            cursor: pointer;
+        }
+
+        @media (max-width: 520px) {
+            .toast {
+                bottom: 176px;
+            }
+
+            .videoWrap {
+                aspect-ratio: 9/16;
+            }
+
+            input[type="range"] {
+                width: 120px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Música (MP3) -->
+    <!-- Coloque na mesma pasta e renomeie para carnaval.mp3 (ou troque o src) -->
+    <audio id="bgm" src="img/samba.mp3" preload="auto" loop></audio>
+
+    <!-- Bandeirinhas -->
+    <div class="flags" aria-hidden="true">
+        <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M0,36 C160,70 240,10 420,36 C600,62 690,14 840,36 C1010,60 1090,16 1200,36" fill="none"
+                stroke="rgba(255,255,255,.55)" stroke-width="4" />
+            <g>
+                <polygon points="30,42 74,42 52,92" fill="#ff2fb3" />
+                <polygon points="96,42 140,42 118,92" fill="#2fe7ff" />
+                <polygon points="162,42 206,42 184,92" fill="#b7ff3a" />
+                <polygon points="228,42 272,42 250,92" fill="#ffd24a" />
+                <polygon points="294,42 338,42 316,92" fill="#8f5bff" />
+                <polygon points="360,42 404,42 382,92" fill="#ff3d3d" />
+                <polygon points="426,42 470,42 448,92" fill="#ff2fb3" />
+                <polygon points="492,42 536,42 514,92" fill="#2fe7ff" />
+                <polygon points="558,42 602,42 580,92" fill="#b7ff3a" />
+                <polygon points="624,42 668,42 646,92" fill="#ffd24a" />
+                <polygon points="690,42 734,42 712,92" fill="#8f5bff" />
+                <polygon points="756,42 800,42 778,92" fill="#ff3d3d" />
+                <polygon points="822,42 866,42 844,92" fill="#ff2fb3" />
+                <polygon points="888,42 932,42 910,92" fill="#2fe7ff" />
+                <polygon points="954,42 998,42 976,92" fill="#b7ff3a" />
+                <polygon points="1020,42 1064,42 1042,92" fill="#ffd24a" />
+                <polygon points="1086,42 1130,42 1108,92" fill="#8f5bff" />
+            </g>
+        </svg>
+    </div>
+
+    <!-- Confetti -->
+    <canvas id="confetti"></canvas>
+
+    <!-- Vídeo -->
+    <div class="stage">
+        <div class="videoWrap" aria-label="Vídeo de samba">
+            <!-- Coloque o MP4 na mesma pasta e renomeie para carnaval.mp4 -->
+            <video id="vid" src="img/carnaval.mp4" autoplay muted loop playsinline></video>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div class="hud">
+
+        <div class="controls">
+            <div class="pill" id="pill">
+                <span class="dot" id="dot"></span>
+                <span id="status">música: desligada</span>
+            </div>
+
+            <div class="volWrap" title="Volume da música">
+                <label for="vol">🔊</label>
+                <input id="vol" type="range" min="0" max="100" value="70" />
+            </div>
+
+            <button class="btnStart" id="btnStart">▶ COMEÇAR A FOLIA</button>
+            <button class="btnConfetti" id="btnConfetti">🎊 CONFETE!</button>
+            <button class="btnRain" id="btnRain">🌧️ CHUVA: OFF</button>
+            <button class="btnMute" id="btnMute">🔇 MÚSICA: OFF</button>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <!-- Overlay inicial -->
+    <div class="overlay" id="overlay">
+        <div class="panel">
+            <h2>Bem-vindo ao <span>Modo Carnaval</span> do ACIANexus 🎉</h2>
+            <p>O vídeo entra no clima sozinho. A música precisa de um clique pra começar (regra do navegador).</p>
+
+            <button class="bigBtn" id="btnOverlayStart">🎶 COMEÇAR A FOLIA</button>
+
+            <div class="smallRow">
+                <button class="mini" id="btnOverlayConfetti">🎊 soltar confete</button>
+                <button class="mini" id="btnOverlaySkip">pular (sem música)</button>
+            </div>
+
+            <div class="tip">Dica: Shift + C liga/desliga chuva de confete. Tecla M liga/desliga música.</div>
+        </div>
+    </div>
+
+    <script>
+        const $ = (s, r = document) => r.querySelector(s);
+
+        // -----------------------------
+        // Toast
+        // -----------------------------
+        const toast = $("#toast");
+        let toastTimer = null;
+        function say(msg) {
+            toast.textContent = msg;
+            toast.classList.add("show");
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove("show"), 2200);
+        }
+
+        // -----------------------------
+        // Confetti Canvas
+        // -----------------------------
+        const canvas = $("#confetti");
+        const ctx = canvas.getContext("2d");
+        let W = 0, H = 0, DPR = 1;
+
+        function resize() {
+            DPR = Math.max(1, Math.min(2, devicePixelRatio || 1));
+            W = innerWidth; H = innerHeight;
+            canvas.width = Math.floor(W * DPR);
+            canvas.height = Math.floor(H * DPR);
+            canvas.style.width = W + "px";
+            canvas.style.height = H + "px";
+            ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+        }
+        addEventListener("resize", resize);
+        resize();
+
+        const confetti = [];
+        const palette = ["#ffd24a", "#ff2fb3", "#2fe7ff", "#b7ff3a", "#8f5bff", "#ff3d3d", "#ffffff"];
+        const rand = (a, b) => a + Math.random() * (b - a);
+
+        function confettiBurst(count = 180) {
+            for (let i = 0; i < count; i++) {
+                const s = rand(4, 9);
+                confetti.push({
+                    x: rand(0, W),
+                    y: rand(-30, H * 0.25),
+                    vx: rand(-120, 120),
+                    vy: rand(70, 260),
+                    r: rand(0, Math.PI * 2),
+                    vr: rand(-7, 7),
+                    s,
+                    life: rand(1.1, 2.8),
+                    age: 0,
+                    c: palette[(Math.random() * palette.length) | 0],
+                    t: Math.random() < .2 ? "circle" : "rect",
+                    wob: rand(0, Math.PI * 2),
+                    wobSp: rand(2, 7)
+                });
+            }
+            say("🎊 CONFETE NA ÁREA!");
+        }
+
+        let rain = false;
+        let rainTimer = null;
+        function setRain(on) {
+            rain = on;
+            $("#btnRain").textContent = on ? "🌧️ CHUVA: ON" : "🌧️ CHUVA: OFF";
+            clearInterval(rainTimer);
+            if (on) {
+                rainTimer = setInterval(() => confettiBurst(16), 520);
+                say("🌧️ Chuva de confete ligada!");
+            } else {
+                say("☁️ Chuva de confete desligada!");
+            }
+        }
+
+        function draw(dt) {
+            ctx.clearRect(0, 0, W, H);
+            for (let i = confetti.length - 1; i >= 0; i--) {
+                const p = confetti[i];
+                p.age += dt;
+                if (p.age > p.life) { confetti.splice(i, 1); continue; }
+                p.vy += 220 * dt;
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                p.wob += p.wobSp * dt;
+                p.r += p.vr * dt;
+
+                if (p.x < -20) p.x = W + 20;
+                if (p.x > W + 20) p.x = -20;
+
+                const fade = Math.max(0, 1 - p.age / p.life);
+                const wobX = Math.sin(p.wob) * 10;
+
+                ctx.save();
+                ctx.globalAlpha = .95 * fade;
+                ctx.translate(p.x + wobX, p.y);
+                ctx.rotate(p.r);
+                ctx.fillStyle = p.c;
+
+                if (p.t === "circle") {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, p.s * 0.55, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.fillRect(-p.s / 2, -p.s / 2, p.s, p.s * 0.75);
+                }
+                ctx.restore();
+            }
+        }
+
+        let last = performance.now();
+        function loop() {
+            const t = performance.now();
+            const dt = (t - last) / 1000; last = t;
+            draw(dt);
+            requestAnimationFrame(loop);
+        }
+        requestAnimationFrame(loop);
+
+        // -----------------------------
+        // Música MP3 (fade-in / fade-out)
+        // -----------------------------
+        const bgm = $("#bgm");
+        const vol = $("#vol");
+
+        let isMusicOn = false;
+        let baseVolume = Number(vol.value) / 100;
+
+        // volume inicial
+        bgm.volume = 0; // começa no zero e sobe com fade quando der play
+
+        function setStatus(on) {
+            const status = $("#status");
+            const dot = $("#dot");
+            const btnMute = $("#btnMute");
+            const pill = $("#pill");
+
+            if (on) {
+                status.textContent = "música: ligada 🎶";
+                dot.style.background = "var(--lime)";
+                dot.style.boxShadow = "0 0 16px rgba(183,255,58,.85)";
+                btnMute.textContent = "🔊 MÚSICA: ON";
+                pill.style.borderStyle = "solid";
+            } else {
+                status.textContent = "música: desligada";
+                dot.style.background = "var(--red)";
+                dot.style.boxShadow = "0 0 16px rgba(255,61,61,.85)";
+                btnMute.textContent = "🔇 MÚSICA: OFF";
+                pill.style.borderStyle = "dashed";
+            }
+        }
+
+        function fadeTo(target, ms = 650) {
+            const start = bgm.volume;
+            const end = Math.max(0, Math.min(1, target));
+            const t0 = performance.now();
+
+            return new Promise((resolve) => {
+                function step() {
+                    const t = performance.now();
+                    const p = Math.min(1, (t - t0) / ms);
+                    // easeOutCubic
+                    const e = 1 - Math.pow(1 - p, 3);
+                    bgm.volume = start + (end - start) * e;
+                    if (p < 1) requestAnimationFrame(step);
+                    else resolve();
+                }
+                requestAnimationFrame(step);
+            });
+        }
+
+        async function startMusic() {
+            if (isMusicOn) return;
+
+            try {
+                bgm.loop = true;
+                // garante volume base atualizado
+                baseVolume = Number(vol.value) / 100;
+
+                await bgm.play();       // precisa de clique do usuário
+                bgm.currentTime = bgm.currentTime || 0;
+
+                // sobe devagar
+                await fadeTo(baseVolume, 700);
+
+                isMusicOn = true;
+                setStatus(true);
+                say("🎶 Música ligada!");
+            } catch (e) {
+                // se o navegador bloqueou por algum motivo
+                isMusicOn = false;
+                setStatus(false);
+                say("⚠️ Clique de novo pra liberar a música.");
+            }
+        }
+
+        async function stopMusic() {
+            if (!isMusicOn) return;
+            await fadeTo(0, 450);
+            bgm.pause();
+            isMusicOn = false;
+            setStatus(false);
+            say("🔇 Música desligada.");
+        }
+
+        function toggleMusic() {
+            if (isMusicOn) stopMusic();
+            else startMusic();
+        }
+
+        // slider de volume (se a música estiver tocando, ajusta na hora)
+        vol.addEventListener("input", async () => {
+            baseVolume = Number(vol.value) / 100;
+            if (isMusicOn) {
+                // ajusta suavemente pro novo volume
+                await fadeTo(baseVolume, 180);
+            }
+        });
+
+        // -----------------------------
+        // Vídeo (autoplay mutado permitido)
+        // -----------------------------
+        const vid = $("#vid");
+        vid.addEventListener("error", () => {
+            $("#subtitle").innerHTML =
+                "Não achei o vídeo. Coloque o MP4 na mesma pasta e renomeie para <b>carnaval.mp4</b>.";
+            say("⚠️ Vídeo não encontrado. Renomeie pra carnaval.mp4");
+        });
+
+        // -----------------------------
+        // Botões
+        // -----------------------------
+        $("#btnConfetti").addEventListener("click", () => confettiBurst(220));
+        $("#btnRain").addEventListener("click", () => setRain(!rain));
+        $("#btnMute").addEventListener("click", () => toggleMusic());
+
+        function enterParty() {
+            $("#overlay").style.display = "none";
+            confettiBurst(180);
+        }
+
+        $("#btnStart").addEventListener("click", async () => {
+            enterParty();
+            await startMusic();
+        });
+
+        // Overlay
+        $("#btnOverlayStart").addEventListener("click", async () => {
+            enterParty();
+            await startMusic();
+            confettiBurst(260);
+        });
+
+        $("#btnOverlayConfetti").addEventListener("click", () => confettiBurst(220));
+
+        $("#btnOverlaySkip").addEventListener("click", () => {
+            $("#overlay").style.display = "none";
+            say("🎭 Ok! Vídeo sem música. Se quiser, liga no botão ‘MÚSICA’.");
+        });
+
+        // -----------------------------
+        // Atalhos
+        // -----------------------------
+        addEventListener("keydown", (e) => {
+            if (e.shiftKey && e.key.toLowerCase() === "c") {
+                e.preventDefault();
+                setRain(!rain);
+            }
+            if (e.key.toLowerCase() === "m") {
+                toggleMusic();
+            }
+            if (e.key.toLowerCase() === "k") {
+                confettiBurst(240);
+            }
+            if (e.key === "Escape") {
+                setRain(false);
+                stopMusic();
+                say("⏸️ Pausou tudo.");
+            }
+        });
+
+        // init
+        setStatus(false);
+        setTimeout(() => confettiBurst(90), 600);
+        say("🎭 Dica: clique em ‘COMEÇAR A FOLIA’ pra ligar a música.");
+    </script>
+</body>
+
+</html>

@@ -70,6 +70,11 @@ body{
   100%{transform:translateX(-33.33%);}
 }
 
+/* @keyframes moveFloor{
+  0%{transform:translateX(0);}
+  100%{transform:translateX(-33.33%);}
+} */
+
 .floor{
   position:absolute;
   bottom:0;
@@ -128,6 +133,7 @@ body{
   image-rendering:pixelated;
   z-index:6;
   animation: slimeMove 7s linear infinite;
+  rotate: 180deg;
 }
 @keyframes slimeMove{
   0%{transform:translateX(120vw);}
