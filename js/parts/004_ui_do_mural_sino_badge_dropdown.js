@@ -12,6 +12,15 @@ const muralUI = {
     open: false
 };
 
+const pascoaEggUI = {
+    trigger: null,
+    modal: null,
+    close: null,
+    video: null,
+    initialized: false,
+    lastFocus: null
+};
+
 // rastreador de IDs do mural já vistos
 let _muralSeen = new Set();
 
@@ -570,11 +579,82 @@ function listenThemeBroadcast() {
     .catch((e) => console.warn("[ThemeBroadcast] Falhou:", e?.message || e));
 }
 
+function closePascoaEggModal({ restoreFocus = true, resetVideo = true } = {}) {
+    if (!pascoaEggUI.modal) return;
+
+    pascoaEggUI.modal.classList.remove("show");
+    pascoaEggUI.modal.setAttribute("aria-hidden", "true");
+    document.body.style.removeProperty("overflow");
+
+    if (pascoaEggUI.video) {
+        pascoaEggUI.video.pause();
+        if (resetVideo) pascoaEggUI.video.currentTime = 0;
+    }
+
+    if (restoreFocus && pascoaEggUI.lastFocus instanceof HTMLElement) {
+        pascoaEggUI.lastFocus.focus();
+    }
+}
+
+function openPascoaEggModal() {
+    if (!document.documentElement.classList.contains("theme-pascoa")) return;
+    if (!pascoaEggUI.modal) return;
+
+    pascoaEggUI.lastFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    pascoaEggUI.modal.classList.add("show");
+    pascoaEggUI.modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    pascoaEggUI.close?.focus();
+
+    pascoaEggUI.video?.play().catch(() => {});
+}
+
+function syncPascoaThemeUI(enabled) {
+    if (pascoaEggUI.trigger) {
+        pascoaEggUI.trigger.disabled = !enabled;
+        pascoaEggUI.trigger.setAttribute("aria-hidden", enabled ? "false" : "true");
+    }
+
+    if (!enabled) {
+        closePascoaEggModal({ restoreFocus: false, resetVideo: true });
+    }
+}
+
+function initPascoaEggUI() {
+    if (pascoaEggUI.initialized) return;
+
+    pascoaEggUI.trigger = document.getElementById("pascoa-egg-trigger");
+    pascoaEggUI.modal = document.getElementById("pascoaEggModal");
+    pascoaEggUI.close = document.getElementById("pascoa-egg-close");
+    pascoaEggUI.video = document.getElementById("pascoaEggVideo");
+
+    if (!pascoaEggUI.trigger || !pascoaEggUI.modal || !pascoaEggUI.close) return;
+
+    pascoaEggUI.trigger.addEventListener("click", openPascoaEggModal);
+    pascoaEggUI.close.addEventListener("click", () => closePascoaEggModal());
+    pascoaEggUI.modal.addEventListener("click", (event) => {
+        if (event.target === pascoaEggUI.modal) {
+            closePascoaEggModal();
+        }
+    });
+
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && pascoaEggUI.modal.classList.contains("show")) {
+            closePascoaEggModal();
+        }
+    });
+
+    syncPascoaThemeUI(document.documentElement.classList.contains("theme-pascoa"));
+    pascoaEggUI.initialized = true;
+}
+
 
 function applySeasonThemes(data = {}) {
     const root = document.documentElement;
+    const easterEnabled = data.themePascoa === true;
 
-    root.classList.toggle("theme-pascoa", data.themePascoa === true);
+    root.classList.toggle("theme-pascoa", easterEnabled);
+    syncPascoaThemeUI(easterEnabled);
 }
 
 // === CHECK MAINTENANCE MODE ===
@@ -587,6 +667,7 @@ async function checkMaintenance() {
         const snap = await getDoc(doc(db, "admin", "broadcast"));
         const data = snap.exists() ? snap.data() : {};
         applyCarnavalTheme(data.carnavalTheme === true);
+        applySeasonThemes(data);
 
         if (data.maintenance === true) {
             if (!location.href.includes("maintenance.html")) {
@@ -602,6 +683,10 @@ async function checkMaintenance() {
 document.addEventListener("auth:changed", () => {
     checkMaintenance();
     setInterval(checkMaintenance, 5000);
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    initPascoaEggUI();
 });
 
 

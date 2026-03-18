@@ -4996,41 +4996,270 @@ html:not(.theme-carnaval) .carnaval-header-msg {
     0 8px 18px rgba(0,0,0,.35),
     0 0 0 1px rgba(255,255,255,.35) inset;
 }
+
+html:not(.theme-pascoa) .pascoa-topbanner {
+  display: none;
+}
+
+.pascoa-topbanner {
+  position: sticky;
+  top: 56px;
+  z-index: 31;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px 12px;
+}
+
+.pascoa-banner-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  color: #4a2a21;
+  background:
+    linear-gradient(135deg, rgba(255, 244, 214, .96), rgba(255, 218, 232, .94), rgba(212, 244, 255, .94));
+  border: 1px solid rgba(255, 255, 255, .65);
+  border-radius: 999px;
+  box-shadow:
+    0 14px 32px rgba(56, 30, 11, .24),
+    0 0 0 2px rgba(255, 255, 255, .35) inset;
+  backdrop-filter: blur(10px);
+}
+
+.pascoa-banner-icon {
+  font-size: 18px;
+}
+
+.pascoa-banner-text {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .01em;
+}
+
+.pascoa-egg-btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  flex: 0 0 auto;
+  color: #5b2d15;
+  font-size: 22px;
+  background: linear-gradient(180deg, #fff7da, #ffd7e2);
+  border: 1px solid rgba(124, 74, 48, .18);
+  border-radius: 50%;
+  box-shadow:
+    0 10px 20px rgba(128, 63, 36, .18),
+    inset 0 1px 0 rgba(255, 255, 255, .85);
+  transition: transform .18s ease, box-shadow .18s ease;
+  animation: pascoaEggBob 2.2s ease-in-out infinite;
+}
+
+.pascoa-egg-btn:hover,
+.pascoa-egg-btn:focus-visible {
+  transform: translateY(-2px) scale(1.06);
+  box-shadow:
+    0 14px 26px rgba(128, 63, 36, .24),
+    0 0 0 4px rgba(255, 205, 127, .35);
+}
+
+.pascoa-egg-btn:focus-visible {
+  outline: 0;
+}
+
+.pascoa-egg-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 120;
+  background:
+    radial-gradient(circle at top, rgba(255, 236, 180, .28), transparent 35%),
+    linear-gradient(180deg, rgba(34, 19, 10, .45), rgba(15, 23, 42, .78));
+  backdrop-filter: blur(14px);
+}
+
+.pascoa-egg-modal.show {
+  display: flex;
+}
+
+.pascoa-egg-shell {
+  position: relative;
+  width: min(940px, 100%);
+  max-height: min(82vh, 680px);
+  overflow: hidden;
+  padding: 24px;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, .5);
+  background:
+    radial-gradient(circle at top left, rgba(255, 255, 255, .62), transparent 34%),
+    linear-gradient(145deg, rgba(83, 43, 24, .96), rgba(42, 24, 53, .95) 52%, rgba(18, 35, 54, .95));
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, .45),
+    inset 0 1px 0 rgba(255, 255, 255, .35);
+}
+
+.pascoa-egg-shell::before,
+.pascoa-egg-shell::after {
+  content: "";
+  position: absolute;
+  inset: auto;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: .65;
+  filter: blur(4px);
+}
+
+.pascoa-egg-shell::before {
+  top: -32px;
+  left: -22px;
+  background: radial-gradient(circle, rgba(255, 198, 214, .8), transparent 66%);
+}
+
+.pascoa-egg-shell::after {
+  right: -18px;
+  bottom: -26px;
+  background: radial-gradient(circle, rgba(196, 241, 255, .72), transparent 62%);
+}
+
+.pascoa-egg-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  color: #fff8eb;
+  font-size: 28px;
+  line-height: 1;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .1);
+  box-shadow: none;
+}
+
+.pascoa-egg-close:hover,
+.pascoa-egg-close:focus-visible {
+  transform: scale(1.06);
+  box-shadow: 0 0 0 4px rgba(255, 215, 170, .18);
+}
+
+.pascoa-egg-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.pascoa-egg-copy {
+  display: grid;
+  align-content: center;
+  gap: 12px;
+  color: #fff8ee;
+}
+
+.pascoa-egg-kicker {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #6e2a17;
+  background: linear-gradient(90deg, #ffd98f, #ffc3df, #b8f0ff);
+}
+
+.pascoa-egg-copy h3 {
+  margin: 0;
+  font-size: clamp(26px, 3.6vw, 38px);
+  line-height: 1.02;
+}
+
+.pascoa-egg-copy p {
+  margin: 0;
+  color: rgba(255, 247, 238, .82);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.pascoa-egg-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.pascoa-egg-chips span {
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fffaf2;
+  background: rgba(255, 255, 255, .1);
+  border: 1px solid rgba(255, 255, 255, .14);
+}
+
+.pascoa-egg-player {
+  position: relative;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  padding: 10px;
+  border-radius: 26px;
+  overflow: hidden;
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .03));
+  border: 1px solid rgba(255, 255, 255, .14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+
+.pascoa-egg-player::before {
+  content: "";
+  position: absolute;
+  inset: 14px;
+  border-radius: 20px;
+  border: 1px dashed rgba(255, 240, 215, .24);
+  pointer-events: none;
+}
+
+.pascoa-egg-player video {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 18px;
+  background: #100f14;
+  object-fit: contain;
+  box-shadow: 0 22px 50px rgba(0, 0, 0, .34);
+}
+
+@keyframes pascoaEggBob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-3px);
+  }
+}
 /* =========================================================
    PÁSCOA DECORATIVA 🐰🥚 (SEM MEXER NO TEMA BASE)
 ========================================================= */
 
-/* Mensagem no cabeçalho */
+/* Banner e decoração de Páscoa */
 html.theme-pascoa header {
   position: relative;
-}
-
-html.theme-pascoa header::after {
-  content: "🐰 Feliz Páscoa, equipe ACIA! 🥚";
-  position: absolute;
-  left: 50%;
-  bottom: -18px;
-  transform: translateX(-50%);
-  padding: 7px 18px;
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-
-  color: #2f2a26;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255,125,184,.95),
-      rgba(255,210,90,.95),
-      rgba(98,199,255,.95)
-    );
-
-  border-radius: 999px;
-  box-shadow:
-    0 10px 24px rgba(0,0,0,.18),
-    0 0 0 2px rgba(255,255,255,.55) inset;
-
-  z-index: 20;
 }
 
 /* Ovinhos decorativos espalhados (sem confete carnavalesco) */
@@ -5100,16 +5329,65 @@ html.theme-pascoa body::after {
 
 /* mobile */
 @media (max-width: 768px) {
+  .pascoa-topbanner {
+    padding: 0 12px 10px;
+  }
+
+  .pascoa-banner-copy {
+    gap: 10px;
+    width: 100%;
+    justify-content: center;
+    padding: 10px 12px;
+    border-radius: 22px;
+    flex-wrap: wrap;
+  }
+
+  .pascoa-banner-text {
+    text-align: center;
+  }
+
+  .pascoa-egg-modal {
+    padding: 14px;
+  }
+
+  .pascoa-egg-shell {
+    max-height: min(84vh, 620px);
+    padding: 20px 16px 16px;
+    border-radius: 24px;
+  }
+
+  .pascoa-egg-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .pascoa-egg-copy h3 {
+    font-size: 24px;
+  }
+
+  .pascoa-egg-copy p {
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .pascoa-egg-chips {
+    gap: 8px;
+  }
+
+  .pascoa-egg-chips span {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+
+  .pascoa-egg-player {
+    aspect-ratio: 16 / 10;
+  }
+
   html.theme-pascoa body::before,
   html.theme-pascoa body::after {
     width: 130px;
     height: 100px;
     opacity: 0.65;
-  }
-
-  html.theme-pascoa header::after {
-    font-size: 11px;
-    padding: 6px 12px;
   }
 }
 

@@ -124,6 +124,17 @@
     <div class="carnaval-header-msg">
       🎉 Feliz Carnaval, equipe ACIA!
     </div>
+
+    <div class="pascoa-topbanner" aria-live="polite">
+      <div class="pascoa-banner-copy">
+        <span class="pascoa-banner-icon" aria-hidden="true">🐰</span>
+        <span class="pascoa-banner-text">Feliz Páscoa, equipe ACIA!</span>
+        <button id="pascoa-egg-trigger" class="pascoa-egg-btn" type="button" aria-haspopup="dialog"
+          aria-controls="pascoaEggModal" aria-label="Abrir surpresa de Páscoa">
+          <span aria-hidden="true">🥚</span>
+        </button>
+      </div>
+    </div>
   </header>
 
   <main class="container">
@@ -1336,6 +1347,35 @@
       </div>
 
       <button id="profile-save" type="button" class="profile-save">Salvar</button>
+    </div>
+  </div>
+
+  <div id="pascoaEggModal" class="pascoa-egg-modal" role="dialog" aria-modal="true"
+    aria-labelledby="pascoa-egg-title" aria-hidden="true">
+    <div class="pascoa-egg-shell">
+      <button id="pascoa-egg-close" class="pascoa-egg-close" type="button" aria-label="Fechar surpresa de Páscoa">×</button>
+
+      <div class="pascoa-egg-grid">
+        <div class="pascoa-egg-copy">
+          <span class="pascoa-egg-kicker">Ovinho secreto aberto</span>
+          <h3 id="pascoa-egg-title">Achou o easter egg de Páscoa</h3>
+          <p>
+            Clicou no ovo, ganhou mimo. Aproveita o vídeo e entra no clima de Páscoa sem sair da tela.
+          </p>
+          <div class="pascoa-egg-chips">
+            <span>🐣 surpresa liberada</span>
+            <span>🍫 clima leve</span>
+            <span>🎬 play no vídeo</span>
+          </div>
+        </div>
+
+        <div class="pascoa-egg-player">
+          <video id="pascoaEggVideo" controls preload="metadata" playsinline>
+            <source src="img/pascoa.mp4" type="video/mp4">
+            Seu navegador não suporta reprodução de vídeo.
+          </video>
+        </div>
+      </div>
     </div>
   </div>
 
