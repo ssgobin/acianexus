@@ -340,6 +340,7 @@ textarea {
     flex-direction: column;
     min-width: 0;
     margin-left: var(--sidebar-width);
+    height: 100vh;
     transition: margin-left 0.3s ease;
 }
 
@@ -2560,12 +2561,10 @@ td strong {
    ============================================================ */
 .chat-layout {
     display: flex;
-    height: calc(100vh - var(--header-height) - var(--s-16));
+    width: 100%;
+    height: calc(100vh - var(--header-height));
     background: var(--bg-surface);
-    border: 1px solid var(--border-color);
-    border-radius: var(--r-lg);
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
 }
 
 .chat-sidebar,
@@ -2780,9 +2779,11 @@ td strong {
     padding: var(--s-4) var(--s-5);
     border-top: 1px solid var(--border-light);
     display: flex;
+    flex-direction: column;
     gap: var(--s-3);
     align-items: flex-end;
     flex-shrink: 0;
+    position: relative;
 }
 
 .chat-input-area .form-control {
@@ -2798,6 +2799,7 @@ td strong {
     display: flex;
     align-items: flex-end;
     gap: var(--s-2);
+    position: relative;
 }
 
 .chat-textarea {
@@ -2819,6 +2821,105 @@ td strong {
     height: 40px;
     padding: 0;
     border-radius: var(--r-md);
+}
+
+.emoji-toggle-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.emoji-trigger {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-md);
+    transition: background 0.15s;
+}
+
+.emoji-trigger:hover {
+    background: var(--bg-hover);
+}
+
+.emoji-picker-dropdown {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 320px;
+    max-height: 280px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+    display: none;
+    z-index: 1000;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.emoji-picker-header {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.emoji-search {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--r-sm);
+    font-size: 12px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+}
+
+.emoji-picker-grid {
+    padding: 8px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.emoji-category-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin: 8px 0 4px;
+    text-transform: uppercase;
+}
+
+.emoji-category-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.emoji-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--r-sm);
+    transition: background 0.15s;
+}
+
+.emoji-btn:hover {
+    background: var(--bg-hover);
 }
 
 /* ============================================================

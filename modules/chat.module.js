@@ -27,6 +27,16 @@ let _activeRoomId = null;
 let _unsubMessages = null;
 let _unsubRooms = null;
 let _mobileRoomsOpen = true;
+let _emojiPickerOpen = false;
+
+const EMOJI_CATEGORIES = {
+    'Sorrisos': ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '🥸', '😎', '🤓', '🧐', '😕', '😟', '🙁', '😮', '😯', '😲', '😳', '🥺', '😦', '😧', '😨', '😰', '😥', '😢', '😭', '😱', '😖', '😣', '😞', '😓', '😩', '😫', '🥱', '😤', '😡', '😠', '🤬', '😈', '👿', '💀', '☠️', '💩', '🤡', '👹', '👺', '👻', '👽', '👾', '🤖'],
+    'Gestos': ['👋', '🤚', '🖐️', '✋', '🖖', '👌', '🤌', '🤏', '✌️', '🤞', '🤟', '🤘', '🤙', '👈', '👉', '👆', '🖕', '👇', '☝️', '👍', '👎', '✊', '👊', '🤛', '🤜', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✍️', '💪', '🦾', '🦿', '🦵', '🦶', '👂', '🦻', '👃', '🧠', '🫀', '🫁', '🦷', '🦴', '👀', '👁️', '👅', '👄'],
+    'Coração': ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '♥️', '😘', '😍', '🥰', '😻', '💋'],
+    'Objetos': ['⌚', '📱', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '💽', '💾', '💿', '📀', '📷', '📸', '📹', '🎥', '📞', '☎️', '📟', '📠', '📺', '📻', '🎙️', '🧭', '⏱️', '⏲️', '⏰', '🕰️', '💵', '💴', '💶', '💷', '💰', '💳', '💎', '⚖️', '🔧', '🔨', '⚒️', '🛠️', '🔩', '⚙️', '🔫', '💣', '🪓', '🔪', '🗡️', '⚔️', '🛡️', '🚬', '⚰️', '🏺', '🔮', '📿', '🧿', '💈', '⚗️', '🔭', '🔬', '💊', '💉', '🩸', '🩹', '🩺'],
+    'Símbolos': ['☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '☢️', '☣️', '🈶', '🈚', '🈸', '🈺', '🈷️', '✴️', '🆚', '💮', '🉐', '㊙️', '㊗️', '🅰️', '🅱️', '🆎', '🆑', '🅾️', '🆘', '❌', '⭕', '🛑', '⛔', '📛', '🚫', '💯', '💢', '♨️', '🚷', '🚯', '🚳', '🚱', '🔞', '📵', '🚭', '❗', '❕', '❓', '❔', '‼️', '⁉️', '🔅', '🔆', '⚠️', '🚸', '🔱', '⚜️', '🔰', '♻️', '✅', '💹', '❇️', '✳️', '❎', '🌐', '💠', 'Ⓜ️', '🌀', '💤', '🏧', '🚾', '♿', '🅿️', '🛗', '🈳', '🈂️', '🛂', '🛃', '🛄', '🛅', '🚹', '🚺', '🚼', '⚧️', '🚻', '🚮', '🎦', '📶', 'ℹ️', '🔣', '🔤', '🔡', '🔠', '🆖', '🆗', '🆙', '🆒', '🆕', '🆓', '0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟', '🔢', '#️⃣', '*️⃣', '⏏️', '▶️', '⏸️', '⏯️', '⏹️', '⏺️', '⏭️', '⏮️', '⏩', '⏪', '⏫', '⏬', '◀️', '🔼', '🔽', '➡️', '⬅️', '⬆️', '⬇️', '↗️', '↘️', '↙️', '↖️', '↕️', '↔️', '↪️', '↩️', '⤴️', '⤵️', '🔀', '🔁', '🔂', '🔄', '🔃', '🎵', '🎶', '➕', '➖', '➗', '✖️', '🟰', '♾️', '💲', '💱', '™️', '©️', '®️', '🔚', '🔙', '🔛', '🔝', '🔜', '〰️', '➰', '➿', '✔️', '☑️', '🔘', '🔴', '🟠', '🟡', '🟢', '🔵', '🟣', '⚫', '⚪', '🟤', '🔺', '🔻', '🔸', '🔹', '🔶', '🔷', '🔳', '🔲', '▪️', '▫️', '◾', '◽', '◼️', '◻️', '🟥', '🟧', '🟨', '🟩', '🟦', '🟪', '⬛', '⬜', '🟫', '🔈', '🔇', '🔉', '🔊', '🔔', '🔕', '📣', '📢', '💬', '💭', '🗯️', '♠️', '♣️', '♥️', '♦️', '🃏', '🎴', '🀄', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛'],
+    'Bandeira': ['🏳️', '🏴', '🏁', '🚩', '🎌', '🏳️‍🌈']
+};
 
 // ================================================================
 // INIT
@@ -44,7 +54,7 @@ async function init() {
     document.getElementById('page-content').style.padding = '0';
     document.getElementById('page-content').style.overflow = 'hidden';
     document.getElementById('page-content').style.display = 'flex';
-    document.getElementById('page-content').style.height = 'calc(100vh - var(--header-height))';
+    document.getElementById('page-content').style.height = '100%';
 
     setupRooms();
     setupInput();
@@ -89,11 +99,18 @@ function buildLayout() {
           </div>
           <div class="chat-input-area" id="chat-input-wrapper">
             <div class="chat-input-box">
+              <span class="emoji-trigger" onclick="window._toggleEmojiPicker()">😀</span>
               <textarea id="chat-input" class="chat-textarea" rows="1" placeholder="Digite uma mensagem... (Enter para enviar)"
                         maxlength="2000" onkeydown="window._onChatKeydown(event)"></textarea>
               <button class="btn btn-primary chat-send-btn" id="btn-send" onclick="window._sendMessage()">
                 <i data-fa-icon="send" style="width:18px;height:18px"></i>
               </button>
+            </div>
+            <div class="emoji-picker-dropdown" id="emoji-picker">
+              <div class="emoji-picker-header">
+                <input type="text" id="emoji-search" class="emoji-search" placeholder="Buscar emoji..." oninput="window._filterEmojis()">
+              </div>
+              <div class="emoji-picker-grid" id="emoji-grid"></div>
             </div>
             <div style="font-size:11px;color:var(--text-muted);padding:4px 8px">
               Enter para enviar · Shift+Enter para quebra de linha · Máx. 2000 caracteres
@@ -594,3 +611,85 @@ window._createRoom = async function () {
 };
 
 init().catch(e => { console.error(e); toast.error('Erro', 'Falha ao carregar o chat.'); });
+
+// ================================================================
+// EMOJI PICKER
+// ================================================================
+let _currentEmojiCategory = '常用';
+
+window._toggleEmojiPicker = function () {
+    const picker = document.getElementById('emoji-picker');
+    if (!picker) return;
+    
+    _emojiPickerOpen = !_emojiPickerOpen;
+    picker.style.display = _emojiPickerOpen ? 'block' : 'none';
+    
+    if (_emojiPickerOpen) {
+        renderEmojiPicker();
+    }
+};
+
+function renderEmojiPicker() {
+    const grid = document.getElementById('emoji-grid');
+    if (!grid) return;
+    
+    let html = '';
+    for (const [cat, emojis] of Object.entries(EMOJI_CATEGORIES)) {
+        html += `<div class="emoji-category-label">${cat}</div>`;
+        html += `<div class="emoji-category-row">`;
+        for (const emoji of emojis.slice(0, 30)) {
+            html += `<button class="emoji-btn" onclick="window._insertEmoji('${emoji}')">${emoji}</button>`;
+        }
+        html += `</div>`;
+    }
+    
+    grid.innerHTML = html;
+}
+
+window._insertEmoji = function (emoji) {
+    const input = document.getElementById('chat-input');
+    if (!input) return;
+    
+    const start = input.selectionStart;
+    const end = input.selectionEnd;
+    const text = input.value;
+    
+    input.value = text.substring(0, start) + emoji + text.substring(end);
+    input.selectionStart = input.selectionEnd = start + emoji.length;
+    input.focus();
+    
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    
+    window._toggleEmojiPicker();
+};
+
+window._filterEmojis = function () {
+    const search = document.getElementById('emoji-search')?.value?.toLowerCase() || '';
+    const grid = document.getElementById('emoji-grid');
+    if (!grid) return;
+    
+    if (!search) {
+        renderEmojiPicker();
+        return;
+    }
+    
+    let allEmojis = [];
+    for (const emojis of Object.values(EMOJI_CATEGORIES)) {
+        allEmojis = allEmojis.concat(emojis);
+    }
+    
+    const filtered = allEmojis.slice(0, 60);
+    grid.innerHTML = `<div class="emoji-category-row">${filtered.map(e => 
+        `<button class="emoji-btn" onclick="window._insertEmoji('${e}')">${e}</button>`
+    ).join('')}</div>`;
+};
+
+document.addEventListener('click', e => {
+    const picker = document.getElementById('emoji-picker');
+    const toggleBtn = document.querySelector('[onclick*="_toggleEmojiPicker"]');
+    if (picker && _emojiPickerOpen && !picker.contains(e.target) && !toggleBtn?.contains(e.target)) {
+        _emojiPickerOpen = false;
+        picker.style.display = 'none';
+    }
+});
