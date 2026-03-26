@@ -1773,8 +1773,14 @@ td strong {
     border-radius: var(--r-lg);
     background: var(--n-100);
     border: 1px solid var(--border-color);
-    overflow: hidden;
     flex-shrink: 0;
+    max-height: calc(100vh - 220px);
+}
+
+.kanban-col .kanban-cards {
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 [data-theme="dark"] .kanban-column,
