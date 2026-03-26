@@ -135,7 +135,7 @@ export function renderHeader(profile, pageTitle = '', pageSubtitle = '') {
             Configurações
           </a>
           <div class="dropdown-item" id="sound-toggle-btn" style="cursor:pointer">
-            <i data-fa-icon="volume-2" style="width:14px;height:14px"></i>
+            <i data-fa-icon="volume" style="width:14px;height:14px" id="sound-icon"></i>
             <span id="sound-toggle-label">Som de notificação: Ativado</span>
           </div>
           <div class="dropdown-divider"></div>
@@ -188,12 +188,18 @@ export function renderHeader(profile, pageTitle = '', pageSubtitle = '') {
     // Sound toggle
     const soundBtn = document.getElementById('sound-toggle-btn');
     const soundLabel = document.getElementById('sound-toggle-label');
-    if (soundBtn && soundLabel) {
-        soundLabel.textContent = getNotifSoundEnabled() ? 'Som de notificação: Ativado' : 'Som de notificação: Desativado';
+    const soundIcon = document.getElementById('sound-icon');
+    if (soundBtn && soundLabel && soundIcon) {
+        const isEnabled = getNotifSoundEnabled();
+        soundLabel.textContent = isEnabled ? 'Som de notificação: Ativado' : 'Som de notificação: Desativado';
+        soundIcon.setAttribute('data-fa-icon', isEnabled ? 'volume' : 'volume-off');
+        window.renderIcons?.(soundIcon);
         soundBtn.addEventListener('click', () => {
             const enabled = !getNotifSoundEnabled();
             setNotifSoundEnabled(enabled);
             soundLabel.textContent = enabled ? 'Som de notificação: Ativado' : 'Som de notificação: Desativado';
+            soundIcon.setAttribute('data-fa-icon', enabled ? 'volume' : 'volume-off');
+            window.renderIcons?.(soundIcon);
             if (enabled) playNotificationSound();
         });
     }

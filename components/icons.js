@@ -62,6 +62,10 @@
         'user-plus': 'fa-user-plus',
         'user-x': 'fa-user-xmark',
         users: 'fa-users',
+        'volume-x': 'fa-volume-xmark',
+        volume: 'fa-volume-high',
+        'volume-2': 'fa-volume-high',
+        'volume-off': 'fa-volume-off',
         x: 'fa-xmark',
         'x-circle': 'fa-circle-xmark',
     };
