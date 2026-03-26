@@ -8,11 +8,11 @@ import { db } from '/services/firebase-config.js';
 import {
     collection, doc, query, where, orderBy, limit, onSnapshot,
     getDocs, addDoc, updateDoc, writeBatch,
-    serverTimestamp
+    serverTimestamp, deleteDoc
 } from 'firebase/firestore';
 import { renderSidebar } from '/components/sidebar.js';
 import { renderHeader } from '/components/header.js';
-import { createModal, openModal, closeModal } from '/components/modal.js';
+import { createModal, openModal, closeModal, confirmDialog } from '/components/modal.js';
 import { toast } from '/components/toast.js';
 import { sanitizeText } from '/utils/sanitizer.js';
 import { formatRelative } from '/utils/date-utils.js';
@@ -281,9 +281,13 @@ function renderMessages(messages) {
         return;
     }
 
+    const isAdmin = _profile?.role === 'admin';
     let lastDate = null;
     container.innerHTML = messages.map((msg, i) => {
         const isOwn = msg.authorId === _profile.uid;
+        const canEdit = isOwn;
+        const canDelete = isOwn || isAdmin;
+        
         const msgDate = msg.createdAt?.toDate?.() || new Date();
         const dateStr = msgDate.toLocaleDateString('pt-BR');
         const showDateDivider = dateStr !== lastDate;
@@ -307,13 +311,18 @@ function renderMessages(messages) {
                 `<div style="width:32px;flex-shrink:0"></div>`}
         <div class="chat-msg-bubble">
           ${!isOwn && !groupWithPrev ? `<div class="chat-msg-author">${escapeHtml(msg.authorName || '')}</div>` : ''}
-          <div class="chat-msg-text">${escapeHtml(msg.content || '').replace(/\n/g, '<br>')}</div>
+          <div class="chat-msg-text" id="msg-text-${msg.id}">${escapeHtml(msg.content || '').replace(/\n/g, '<br>')}</div>
           <div class="chat-msg-time">${formatRelative(msg.createdAt)}</div>
+          ${(canEdit || canDelete) ? `
+          <div class="chat-msg-actions">
+            ${canEdit ? `<button class="btn btn-ghost btn-xs" onclick="window._editMessage('${msg.id}')" title="Editar"><i data-fa-icon="edit-2" style="width:12px;height:12px"></i></button>` : ''}
+            ${canDelete ? `<button class="btn btn-ghost btn-xs" onclick="window._deleteMessage('${msg.id}')" title="Excluir"><i data-fa-icon="trash-2" style="width:12px;height:12px;color:var(--color-danger)"></i></button>` : ''}
+          </div>` : ''}
         </div>
       </div>`;
     }).join('');
 
-    // Scroll to bottom
+    window.renderIcons?.();
     container.scrollTop = container.scrollHeight;
 }
 
@@ -693,3 +702,108 @@ document.addEventListener('click', e => {
         picker.style.display = 'none';
     }
 });
+
+// ================================================================
+// EDITAR/EXCLUIR MENSAGEM
+// ================================================================
+
+let _editingMessageId = null;
+let _originalContent = null;
+
+window._editMessage = function(msgId) {
+    const textEl = document.getElementById(`msg-text-${msgId}`);
+    if (!textEl) return;
+    
+    _editingMessageId = msgId;
+    _originalContent = textEl.innerText;
+    
+    const currentText = textEl.innerText;
+    textEl.innerHTML = `<textarea id="edit-msg-input" class="chat-textarea" style="width:100%;min-height:60px;max-height:120px">${escapeHtml(currentText)}</textarea>
+        <div style="display:flex;gap:4px;margin-top:4px">
+            <button class="btn btn-primary btn-sm" onclick="window._saveEdit('${msgId}')">Salvar</button>
+            <button class="btn btn-secondary btn-sm" onclick="window._cancelEdit('${msgId}')">Cancelar</button>
+        </div>`;
+    
+    const textarea = document.getElementById('edit-msg-input');
+    textarea?.focus();
+};
+
+window._saveEdit = async function(msgId) {
+    const textarea = document.getElementById('edit-msg-input');
+    if (!textarea) return;
+    
+    const newContent = sanitizeText(textarea.value?.trim() || '');
+    if (!newContent) {
+        toast.warning('Aviso', 'Mensagem não pode estar vazia.');
+        return;
+    }
+    
+    if (newContent === _originalContent) {
+        window._cancelEdit(msgId);
+        return;
+    }
+    
+    try {
+        await updateDoc(doc(db, 'chatMessages', msgId), {
+            content: newContent,
+            editedAt: serverTimestamp(),
+        });
+        await updateDoc(doc(db, 'chatRooms', _activeRoomId), {
+            lastMessage: newContent.length > 80 ? newContent.slice(0, 80) + '…' : newContent,
+            lastMessageAt: serverTimestamp(),
+        });
+        toast.success('Editado', 'Mensagem atualizada.');
+    } catch (e) {
+        console.error('[Chat] Edit error:', e);
+        toast.error('Erro', 'Não foi possível editar a mensagem.');
+    }
+    
+    _editingMessageId = null;
+    _originalContent = null;
+};
+
+window._cancelEdit = function(msgId) {
+    const textEl = document.getElementById(`msg-text-${msgId}`);
+    if (textEl) {
+        textEl.innerHTML = escapeHtml(_originalContent || '').replace(/\n/g, '<br>');
+    }
+    _editingMessageId = null;
+    _originalContent = null;
+};
+
+window._deleteMessage = async function(msgId) {
+    const confirmed = await confirmDialog('Excluir Mensagem', 'Tem certeza que deseja excluir esta mensagem?', 'Excluir', true);
+    if (!confirmed) return;
+    
+    try {
+        await updateDoc(doc(db, 'chatMessages', msgId), {
+            deleted: true,
+            deletedAt: serverTimestamp(),
+            deletedBy: _profile.uid,
+        });
+        
+        const remainingSnap = await getDocs(query(
+            collection(db, 'chatMessages'),
+            where('roomId', '==', _activeRoomId),
+            where('deleted', '==', false),
+            orderBy('createdAt', 'desc'),
+            limit(1)
+        ));
+        
+        let lastMsg = '';
+        if (!remainingSnap.empty) {
+            const lastMsgData = remainingSnap.docs[0].data();
+            lastMsg = lastMsgData.content?.length > 80 ? lastMsgData.content.slice(0, 80) + '…' : (lastMsgData.content || '');
+        }
+        
+        await updateDoc(doc(db, 'chatRooms', _activeRoomId), {
+            lastMessage: lastMsg,
+            lastMessageAt: serverTimestamp(),
+        });
+        
+        toast.success('Excluído', 'Mensagem removida.');
+    } catch (e) {
+        console.error('[Chat] Delete error:', e);
+        toast.error('Erro', 'Não foi possível excluir a mensagem.');
+    }
+};

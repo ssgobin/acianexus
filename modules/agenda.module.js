@@ -386,10 +386,10 @@ function createEventModal() {
         </div>
         <div class="form-group form-col-full">
           <label class="form-label">Responsável</label>
-          <select id="ev-responsible" class="form-select">
-            <option value="">Selecionar...</option>
-            ${_allUsers.map(u => `<option value="${u.id}" data-name="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}
-          </select>
+          <input type="hidden" id="ev-responsible" value="">
+          <div id="ev-responsible-container" class="involved-container" onclick="window._openResponsiblePicker()">
+            <span class="involved-placeholder">Clique para selecionar responsável...</span>
+          </div>
         </div>
         <div class="form-group form-col-full">
           <label class="form-label">Descrição / Observações</label>
@@ -457,7 +457,10 @@ window._editEvent = function (id) {
         const coffeeEl = document.getElementById('ev-coffee');
         if (coffeeEl) coffeeEl.checked = !!ev.needsCoffee;
         const respEl = document.getElementById('ev-responsible');
-        if (respEl && ev.responsibleId) respEl.value = ev.responsibleId;
+        if (respEl && ev.responsibleId) {
+            respEl.value = ev.responsibleId;
+            renderResponsibleContainer(ev.responsibleId, ev.responsibleName || '');
+        }
         document.querySelector('#modal-event .modal-title').textContent = 'Editar Evento';
         document.getElementById('btn-del-event').style.display = 'inline-flex';
     }, 50);
@@ -496,9 +499,8 @@ window._saveEvent = async function () {
     const people = parseInt(document.getElementById('ev-people')?.value || 0);
     const notes = sanitizeText(document.getElementById('ev-notes')?.value?.trim() || '');
     const needsCoffee = document.getElementById('ev-coffee')?.checked || false;
-    const reproEl = document.getElementById('ev-responsible');
-    const responsibleId = reproEl?.value || '';
-    const responsibleName = reproEl ? (reproEl.options[reproEl.selectedIndex]?.dataset?.name || '') : '';
+    const responsibleId = document.getElementById('ev-responsible')?.value || '';
+    const responsibleName = getUserName(responsibleId);
 
     if (!title) { toast.warning('Obrigatório', 'Informe o título.'); return; }
     if (!dateStr) { toast.warning('Obrigatório', 'Informe a data.'); return; }
@@ -537,3 +539,89 @@ window._saveEvent = async function () {
 };
 
 init().catch(e => { console.error(e); toast.error('Erro', 'Falha ao carregar módulo de agenda.'); });
+
+// ================================================================
+// RESPONSIBLE PICKER
+// ================================================================
+function getUserName(userId) {
+    const user = _allUsers.find(u => u.id === userId);
+    return user ? user.name : '';
+}
+
+window._openResponsiblePicker = function() {
+    createModal({
+        id: 'modal-responsible',
+        title: 'Selecionar Responsável',
+        size: 'sm',
+        body: `
+            <div style="max-height:400px;overflow-y:auto">
+                <div class="search-box mb-3">
+                    <i data-fa-icon="search" class="search-icon"></i>
+                    <input type="text" id="search-responsible" class="search-input" placeholder="Buscar..." oninput="window._filterResponsiblePicker()">
+                </div>
+                <div id="responsible-picker-list">${buildResponsiblePickerList(_allUsers)}</div>
+            </div>`,
+        footer: `<button class="btn btn-primary" onclick="closeModal('modal-responsible')">Concluído</button>`,
+    });
+    
+    openModal('modal-responsible');
+    window.renderIcons?.();
+};
+
+function buildResponsiblePickerList(users) {
+    const selectedId = document.getElementById('ev-responsible')?.value || '';
+    return users.map(u => `
+        <div class="involved-picker-item${selectedId === u.id ? ' selected' : ''}" data-id="${u.id}" data-name="${escapeHtml(u.name)}" onclick="window._selectResponsible('${u.id}', '${escapeHtml(u.name).replace(/'/g, "\\'")}')">
+            <div class="involved-avatar" style="background:${stringToColor(u.name)}">${getInitials(u.name)}</div>
+            <div class="involved-info">
+                <div class="involved-name">${escapeHtml(u.name)}</div>
+                <div class="involved-email">${escapeHtml(u.email)}</div>
+            </div>
+            <i data-fa-icon="check" class="check-icon"></i>
+        </div>
+    `).join('');
+}
+
+window._selectResponsible = function(userId, userName) {
+    document.getElementById('ev-responsible').value = userId;
+    renderResponsibleContainer(userId, userName);
+    document.querySelectorAll('#responsible-picker-list .involved-picker-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.id === userId);
+    });
+};
+
+function renderResponsibleContainer(userId, userName) {
+    const container = document.getElementById('ev-responsible-container');
+    if (!container) return;
+    
+    if (!userId) {
+        container.innerHTML = '<span class="involved-placeholder">Clique para selecionar responsável...</span>';
+        window.renderIcons?.();
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="involved-chip" data-id="${userId}">
+            <div class="involved-avatar" style="background:${stringToColor(userName)}">${getInitials(userName)}</div>
+            <span>${escapeHtml(userName)}</span>
+            <i data-fa-icon="x" onclick="window._removeResponsible(event)"></i>
+        </div>`;
+    container.innerHTML += '<span class="involved-add-btn">+ Alterar</span>';
+    window.renderIcons?.();
+}
+
+window._removeResponsible = function(event) {
+    event.stopPropagation();
+    document.getElementById('ev-responsible').value = '';
+    renderResponsibleContainer('', '');
+};
+
+window._filterResponsiblePicker = function() {
+    const search = document.getElementById('search-responsible')?.value?.toLowerCase() || '';
+    const filtered = _allUsers.filter(u => 
+        (u.name || '').toLowerCase().includes(search) || 
+        (u.email || '').toLowerCase().includes(search)
+    );
+    document.getElementById('responsible-picker-list').innerHTML = buildResponsiblePickerList(filtered);
+    window.renderIcons?.();
+};

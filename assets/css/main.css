@@ -2705,6 +2705,32 @@ td strong {
     margin-left: auto;
 }
 
+.chat-msg-actions {
+    position: absolute;
+    top: 4px;
+    display: flex;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 10;
+}
+
+.chat-message:hover .chat-msg-actions {
+    opacity: 1;
+}
+
+.chat-message:not(.own) .chat-msg-actions {
+    right: -36px;
+}
+
+.chat-message.own .chat-msg-actions {
+    left: -36px;
+}
+
+.chat-message .chat-msg-bubble {
+    position: relative;
+}
+
 .chat-msg-bubble {
     padding: var(--s-3) var(--s-4);
     border-radius: var(--r-lg);

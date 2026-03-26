@@ -347,10 +347,10 @@ function createRoutineModal() {
         </div>
         <div class="form-group">
           <label class="form-label">Responsável</label>
-          <select id="routine-assignee" class="form-select">
-            <option value="">Selecionar...</option>
-            ${_allUsers.map(u => `<option value="${u.id}" data-name="${escapeHtml(u.name)}">${escapeHtml(u.name)}</option>`).join('')}
-          </select>
+          <input type="hidden" id="routine-assignee" value="">
+          <div id="routine-assignee-container" class="involved-container" onclick="window._openAssigneePicker()">
+            <span class="involved-placeholder">Clique para selecionar responsável...</span>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Frequência *</label>
@@ -431,7 +431,10 @@ window._editRoutine = function (id) {
         document.getElementById('routine-gut-t').value = routine.gut?.trend || 1;
 
         const assigneeEl = document.getElementById('routine-assignee');
-        if (assigneeEl && routine.assigneeId) assigneeEl.value = routine.assigneeId;
+        if (assigneeEl && routine.assigneeId) {
+            assigneeEl.value = routine.assigneeId;
+            renderAssigneeContainer(routine.assigneeId, routine.assigneeName || '');
+        }
 
         // Specific days
         document.querySelectorAll('[name="specific-day"]').forEach(cb => {
@@ -476,9 +479,8 @@ window._saveRoutine = async function () {
     const objective = sanitizeText(document.getElementById('routine-objective')?.value?.trim() || '');
     const description = sanitizeText(document.getElementById('routine-description')?.value?.trim() || '');
     const frequency = document.getElementById('routine-frequency')?.value || 'daily';
-    const assigneeEl = document.getElementById('routine-assignee');
-    const assigneeId = assigneeEl?.value || '';
-    const assigneeName = assigneeEl ? (assigneeEl.options[assigneeEl.selectedIndex]?.dataset?.name || '') : '';
+    const assigneeId = document.getElementById('routine-assignee')?.value || '';
+    const assigneeName = getUserName(assigneeId);
     const g = parseInt(document.getElementById('routine-gut-g')?.value || 1);
     const u = parseInt(document.getElementById('routine-gut-u')?.value || 1);
     const t = parseInt(document.getElementById('routine-gut-t')?.value || 1);
@@ -527,3 +529,89 @@ window._saveRoutine = async function () {
 };
 
 init().catch(e => { console.error(e); toast.error('Erro', 'Falha ao carregar módulo de rotinas.'); });
+
+// ================================================================
+// ASSIGNEE PICKER
+// ================================================================
+function getUserName(userId) {
+    const user = _allUsers.find(u => u.id === userId);
+    return user ? user.name : '';
+}
+
+window._openAssigneePicker = function() {
+    createModal({
+        id: 'modal-assignee',
+        title: 'Selecionar Responsável',
+        size: 'sm',
+        body: `
+            <div style="max-height:400px;overflow-y:auto">
+                <div class="search-box mb-3">
+                    <i data-fa-icon="search" class="search-icon"></i>
+                    <input type="text" id="search-assignee" class="search-input" placeholder="Buscar..." oninput="window._filterAssigneePicker()">
+                </div>
+                <div id="assignee-picker-list">${buildAssigneePickerList(_allUsers)}</div>
+            </div>`,
+        footer: `<button class="btn btn-primary" onclick="closeModal('modal-assignee')">Concluído</button>`,
+    });
+    
+    openModal('modal-assignee');
+    window.renderIcons?.();
+};
+
+function buildAssigneePickerList(users) {
+    const selectedId = document.getElementById('routine-assignee')?.value || '';
+    return users.map(u => `
+        <div class="involved-picker-item${selectedId === u.id ? ' selected' : ''}" data-id="${u.id}" data-name="${escapeHtml(u.name)}" onclick="window._selectAssignee('${u.id}', '${escapeHtml(u.name).replace(/'/g, "\\'")}')">
+            <div class="involved-avatar" style="background:${stringToColor(u.name)}">${getInitials(u.name)}</div>
+            <div class="involved-info">
+                <div class="involved-name">${escapeHtml(u.name)}</div>
+                <div class="involved-email">${escapeHtml(u.email)}</div>
+            </div>
+            <i data-fa-icon="check" class="check-icon"></i>
+        </div>
+    `).join('');
+}
+
+window._selectAssignee = function(userId, userName) {
+    document.getElementById('routine-assignee').value = userId;
+    renderAssigneeContainer(userId, userName);
+    document.querySelectorAll('#assignee-picker-list .involved-picker-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.id === userId);
+    });
+};
+
+function renderAssigneeContainer(userId, userName) {
+    const container = document.getElementById('routine-assignee-container');
+    if (!container) return;
+    
+    if (!userId) {
+        container.innerHTML = '<span class="involved-placeholder">Clique para selecionar responsável...</span>';
+        window.renderIcons?.();
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="involved-chip" data-id="${userId}">
+            <div class="involved-avatar" style="background:${stringToColor(userName)}">${getInitials(userName)}</div>
+            <span>${escapeHtml(userName)}</span>
+            <i data-fa-icon="x" onclick="window._removeAssignee(event)"></i>
+        </div>`;
+    container.innerHTML += '<span class="involved-add-btn">+ Alterar</span>';
+    window.renderIcons?.();
+}
+
+window._removeAssignee = function(event) {
+    event.stopPropagation();
+    document.getElementById('routine-assignee').value = '';
+    renderAssigneeContainer('', '');
+};
+
+window._filterAssigneePicker = function() {
+    const search = document.getElementById('search-assignee')?.value?.toLowerCase() || '';
+    const filtered = _allUsers.filter(u => 
+        (u.name || '').toLowerCase().includes(search) || 
+        (u.email || '').toLowerCase().includes(search)
+    );
+    document.getElementById('assignee-picker-list').innerHTML = buildAssigneePickerList(filtered);
+    window.renderIcons?.();
+};
