@@ -16,6 +16,49 @@ import { openMobileSidebar } from './sidebar.js';
 
 let _profile = null;
 let _unsubNotifs = null;
+let _lastNotifCount = 0;
+
+const NOTIFICATION_SOUND_KEY = 'nexus_notif_sound_enabled';
+
+function getNotifSoundEnabled() {
+    try {
+        return localStorage.getItem(NOTIFICATION_SOUND_KEY) !== 'false';
+    } catch { return true; }
+}
+
+function setNotifSoundEnabled(enabled) {
+    try {
+        localStorage.setItem(NOTIFICATION_SOUND_KEY, String(enabled));
+    } catch {}
+}
+
+function playNotificationSound() {
+    if (!getNotifSoundEnabled()) return;
+    
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        const playTone = (freq, startTime, duration) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.value = freq;
+            osc.type = 'sine';
+            gain.gain.setValueAtTime(0.3, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        };
+        
+        const now = audioCtx.currentTime;
+        playTone(880, now, 0.1);
+        playTone(1100, now + 0.1, 0.1);
+        playTone(1320, now + 0.2, 0.15);
+        
+        setTimeout(() => audioCtx.close(), 500);
+    } catch (e) {}
+}
 
 // ================================================================
 // Renderizar Header
@@ -91,6 +134,10 @@ export function renderHeader(profile, pageTitle = '', pageSubtitle = '') {
             <i data-fa-icon="settings" style="width:14px;height:14px"></i>
             Configurações
           </a>
+          <div class="dropdown-item" id="sound-toggle-btn" style="cursor:pointer">
+            <i data-fa-icon="volume-2" style="width:14px;height:14px"></i>
+            <span id="sound-toggle-label">Som de notificação: Ativado</span>
+          </div>
           <div class="dropdown-divider"></div>
           <div class="dropdown-item danger" id="logout-btn">
             <i data-fa-icon="log-out" style="width:14px;height:14px"></i>
@@ -137,6 +184,19 @@ export function renderHeader(profile, pageTitle = '', pageSubtitle = '') {
         } catch (e) { /* ignore */ }
         await signOut();
     });
+
+    // Sound toggle
+    const soundBtn = document.getElementById('sound-toggle-btn');
+    const soundLabel = document.getElementById('sound-toggle-label');
+    if (soundBtn && soundLabel) {
+        soundLabel.textContent = getNotifSoundEnabled() ? 'Som de notificação: Ativado' : 'Som de notificação: Desativado';
+        soundBtn.addEventListener('click', () => {
+            const enabled = !getNotifSoundEnabled();
+            setNotifSoundEnabled(enabled);
+            soundLabel.textContent = enabled ? 'Som de notificação: Ativado' : 'Som de notificação: Desativado';
+            if (enabled) playNotificationSound();
+        });
+    }
 
     // Mobile menu
     const mobileBtn = document.getElementById('mobile-menu-btn');
@@ -206,6 +266,12 @@ function setupNotifications() {
 
 function updateNotificationBadge(notifs) {
     const unread = notifs.filter(n => !n.read).length;
+    
+    if (unread > 0 && unread > _lastNotifCount && document.hasFocus()) {
+        playNotificationSound();
+    }
+    _lastNotifCount = unread;
+    
     const dot = document.getElementById('notif-dot');
     if (dot) dot.style.display = unread > 0 ? 'block' : 'none';
     
