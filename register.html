@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Cadastro - Nexus</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/assets/css/main.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="/components/icons.js"></script>
+    <link rel="stylesheet" href="/assets/css/auth.css">
+
+    <script type="importmap">
+  {
+    "imports": {
+      "firebase/app":       "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+      "firebase/auth":      "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+    }
+  }
+  </script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+</head>
+
+<body>
+    <div class="auth-page">
+        <div class="auth-left">
+            <div class="auth-left-brand">
+                <img src="/img/logoacianexus_wbg.png" class="auth-logo" style="width:40px;height:40px;object-fit:contain">
+                <div>
+                    <div class="auth-brand-name">Nexus</div>
+                    <div class="auth-brand-sub">Management Platform</div>
+                </div>
+            </div>
+
+            <div class="auth-left-hero">
+                <h2>Crie sua conta e entre no <span>ecossistema Nexus</span></h2>
+                <p>Cadastro rápido para começar a trabalhar com tarefas, agenda, chamados e comunicação interna.</p>
+
+                <div class="auth-features">
+                    <div class="auth-feature-item">
+                        <div class="auth-feature-icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></div>
+                        <div class="auth-feature-text">Acesso seguro com autenticação Firebase</div>
+                    </div>
+                    <div class="auth-feature-item">
+                        <div class="auth-feature-icon"><i class="fa-solid fa-users" aria-hidden="true"></i></div>
+                        <div class="auth-feature-text">Permissões por perfil (viewer/editor/admin)</div>
+                    </div>
+                    <div class="auth-feature-item">
+                        <div class="auth-feature-icon"><i class="fa-solid fa-wand-magic-sparkles"
+                                aria-hidden="true"></i></div>
+                        <div class="auth-feature-text">Onboarding simples e pronto para produção</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="auth-left-footer">
+                &copy; 2026 Nexus - Plataforma Corporativa
+            </div>
+        </div>
+
+        <div class="auth-right">
+            <div class="auth-form-wrapper">
+                <a href="/login.html" class="auth-back">
+                    <i data-fa-icon="arrow-left"></i>
+                    Voltar ao login
+                </a>
+
+                <div class="auth-form-header">
+                    <h1>Criar conta</h1>
+                    <p>Preencha os dados abaixo para acessar a plataforma.</p>
+                </div>
+
+                <div class="auth-error-box" id="register-error">
+                    <i data-fa-icon="alert-circle"></i>
+                    <span id="register-error-msg"></span>
+                </div>
+
+                <div class="auth-success-box" id="register-success">
+                    <i data-fa-icon="check-circle"></i>
+                    <span>Conta criada! Redirecionando...</span>
+                </div>
+
+                <form id="register-form" class="auth-form" autocomplete="on" novalidate>
+                    <div class="form-group">
+                        <label for="name" class="form-label">Nome completo <span class="required">*</span></label>
+                        <input type="text" id="name" class="form-control" placeholder="Seu nome" autocomplete="name"
+                            maxlength="100" required>
+                        <div class="form-error" id="error-name"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email" class="form-label">E-mail <span class="required">*</span></label>
+                        <input type="email" id="email" class="form-control" placeholder="voce@empresa.com"
+                            autocomplete="email" maxlength="254" required>
+                        <div class="form-error" id="error-email"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password" class="form-label">Senha <span class="required">*</span></label>
+                        <div class="password-wrapper">
+                            <input type="password" id="password" class="form-control" placeholder="Minimo 8 caracteres"
+                                autocomplete="new-password" maxlength="128" required>
+                            <button type="button" class="password-toggle" id="toggle-pass" aria-label="Mostrar senha">
+                                <i data-fa-icon="eye"></i>
+                            </button>
+                        </div>
+                        <div class="form-error" id="error-password"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirm-password" class="form-label">Confirmar senha <span
+                                class="required">*</span></label>
+                        <input type="password" id="confirm-password" class="form-control" placeholder="Repita a senha"
+                            autocomplete="new-password" maxlength="128" required>
+                        <div class="form-error" id="error-confirm-password"></div>
+                    </div>
+
+                    <label class="form-check" style="margin-bottom: var(--s-5)">
+                        <input type="checkbox" id="accept-terms" required>
+                        <span style="font-size:12px;color:var(--text-secondary)">Concordo com os termos de uso e
+                            politica de seguranca interna.</span>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary auth-submit-btn" id="register-btn">
+                        Criar conta
+                    </button>
+
+                    <div class="auth-footer-links">
+                        Ja possui conta?
+                        <a href="/login.html">Entrar</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { registerUser, waitForAuthState } from '/services/auth.service.js';
+        import { logAudit, AUDIT_ACTIONS } from '/services/audit.service.js';
+        import { getStoredTheme, setTheme } from '/utils/helpers.js';
+        import { isValidEmail, isValidPassword, isRequired } from '/utils/validators.js';
+
+        setTheme(getStoredTheme());
+        window.renderIcons?.();
+
+        const existing = await waitForAuthState();
+        if (existing) {
+            window.location.replace('/dashboard.html');
+        }
+
+        const passInput = document.getElementById('password');
+        const togglePassBtn = document.getElementById('toggle-pass');
+
+        togglePassBtn?.addEventListener('click', () => {
+            const isHidden = passInput.type === 'password';
+            passInput.type = isHidden ? 'text' : 'password';
+            const icon = togglePassBtn.querySelector('i');
+            if (icon) {
+                icon.setAttribute('data-fa-icon', isHidden ? 'eye-off' : 'eye');
+                window.renderIcons?.();
+            }
+        });
+
+        const form = document.getElementById('register-form');
+        const btn = document.getElementById('register-btn');
+        const errorBox = document.getElementById('register-error');
+        const errorMsg = document.getElementById('register-error-msg');
+        const successBox = document.getElementById('register-success');
+
+        function clearErrors() {
+            ['name', 'email', 'password', 'confirm-password'].forEach(id => {
+                const field = document.getElementById(id);
+                const err = document.getElementById('error-' + id);
+                field?.classList.remove('error');
+                if (err) {
+                    err.textContent = '';
+                    err.classList.remove('visible');
+                }
+            });
+            errorBox.classList.remove('visible');
+            successBox.classList.remove('visible');
+        }
+
+        function setFieldError(id, msg) {
+            const field = document.getElementById(id);
+            const err = document.getElementById('error-' + id);
+            if (field) field.classList.add('error');
+            if (err) {
+                err.textContent = msg;
+                err.classList.add('visible');
+            }
+        }
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorBox.classList.add('visible');
+            window.renderIcons?.();
+        }
+
+        form?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            clearErrors();
+
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
+            const acceptTerms = document.getElementById('accept-terms').checked;
+
+            let valid = true;
+
+            if (!isRequired(name) || name.length < 3) {
+                setFieldError('name', 'Informe um nome valido (minimo 3 caracteres).');
+                valid = false;
+            }
+            if (!isValidEmail(email)) {
+                setFieldError('email', 'Informe um e-mail valido.');
+                valid = false;
+            }
+            if (!isValidPassword(password)) {
+                setFieldError('password', 'Senha fraca. Use ao menos 8 caracteres com letras e numeros.');
+                valid = false;
+            }
+            if (password !== confirmPassword) {
+                setFieldError('confirm-password', 'As senhas nao conferem.');
+                valid = false;
+            }
+            if (!acceptTerms) {
+                showError('Voce precisa aceitar os termos para continuar.');
+                valid = false;
+            }
+
+            if (!valid) return;
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;border-color:rgba(255,255,255,0.35);border-top-color:white;display:inline-block;vertical-align:middle;margin-right:8px"></span>Criando conta...';
+
+            try {
+                const profile = await registerUser({ name, email, password, rememberMe: true });
+                await logAudit(AUDIT_ACTIONS.USER_CREATED, profile.uid, 'user', { source: 'self_register' });
+                successBox.classList.add('visible');
+                setTimeout(() => {
+                    window.location.replace('/dashboard.html');
+                }, 900);
+            } catch (err) {
+                const code = err?.code || '';
+                let msg = 'Nao foi possivel criar sua conta. Tente novamente.';
+
+                if (code === 'auth/email-already-in-use') msg = 'Este e-mail ja esta em uso.';
+                else if (code === 'auth/weak-password') msg = 'Senha muito fraca.';
+                else if (code === 'auth/invalid-email') msg = 'E-mail invalido.';
+                else if (code === 'auth/operation-not-allowed') msg = 'Cadastro desabilitado no Firebase Authentication.';
+
+                showError(msg);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Criar conta';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,45 @@
+<!-- ================================================================
+     NEXUS — Shared HTML head include
+     Copie este bloco no <head> de todas as páginas internas.
+     Ajuste o <title> por página.
+     ================================================================ -->
+
+<!--
+  COMO USAR:
+  Copie o bloco abaixo no <head> de cada página, ajustando apenas <title>.
+  Use src absolutos (iniciando com /) para que funcionem em qualquer
+  nível da estrutura de pastas (ex: /pages/tasks.html).
+  
+  IMPORTANTE: o bloco <script type="importmap"> PRECISA vir ANTES de
+  qualquer <script type="module">. Não altere a ordem.
+-->
+
+<!--
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-Content-Type-Options" content="nosniff">
+<meta http-equiv="X-Frame-Options" content="DENY">
+<meta name="robots" content="noindex, nofollow">
+<title>MODULO — Nexus</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="/components/icons.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app":       "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+    "firebase/auth":      "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+  }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+-->
