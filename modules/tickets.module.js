@@ -73,11 +73,6 @@ function buildLayout() {
         <h2>Chamados</h2>
         <p>Acompanhe e gerencie solicitações de suporte</p>
       </div>
-      <div class="page-header-actions">
-        <button class="btn btn-primary" onclick="window._openCreateTicket()">
-          <i data-fa-icon="plus"></i> Abrir Chamado
-        </button>
-      </div>
     </div>
 
     <!-- Status Filter -->
@@ -108,6 +103,13 @@ function buildLayout() {
     <!-- Tickets List -->
     <div id="tickets-container">
       <div class="page-loader"><div class="spinner"></div></div>
+    </div>
+
+    <!-- FAB -->
+    <div class="fab-container">
+      <button class="fab-btn" onclick="window._openCreateTicket()" title="Abrir Chamado">
+        <i data-fa-icon="plus"></i>
+      </button>
     </div>`;
 }
 

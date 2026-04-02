@@ -55,20 +55,11 @@ async function init() {
 function buildPageLayout() {
     const today = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
     const canCreateTask = canPerformAction(_profile, 'create_task');
-    const canCreateRoutine = canPerformAction(_profile, 'edit_task');
-    const canCreateEvent = canPerformAction(_profile, 'edit_task');
-    const canCreateAnnouncement = canPerformAction(_profile, 'create_announcement');
     return `
     <div class="page-header">
       <div class="page-header-left">
         <h2>Dashboard Operacional</h2>
         <p>${today} · Visão geral de produtividade e operação</p>
-      </div>
-      <div class="page-header-actions">
-        ${canCreateTask ? `<a href="/pages/tasks.html" class="btn btn-primary btn-sm"><i data-fa-icon="plus"></i> Nova Tarefa</a>` : ''}
-        ${canCreateRoutine ? `<a href="/pages/routines.html?create=1" class="btn btn-secondary btn-sm"><i data-fa-icon="repeat"></i> Nova Rotina</a>` : ''}
-        ${canCreateEvent ? `<a href="/pages/agenda.html?create=1" class="btn btn-secondary btn-sm"><i data-fa-icon="calendar-days"></i> Novo Evento</a>` : ''}
-        ${canCreateAnnouncement ? `<a href="/pages/announcements.html?create=1" class="btn btn-secondary btn-sm"><i data-fa-icon="megaphone"></i> Novo Comunicado</a>` : ''}
       </div>
     </div>
 
@@ -164,6 +155,11 @@ function buildPageLayout() {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- FAB -->
+    <div class="fab-container">
+      ${canCreateTask ? `<button class="fab-btn" onclick="window.location.href='/pages/tasks.html'" title="Nova Tarefa"><i data-fa-icon="plus"></i></button>` : ''}
     </div>`;
 }
 

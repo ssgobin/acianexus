@@ -61,11 +61,6 @@ function buildLayout() {
         <h2>Comunicados</h2>
         <p>Avisos, novidades e comunicações internas</p>
       </div>
-      <div class="page-header-actions">
-        ${canCreate ? `<button class="btn btn-primary" onclick="window._openCreateAnnouncement()">
-          <i data-fa-icon="plus"></i> Novo Comunicado
-        </button>` : ''}
-      </div>
     </div>
 
     <!-- Busca -->
@@ -77,7 +72,10 @@ function buildLayout() {
     </div>
 
     <div id="ann-highlighted" style="margin-bottom:24px"></div>
-    <div id="ann-regular"></div>`;
+    <div id="ann-regular"></div>
+
+    <!-- FAB -->
+    ${canCreate ? `<div class="fab-container"><button class="fab-btn" onclick="window._openCreateAnnouncement()" title="Novo Comunicado"><i data-fa-icon="plus"></i></button></div>` : ''}`;
 }
 
 function maybeOpenCreateAnnouncementFromQuery() {

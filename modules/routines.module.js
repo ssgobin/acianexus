@@ -64,11 +64,6 @@ function buildLayout() {
         <h2>Rotinas</h2>
         <p>Gerenciamento de tarefas recorrentes</p>
       </div>
-      <div class="page-header-actions">
-        ${canEdit ? `<button class="btn btn-primary" onclick="window._openCreateRoutine()">
-          <i data-fa-icon="plus"></i> Nova Rotina
-        </button>` : ''}
-      </div>
     </div>
 
     <!-- Tabs: Ativas / Inativas -->
@@ -89,7 +84,10 @@ function buildLayout() {
     <!-- List -->
     <div id="routines-container">
       <div class="page-loader"><div class="spinner"></div></div>
-    </div>`;
+    </div>
+
+    <!-- FAB -->
+    ${canEdit ? `<div class="fab-container"><button class="fab-btn" onclick="window._openCreateRoutine()" title="Nova Rotina"><i data-fa-icon="plus"></i></button></div>` : ''}`;
 }
 
 function setupListeners() {

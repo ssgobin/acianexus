@@ -152,11 +152,7 @@ export const SEVERITY_LABELS = {
     low: 'Baixa'
 };
 export const BOARD_LABELS = {
-    kanban: 'Kanban',
-    projects: 'Projetos',
-    routines: 'Rotinas',
-    events: 'Eventos',
-    sales: 'Vendas'
+    default: 'Tarefas'
 };
 export const FREQUENCY_LABELS = {
     daily: 'Diária',

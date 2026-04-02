@@ -76,9 +76,6 @@ function buildLayout() {
             <i data-fa-icon="list"></i>
           </button>
         </div>
-        ${canEdit ? `<button class="btn btn-primary" onclick="window._openCreateEvent()">
-          <i data-fa-icon="plus"></i> Novo Evento
-        </button>` : ''}
       </div>
     </div>
 
@@ -95,7 +92,10 @@ function buildLayout() {
     </div>
 
     <!-- View Container -->
-    <div id="view-container"></div>`;
+    <div id="view-container"></div>
+
+    <!-- FAB -->
+    ${canEdit ? `<div class="fab-container"><button class="fab-btn" onclick="window._openCreateEvent()" title="Novo Evento"><i data-fa-icon="plus"></i></button></div>` : ''}`;
 }
 
 function setupListeners() { }

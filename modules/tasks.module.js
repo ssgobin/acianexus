@@ -35,31 +35,15 @@ let _isDragging = false;
 let _dropGhostEl = null;
 
 const BOARDS = [
-    { id: 'projects', label: 'Projetos' },
-    { id: 'events', label: 'Eventos' },
-    { id: 'routines', label: 'Rotinas' },
-    { id: 'sales', label: 'Vendas' },
+    { id: 'default', label: 'Tarefas' },
 ];
 
 function normalizeBoard(board) {
-    const b = (board || '').toString().trim().toLowerCase();
-    if (!b) return 'projects';
-    if (['sales', 'comercial', 'commercial', 'vendas'].includes(b)) return 'sales';
-    if (['projects', 'project', 'projetos', 'projeto'].includes(b)) return 'projects';
-    if (['routines', 'rotinas', 'rotina'].includes(b)) return 'routines';
-    if (['events', 'eventos', 'evento'].includes(b)) return 'events';
-    if (['kanban', 'tasks', 'tarefas'].includes(b)) return 'projects';
-    return b;
+    return 'default';
 }
 
 function boardLabel(board) {
-    const map = {
-        projects: 'Projetos',
-        events: 'Eventos',
-        routines: 'Rotinas',
-        sales: 'Vendas',
-    };
-    return map[normalizeBoard(board)] || 'Projetos';
+    return 'Tarefas';
 }
 
 function isTaskOwner(task) {
@@ -95,7 +79,6 @@ async function init() {
     renderHeader(_profile, 'Tarefas', 'Gestão de tarefas e projetos');
 
     document.getElementById('page-content').innerHTML = buildPageLayout();
-    setupBoardFilter();
     setupSearchFilter();
     await loadUsers();
     createTaskModal();
@@ -114,26 +97,8 @@ function buildPageLayout() {
     <div class="page-header">
       <div class="page-header-left">
         <h2>Tarefas</h2>
-        <p>Gerencie e acompanhe tarefas por board</p>
+        <p>Gerencie e acompanhe todas as tarefas</p>
       </div>
-      <div class="page-header-actions">
-        <button class="btn ${canCreate ? 'btn-primary' : 'btn-secondary'}" onclick="window._openCreateTask()">
-          <i data-fa-icon="${canCreate ? 'plus' : 'lock'}"></i> ${canCreate ? 'Nova Tarefa' : 'Nova Tarefa (restrita)'}
-        </button>
-      </div>
-    </div>
-
-    <!-- Board Filter -->
-    <div class="filter-tabs" id="board-tabs">
-      ${BOARDS.map(b => `
-        <button type="button"
-                class="filter-tab${b.id === _currentBoard ? ' active' : ''}"
-                data-board="${b.id}"
-                ondragover="window._onBoardTabDragOver(event)"
-                ondragleave="window._onBoardTabDragLeave(event)"
-                ondrop="window._onDropBoard(event,'${b.id}')"
-                title="Arraste uma tarefa para mover de funil">${b.label}</button>
-      `).join('')}
     </div>
 
     <!-- Search + Sort Bar -->
@@ -178,26 +143,17 @@ function buildPageLayout() {
           </div>
         `).join('')}
       </div>
-    </div>`;
+    </div>
+
+    <!-- FAB -->
+    ${canCreate ? `<div class="fab-container"><button class="fab-btn" onclick="window._openCreateTask()" title="Nova Tarefa"><i data-fa-icon="plus"></i></button></div>` : ''}`;
 }
 
 // ================================================================
 // FILTRO DE BOARD
 // ================================================================
-function setupBoardFilter() {
-    document.getElementById('board-tabs')?.addEventListener('click', e => {
-        const btn = e.target.closest('[data-board]');
-        if (!btn) return;
-        setActiveBoard(btn.dataset.board);
-        renderKanban();
-    });
-}
-
 function setActiveBoard(boardId) {
     _currentBoard = normalizeBoard(boardId);
-    document.querySelectorAll('.filter-tab').forEach(el => {
-        el.classList.toggle('active', el.dataset.board === _currentBoard);
-    });
 }
 
 function setupSearchFilter() {
@@ -282,7 +238,7 @@ function renderKanban() {
     const search = (document.getElementById('search-tasks')?.value || '').toLowerCase().trim();
     const sort = document.getElementById('sort-tasks')?.value || 'updatedAt';
 
-    let filtered = _allTasks.filter(t => normalizeBoard(t.board) === _currentBoard);
+    let filtered = _allTasks;
 
     if (search) {
         filtered = filtered.filter(t =>
@@ -539,12 +495,6 @@ window._onDropBoard = async (event, newBoard) => {
 // MODAIS — CRIAR / EDITAR TAREFA
 // ================================================================
 function createTaskModal() {
-    const boards = [
-        { value: 'projects', label: 'Projetos' },
-        { value: 'events', label: 'Eventos' },
-        { value: 'routines', label: 'Rotinas' },
-        { value: 'sales', label: 'Vendas' },
-    ];
     const gutOptions = [1, 2, 3, 4, 5].map(n => `<option value="${n}">${n}</option>`).join('');
 
     createModal({
@@ -556,12 +506,6 @@ function createTaskModal() {
         <div class="form-group form-col-full">
           <label class="form-label">Título *</label>
           <input type="text" id="task-title" class="form-input" placeholder="Título claro e objetivo" maxlength="200" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Board *</label>
-          <select id="task-board" class="form-select">
-            ${boards.map(b => `<option value="${b.value}">${b.label}</option>`).join('')}
-          </select>
         </div>
         <div class="form-group">
           <label class="form-label">Status</label>
@@ -911,7 +855,6 @@ window._openTaskDetail = async function (taskId) {
         setTimeout(() => {
             populateTaskAssigneeOptions(task.assigneeId || '');
             setFieldValue('task-title', task.title);
-            setFieldValue('task-board', normalizeBoard(task.board));
             setFieldValue('task-status', task.status || 'todo');
             setFieldValue('task-objective', task.objective || '');
             setFieldValue('task-description', task.description || '');
@@ -1034,7 +977,7 @@ async function showTaskReadOnly(task) {
 // ================================================================
 window._saveTask = async function () {
     const title = sanitizeText(document.getElementById('task-title')?.value?.trim() || '');
-    const board = normalizeBoard(document.getElementById('task-board')?.value || 'kanban');
+    const board = 'default';
     const status = document.getElementById('task-status')?.value || 'todo';
     const assigneeId = document.getElementById('task-assignee')?.value || '';
     const assigneeUser = _allUsers.find(u => u.id === assigneeId);
