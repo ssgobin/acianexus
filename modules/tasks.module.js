@@ -324,6 +324,10 @@ function buildTaskCard(task) {
 
       <div class="kanban-card-meta">
         ${gutBadge}
+        ${task.requesterName ? `<span style="font-size:10px;color:var(--text-muted)">
+          <i data-fa-icon="user" style="width:10px;height:10px;display:inline-block;vertical-align:middle"></i>
+          ${escapeHtml(task.requesterName)}
+        </span>` : ''}
         ${checklistTotal > 0 ? `<span style="font-size:10px;color:var(--text-muted)">
           <i data-fa-icon="check-square" style="width:10px;height:10px;display:inline-block;vertical-align:middle"></i>
           ${checklistDone}/${checklistTotal}
@@ -436,8 +440,19 @@ window._onDropColumn = async (event, newStatus) => {
         return;
     }
 
+    const oldStatus = task.status;
+
+    if (newStatus === 'review') {
+        _dropGhostEl?.remove();
+        _dropGhostEl = null;
+        const taskId = _dragSourceId;
+        _dragSourceId = null;
+        _isDragging = false;
+        window._openReviewFeedback(taskId, task);
+        return;
+    }
+
     try {
-        const oldStatus = task.status;
         await updateDoc(doc(db, 'tasks', droppedId), {
             status: newStatus,
             updatedAt: serverTimestamp()
@@ -531,6 +546,10 @@ function createTaskModal() {
           </select>
         </div>
         <div class="form-group">
+          <label class="form-label">Solicitante</label>
+          <input type="text" id="task-requester" class="form-input" value="${escapeHtml(_profile?.name || '')}" readonly>
+        </div>
+        <div class="form-group">
           <label class="form-label">Responsável</label>
           <div id="task-assignee-container" class="involved-container" onclick="window._openAssigneePicker()">
             <span class="involved-placeholder">Clique para selecionar...</span>
@@ -604,6 +623,7 @@ function createTaskModal() {
     });
 
     createDeadlineModal();
+    createReviewFeedbackModal();
 }
 
 function createDeadlineModal() {
@@ -669,6 +689,87 @@ window._saveDeadline = async function() {
     } catch (e) {
         console.error('[Tasks] Erro ao definir prazo:', e);
         toast.error('Erro', 'Não foi possível definir o prazo.');
+    }
+};
+
+let _currentReviewTask = null;
+
+function createReviewFeedbackModal() {
+    createModal({
+        id: 'modal-review',
+        title: 'Avaliação da Tarefa',
+        size: 'md',
+        body: `
+      <p style="margin-bottom:16px;color:var(--text-secondary);font-size:14px">
+        O que você achou do trabalho realizado? Sua avaliação é importante para o responsável.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Avaliação</label>
+        <select id="review-rating" class="form-select" onchange="window._updateRatingLabel()">
+          <option value="">Selecione...</option>
+          <option value="1">1 - Ruim</option>
+          <option value="2">2 - Regular</option>
+          <option value="3">3 - Bom</option>
+          <option value="4">4 - Ótimo</option>
+          <option value="5">5 - Excelente</option>
+        </select>
+      </div>
+      <div class="form-group form-col-full">
+        <label class="form-label">Comentário</label>
+        <textarea id="review-comment" class="form-textarea" rows="3" placeholder="Deixe seu feedback..."></textarea>
+      </div>`,
+        footer: `
+      <button class="btn btn-secondary" onclick="closeModal('modal-review')">Cancelar</button>
+      <button class="btn btn-warning" onclick="window._saveReviewFeedback('review')">
+        <i data-fa-icon="rotate-left"></i> Revisar
+      </button>
+      <button class="btn btn-primary" onclick="window._saveReviewFeedback('done')">
+        <i data-fa-icon="check-circle"></i> Concluir
+      </button>`,
+    });
+}
+
+window._openReviewFeedback = function(taskId, task) {
+    _currentReviewTask = { id: taskId, ...task };
+    document.getElementById('review-rating').value = '';
+    document.getElementById('review-comment').value = '';
+    openModal('modal-review');
+};
+
+window._saveReviewFeedback = async function(action) {
+    const rating = document.getElementById('review-rating')?.value;
+    const comment = document.getElementById('review-comment')?.value?.trim() || '';
+    
+    if (!rating) {
+        toast.warning('Campo obrigatório', 'Selecione uma avaliação.');
+        return;
+    }
+    
+    if (!_currentReviewTask) return;
+    
+    const newStatus = action === 'done' ? 'done' : 'review';
+    
+    try {
+        const feedbackData = {
+            rating: parseInt(rating),
+            comment,
+            reviewedBy: _profile?.uid,
+            reviewerName: _profile?.name,
+            reviewedAt: serverTimestamp()
+        };
+        
+        await updateDoc(doc(db, 'tasks', _currentReviewTask.id), {
+            status: newStatus,
+            feedback: feedbackData,
+            updatedAt: serverTimestamp()
+        });
+        
+        toast.success('Avaliação enviada', action === 'done' ? 'Tarefa concluída!' : 'Feedback registrado.');
+        closeModal('modal-review');
+        _currentReviewTask = null;
+    } catch (e) {
+        console.error('[Tasks] Erro ao salvar feedback:', e);
+        toast.error('Erro', 'Não foi possível enviar a avaliação.');
     }
 };
 
@@ -1085,11 +1186,14 @@ window._saveTask = async function () {
     const gut = buildGutObject(g, u, t);
     const dueDate = dueDateStr ? Timestamp.fromDate(new Date(dueDateStr + 'T23:59:00')) : null;
     const involvedIds = getSelectedInvolvedIds();
+    const requesterName = document.getElementById('task-requester')?.value || _profile?.name || '';
 
     const payload = {
         title, board, status, assigneeId, assigneeName,
         objective, description, additionalInfo: additional,
         gut, checklist, involvedIds, updatedAt: serverTimestamp(),
+        requesterId: _profile?.uid,
+        requesterName,
         ...(dueDate ? { dueDate } : { dueDate: null }),
     };
 

@@ -896,6 +896,17 @@ textarea {
     text-decoration: none;
 }
 
+.btn-warning {
+    background: var(--clr-warning-500);
+    color: white;
+    border-color: var(--clr-warning-500);
+}
+
+.btn-warning:hover {
+    background: var(--clr-warning-600);
+    text-decoration: none;
+}
+
 .btn-ghost {
     background: transparent;
     color: var(--text-secondary);
