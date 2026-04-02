@@ -83,6 +83,12 @@ async function init() {
     await loadUsers();
     createTaskModal();
     subscribeToTasks();
+    
+    if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+    }
+    
+    startDeadlineNotifier();
 
     document.getElementById('app-loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -301,9 +307,14 @@ function buildTaskCard(task) {
     const checklistTotal = task.checklist?.length || 0;
     const checklistDone = task.checklist?.filter(c => c.done).length || 0;
     const canEdit = canManageTask(task);
+    const isAssignee = _profile?.uid === task.assigneeId;
+    const needsDeadline = task.status === 'todo' && isAssignee && !task.deadlineSet;
+    const createdAt = task.createdAt?.toDate?.() || new Date();
+    const hoursSinceCreated = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+    const showDeadlineWarning = needsDeadline && hoursSinceCreated >= 2;
 
     return `
-    <div class="kanban-card" data-id="${task.id}"
+    <div class="kanban-card${showDeadlineWarning ? ' deadline-warning' : ''}" data-id="${task.id}"
          draggable="${canEdit}"
          ondragstart="window._onDragStart(event,'${task.id}')"
          ondragend="window._onDragEnd(event)"
@@ -313,7 +324,6 @@ function buildTaskCard(task) {
 
       <div class="kanban-card-meta">
         ${gutBadge}
-        <span class="badge badge-gray" style="font-size:10px">${boardLabel(task.board)}</span>
         ${checklistTotal > 0 ? `<span style="font-size:10px;color:var(--text-muted)">
           <i data-fa-icon="check-square" style="width:10px;height:10px;display:inline-block;vertical-align:middle"></i>
           ${checklistDone}/${checklistTotal}
@@ -326,7 +336,14 @@ function buildTaskCard(task) {
           ${isOverdue ? '⚠ ' : ''}${dueFmt}
         </span>` : '<span></span>'}
 
-        <div class="assignee-avatar-sm" style="background:${avatarColor}" title="${escapeHtml(task.assigneeName || '')}">${initials}</div>
+        <div class="kanban-card-actions">
+          ${needsDeadline ? `
+            <button class="deadline-check" onclick="window._openSetDeadline(event, '${task.id}')" title="Definir prazo">
+              <i data-fa-icon="check-circle"></i>
+            </button>
+          ` : ''}
+          <div class="assignee-avatar-sm" style="background:${avatarColor}" title="${escapeHtml(task.assigneeName || '')}">${initials}</div>
+        </div>
       </div>
     </div>`;
 }
@@ -527,10 +544,6 @@ function createTaskModal() {
           </div>
           <input type="hidden" id="task-involved" value="">
         </div>
-        <div class="form-group">
-          <label class="form-label">Prazo</label>
-          <input type="date" id="task-duedate" class="form-input" min="${todayString()}">
-        </div>
         <div class="form-group form-col-full">
           <label class="form-label">Objetivo</label>
           <input type="text" id="task-objective" class="form-input" maxlength="200" placeholder="Objetivo principal">
@@ -589,7 +602,75 @@ function createTaskModal() {
     ['gut-g', 'gut-u', 'gut-t'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', updateGutPreview);
     });
+
+    createDeadlineModal();
 }
+
+function createDeadlineModal() {
+    createModal({
+        id: 'modal-deadline',
+        title: 'Definir Prazo',
+        size: 'sm',
+        body: `
+      <p style="margin-bottom:16px;color:var(--text-secondary);font-size:14px">
+        Você está definindo o prazo real para esta tarefa. Após definido, o sistemairá lembrá-lo(a) do vencimento.
+      </p>
+      <div class="form-group">
+        <label class="form-label">Prazo *</label>
+        <input type="date" id="deadline-date" class="form-input" min="${todayString()}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Horário (opcional)</label>
+        <input type="time" id="deadline-time" class="form-input">
+      </div>`,
+        footer: `
+      <button class="btn btn-secondary" onclick="closeModal('modal-deadline')">Cancelar</button>
+      <button class="btn btn-primary" onclick="window._saveDeadline()">
+        <i data-fa-icon="check"></i> Confirmar
+      </button>`,
+    });
+}
+
+let _currentDeadlineTaskId = null;
+
+window._openSetDeadline = function(event, taskId) {
+    event.stopPropagation();
+    _currentDeadlineTaskId = taskId;
+    document.getElementById('deadline-date').value = '';
+    document.getElementById('deadline-time').value = '';
+    openModal('modal-deadline');
+};
+
+window._saveDeadline = async function() {
+    const dateVal = document.getElementById('deadline-date')?.value;
+    const timeVal = document.getElementById('deadline-time')?.value || '23:59';
+    
+    if (!dateVal) {
+        toast.warning('Campo obrigatório', 'Informe o prazo.');
+        return;
+    }
+    
+    if (!_currentDeadlineTaskId) return;
+    
+    const deadlineDateTime = new Date(`${dateVal}T${timeVal}`);
+    const deadlineTimestamp = Timestamp.fromDate(deadlineDateTime);
+    
+    try {
+        await updateDoc(doc(db, 'tasks', _currentDeadlineTaskId), {
+            dueDate: deadlineTimestamp,
+            deadlineSet: true,
+            deadlineSetAt: serverTimestamp(),
+            deadlineSetBy: _profile?.uid
+        });
+        
+        toast.success('Prazo definido', 'O prazo foi definido com sucesso.');
+        closeModal('modal-deadline');
+        _currentDeadlineTaskId = null;
+    } catch (e) {
+        console.error('[Tasks] Erro ao definir prazo:', e);
+        toast.error('Erro', 'Não foi possível definir o prazo.');
+    }
+};
 
 function populateTaskAssigneeOptions(selectedId = '') {
     const select = document.getElementById('task-assignee');
@@ -1058,5 +1139,42 @@ window._saveTask = async function () {
         if (btn) { btn.disabled = false; btn.innerHTML = '<i data-fa-icon="save"></i> Salvar'; window.renderIcons?.(); }
     }
 };
+
+let _deadlineNotifierInterval = null;
+
+function startDeadlineNotifier() {
+    if (_deadlineNotifierInterval) return;
+    
+    checkDeadlines();
+    _deadlineNotifierInterval = setInterval(checkDeadlines, 15 * 60 * 1000);
+}
+
+function checkDeadlines() {
+    if (!_profile?.uid) return;
+    
+    const now = new Date();
+    const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    
+    const tasksNeedingDeadline = _allTasks.filter(t => {
+        if (t.status !== 'todo') return false;
+        if (t.assigneeId !== _profile.uid) return false;
+        if (t.deadlineSet) return false;
+        
+        const created = t.createdAt?.toDate?.();
+        return created && created <= twoHoursAgo;
+    });
+    
+    if (tasksNeedingDeadline.length > 0) {
+        const taskList = tasksNeedingDeadline.map(t => `• ${t.title}`).join('\n');
+        if (Notification.permission === 'granted') {
+            new Notification('Atenção: Tarefas sem prazo', {
+                body: `${tasksNeedingDeadline.length} tarefa(s) aguardando definição de prazo há mais de 2 horas:\n${taskList}`,
+                icon: '/assets/img/logo.png'
+            });
+        }
+        
+        toast.info('Lembrete', `${tasksNeedingDeadline.length} tarefa(s) sem prazo definido. Clique no ✓ para definir.`);
+    }
+}
 
 init().catch(e => { console.error(e); toast.error('Erro', 'Falha ao carregar módulo de tarefas.'); });
