@@ -126,7 +126,7 @@ export const TASK_STATUS_LABELS = {
     in_progress: 'Em andamento',
     review: 'Em revisão',
     done: 'Concluída',
-    cancelled: 'Cancelada'
+    backlog: 'Backlog'
 };
 export const TICKET_STATUS_LABELS = {
     open: 'Aberto',

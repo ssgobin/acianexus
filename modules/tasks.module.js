@@ -63,7 +63,7 @@ const COLUMNS = [
     { id: 'in_progress', label: 'Em Andamento', icon: 'loader-2', color: 'var(--color-primary)' },
     { id: 'review', label: 'Revisão', icon: 'clock', color: 'var(--color-warning)' },
     { id: 'done', label: 'Concluído', icon: 'check-circle-2', color: 'var(--color-success)' },
-    { id: 'cancelled', label: 'Cancelado', icon: 'x-circle', color: 'var(--color-danger)' },
+    { id: 'backlog', label: 'Backlog', icon: 'archive', color: 'var(--color-danger)' },
 ];
 
 // ================================================================
@@ -89,6 +89,7 @@ async function init() {
     }
     
     startDeadlineNotifier();
+    startExecutionTimer();
 
     document.getElementById('app-loading').style.display = 'none';
     document.getElementById('app').style.display = 'flex';
@@ -296,10 +297,18 @@ function renderKanban() {
 // ================================================================
 // TASK CARD
 // ================================================================
+function formatExecutionTime(seconds) {
+    if (!seconds) return '';
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+}
+
 function buildTaskCard(task) {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const due = task.dueDate?.toDate?.();
-    const isOverdue = due && due < today && task.status !== 'done' && task.status !== 'cancelled';
+    const isOverdue = due && due < today && task.status !== 'done' && task.status !== 'backlog';
     const initials = getInitials(task.assigneeName || '?');
     const avatarColor = stringToColor(task.assigneeName || '');
     const dueFmt = due ? formatDate(task.dueDate, 'short') : '';
@@ -312,6 +321,13 @@ function buildTaskCard(task) {
     const createdAt = task.createdAt?.toDate?.() || new Date();
     const hoursSinceCreated = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
     const showDeadlineWarning = needsDeadline && hoursSinceCreated >= 2;
+    
+    let executionTime = task.executionTimeTotal || 0;
+    if (task.status === 'in_progress' && task.isInExecution && task.executionStartedAt) {
+        const startTime = task.executionStartedAt.toDate?.() || new Date(task.executionStartedAt);
+        executionTime += (Date.now() - startTime.getTime()) / 1000;
+    }
+    const execTimeStr = formatExecutionTime(executionTime);
 
     return `
     <div class="kanban-card${showDeadlineWarning ? ' deadline-warning' : ''}" data-id="${task.id}"
@@ -328,6 +344,10 @@ function buildTaskCard(task) {
           <i data-fa-icon="user" style="width:10px;height:10px;display:inline-block;vertical-align:middle"></i>
           ${escapeHtml(task.requesterName)}
         </span>` : ''}
+        ${task.waitingForThirdParty ? `<span style="font-size:10px;color:var(--color-warning)">
+          <i data-fa-icon="hourglass" style="width:10px;height:10px;display:inline-block;vertical-align:middle"></i>
+          Aguardando ${escapeHtml(task.thirdPartyName || 'terceiro')}
+        </span>` : ''}
         ${checklistTotal > 0 ? `<span style="font-size:10px;color:var(--text-muted)">
           <i data-fa-icon="check-square" style="width:10px;height:10px;display:inline-block;vertical-align:middle"></i>
           ${checklistDone}/${checklistTotal}
@@ -335,15 +355,31 @@ function buildTaskCard(task) {
       </div>
 
       <div class="kanban-card-footer">
-        ${due ? `<span class="kanban-card-due${isOverdue ? ' overdue' : ''}">
-          <i data-fa-icon="calendar" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:2px"></i>
-          ${isOverdue ? '⚠ ' : ''}${dueFmt}
-        </span>` : '<span></span>'}
+        ${due || execTimeStr ? `<div style="display:flex;gap:12px;align-items:center">
+          ${due ? `<span class="kanban-card-due${isOverdue ? ' overdue' : ''}">
+            <i data-fa-icon="calendar" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:2px"></i>
+            ${isOverdue ? '⚠ ' : ''}${dueFmt}
+          </span>` : ''}
+          ${execTimeStr ? `<span style="font-size:10px;color:var(--color-primary)">
+            <i data-fa-icon="clock" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:2px"></i>
+            ${execTimeStr}
+          </span>` : ''}
+        </div>` : '<span></span>'}
 
         <div class="kanban-card-actions">
           ${needsDeadline ? `
             <button class="deadline-check" onclick="window._openSetDeadline(event, '${task.id}')" title="Definir prazo">
               <i data-fa-icon="check-circle"></i>
+            </button>
+          ` : ''}
+          ${task.status === 'review' && task.requesterId === _profile?.uid && !task.feedback?.rating ? `
+            <button class="deadline-check" style="background:var(--color-warning)" onclick="window._openReviewFeedback(event, '${task.id}')" title="Avaliar tarefa">
+              <i data-fa-icon="star"></i>
+            </button>
+          ` : ''}
+          ${task.waitingForThirdParty && task.status === 'in_progress' && task.assigneeId === _profile?.uid ? `
+            <button class="deadline-check" style="background:var(--color-success)" onclick="window._completeThirdPartyTask(event, '${task.id}')" title="Concluir">
+              <i data-fa-icon="check"></i>
             </button>
           ` : ''}
           <div class="assignee-avatar-sm" style="background:${avatarColor}" title="${escapeHtml(task.assigneeName || '')}">${initials}</div>
@@ -442,21 +478,65 @@ window._onDropColumn = async (event, newStatus) => {
 
     const oldStatus = task.status;
 
-    if (newStatus === 'review') {
-        _dropGhostEl?.remove();
-        _dropGhostEl = null;
-        const taskId = _dragSourceId;
-        _dragSourceId = null;
-        _isDragging = false;
-        window._openReviewFeedback(taskId, task);
-        return;
+    if (newStatus === 'in_progress') {
+        const tasksInProgress = _allTasks.filter(t => 
+            t.status === 'in_progress' && 
+            t.assigneeId === task.assigneeId &&
+            t.id !== task.id
+        );
+        
+        if (tasksInProgress.length > 0) {
+            toast.warning('Uma tarefa por vez', 'Este responsável já tem uma tarefa em execução.');
+            _dropGhostEl?.remove();
+            _dropGhostEl = null;
+            _dragSourceId = null;
+            _isDragging = false;
+            return;
+        }
+        
+        if (task.assigneeId === task.requesterId && !task.deadlineSet) {
+            toast.warning('Defina o prazo', 'Você precisa definir o prazo antes de iniciar a execução.');
+            _dropGhostEl?.remove();
+            _dropGhostEl = null;
+            _dragSourceId = null;
+            _isDragging = false;
+            return;
+        }
+    }
+
+    let updateData = {
+        status: newStatus,
+        updatedAt: serverTimestamp()
+    };
+
+    if (newStatus === 'in_progress' && oldStatus !== 'in_progress') {
+        updateData.executionStartedAt = serverTimestamp();
+        updateData.isInExecution = true;
+    } else if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
+        const taskDoc = await getDoc(doc(db, 'tasks', droppedId));
+        const taskData = taskDoc.data();
+        
+        let totalTime = taskData.executionTimeTotal || 0;
+        
+        if (taskData.executionStartedAt) {
+            const startTime = taskData.executionStartedAt.toDate();
+            const now = new Date();
+            const elapsed = (now.getTime() - startTime.getTime()) / 1000;
+            totalTime += elapsed;
+        }
+        
+        updateData.executionTimeTotal = totalTime;
+        updateData.executionStartedAt = null;
+        updateData.isInExecution = false;
+        
+        if (newStatus === 'done') {
+            updateData.executionFinishedAt = serverTimestamp();
+            updateData.executionTimeTotal = totalTime;
+        }
     }
 
     try {
-        await updateDoc(doc(db, 'tasks', droppedId), {
-            status: newStatus,
-            updatedAt: serverTimestamp()
-        });
+        await updateDoc(doc(db, 'tasks', droppedId), updateData);
         await logAudit(AUDIT_ACTIONS.TASK_STATUS_CHANGED, droppedId, 'task', { from: oldStatus, to: newStatus, title: task.title });
         await notifyTaskMoved({ ...task, status: newStatus }, oldStatus, newStatus);
     } catch (e) {
@@ -562,6 +642,16 @@ function createTaskModal() {
             <span class="involved-placeholder">Clique para selecionar...</span>
           </div>
           <input type="hidden" id="task-involved" value="">
+        </div>
+        <div class="form-group form-col-full">
+          <label class="form-checkbox" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="task-needs-third-party" onchange="window._toggleThirdPartyInput()">
+            <span>Depende de terceiros</span>
+          </label>
+        </div>
+        <div class="form-group form-col-full" id="third-party-input-group" style="display:none">
+          <label class="form-label">Nome do terceiro</label>
+          <input type="text" id="task-third-party-name" class="form-input" placeholder="Nome ou identificação">
         </div>
         <div class="form-group form-col-full">
           <label class="form-label">Objetivo</label>
@@ -724,12 +814,14 @@ function createReviewFeedbackModal() {
         <i data-fa-icon="rotate-left"></i> Revisar
       </button>
       <button class="btn btn-primary" onclick="window._saveReviewFeedback('done')">
-        <i data-fa-icon="check-circle"></i> Concluir
+        <i data-fa-icon="check-circle"></i> Aprovar
       </button>`,
     });
 }
 
-window._openReviewFeedback = function(taskId, task) {
+window._openReviewFeedback = function(event, taskId) {
+    if (event) event.stopPropagation();
+    const task = _allTasks.find(t => t.id === taskId);
     _currentReviewTask = { id: taskId, ...task };
     document.getElementById('review-rating').value = '';
     document.getElementById('review-comment').value = '';
@@ -747,29 +839,67 @@ window._saveReviewFeedback = async function(action) {
     
     if (!_currentReviewTask) return;
     
-    const newStatus = action === 'done' ? 'done' : 'review';
-    
-    try {
-        const feedbackData = {
+    const task = _currentReviewTask;
+    let newStatus = action === 'done' ? 'done' : 'review';
+    let updateData = {
+        feedback: {
             rating: parseInt(rating),
             comment,
             reviewedBy: _profile?.uid,
             reviewerName: _profile?.name,
             reviewedAt: serverTimestamp()
-        };
+        },
+        updatedAt: serverTimestamp()
+    };
+    
+    if (action === 'done') {
+        if (task.needsThirdParty && !task.waitingForThirdParty) {
+            newStatus = 'in_progress';
+            updateData.status = newStatus;
+            updateData.waitingForThirdParty = true;
+            updateData.thirdPartyCompletedAt = null;
+        } else {
+            updateData.status = 'done';
+            updateData.executionFinishedAt = serverTimestamp();
+            if (task.waitingForThirdParty) {
+                updateData.thirdPartyCompletedAt = serverTimestamp();
+            }
+        }
+    } else {
+        updateData.status = newStatus;
+    }
+    
+    try {
+        await updateDoc(doc(db, 'tasks', task.id), updateData);
         
-        await updateDoc(doc(db, 'tasks', _currentReviewTask.id), {
-            status: newStatus,
-            feedback: feedbackData,
-            updatedAt: serverTimestamp()
-        });
-        
-        toast.success('Avaliação enviada', action === 'done' ? 'Tarefa concluída!' : 'Feedback registrado.');
+        const msg = action === 'done' 
+            ? (task.needsThirdParty && !task.waitingForThirdParty ? 'Tarefa enviada para execução. Aguardando terceiro.' : 'Tarefa aprovada!')
+            : 'Feedback registrado.';
+        toast.success('Avaliação enviada', msg);
         closeModal('modal-review');
         _currentReviewTask = null;
     } catch (e) {
         console.error('[Tasks] Erro ao salvar feedback:', e);
         toast.error('Erro', 'Não foi possível enviar a avaliação.');
+    }
+};
+
+window._completeThirdPartyTask = async function(event, taskId) {
+    if (event) event.stopPropagation();
+    
+    try {
+        await updateDoc(doc(db, 'tasks', taskId), {
+            status: 'done',
+            waitingForThirdParty: false,
+            thirdPartyCompletedAt: serverTimestamp(),
+            executionFinishedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+        
+        toast.success('Concluída', 'Tarefa finalizada com sucesso!');
+    } catch (e) {
+        console.error('[Tasks] Erro ao concluir tarefa:', e);
+        toast.error('Erro', 'Não foi possível concluir a tarefa.');
     }
 };
 
@@ -1009,6 +1139,9 @@ window._openCreateTask = function (defaultStatus = 'todo') {
     document.getElementById('checklist-items').innerHTML = '';
     document.getElementById('task-involved').value = '';
     document.getElementById('task-assignee').value = '';
+    document.getElementById('task-needs-third-party').checked = false;
+    document.getElementById('task-third-party-name').value = '';
+    document.getElementById('third-party-input-group').style.display = 'none';
     renderInvolvedContainer([]);
     renderAssigneeContainer(null);
     const deleteBtn = document.getElementById('btn-delete-task');
@@ -1019,6 +1152,14 @@ window._openCreateTask = function (defaultStatus = 'todo') {
     updateGutPreview();
     openModal('modal-task');
     window.renderIcons?.();
+};
+
+window._toggleThirdPartyInput = function() {
+    const checked = document.getElementById('task-needs-third-party')?.checked;
+    const inputGroup = document.getElementById('third-party-input-group');
+    if (inputGroup) {
+        inputGroup.style.display = checked ? 'block' : 'none';
+    }
 };
 
 window._openTaskDetail = async function (taskId) {
@@ -1187,6 +1328,8 @@ window._saveTask = async function () {
     const dueDate = dueDateStr ? Timestamp.fromDate(new Date(dueDateStr + 'T23:59:00')) : null;
     const involvedIds = getSelectedInvolvedIds();
     const requesterName = document.getElementById('task-requester')?.value || _profile?.name || '';
+    const needsThirdParty = document.getElementById('task-needs-third-party')?.checked || false;
+    const thirdPartyName = document.getElementById('task-third-party-name')?.value?.trim() || '';
 
     const payload = {
         title, board, status, assigneeId, assigneeName,
@@ -1194,6 +1337,9 @@ window._saveTask = async function () {
         gut, checklist, involvedIds, updatedAt: serverTimestamp(),
         requesterId: _profile?.uid,
         requesterName,
+        needsThirdParty,
+        thirdPartyName: needsThirdParty ? thirdPartyName : null,
+        waitingForThirdParty: needsThirdParty ? false : null,
         ...(dueDate ? { dueDate } : { dueDate: null }),
     };
 
@@ -1245,6 +1391,7 @@ window._saveTask = async function () {
 };
 
 let _deadlineNotifierInterval = null;
+let _executionTimerInterval = null;
 
 function startDeadlineNotifier() {
     if (_deadlineNotifierInterval) return;
@@ -1253,11 +1400,44 @@ function startDeadlineNotifier() {
     _deadlineNotifierInterval = setInterval(checkDeadlines, 15 * 60 * 1000);
 }
 
+function startExecutionTimer() {
+    if (_executionTimerInterval) return;
+    
+    updateExecutionTime();
+    _executionTimerInterval = setInterval(updateExecutionTime, 30000);
+}
+
+async function updateExecutionTime() {
+    const tasksInExecution = _allTasks.filter(t => t.status === 'in_progress' && t.isInExecution && t.executionStartedAt);
+    
+    for (const task of tasksInExecution) {
+        try {
+            const taskDoc = await getDoc(doc(db, 'tasks', task.id));
+            const taskData = taskDoc.data();
+            
+            if (!taskData?.isInExecution) continue;
+            
+            const startTime = taskData.executionStartedAt?.toDate?.();
+            if (!startTime) continue;
+            
+            const now = new Date();
+            const totalElapsed = (taskData.executionTimeTotal || 0) + ((now.getTime() - startTime.getTime()) / 1000);
+            
+            await updateDoc(doc(db, 'tasks', task.id), {
+                executionTimeTotal: totalElapsed
+            });
+        } catch (e) {
+            console.error('[Tasks] Erro ao atualizar tempo:', e);
+        }
+    }
+}
+
 function checkDeadlines() {
     if (!_profile?.uid) return;
     
     const now = new Date();
     const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const fiveDaysAgo = new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
     
     const tasksNeedingDeadline = _allTasks.filter(t => {
         if (t.status !== 'todo') return false;
@@ -1278,6 +1458,18 @@ function checkDeadlines() {
         }
         
         toast.info('Lembrete', `${tasksNeedingDeadline.length} tarefa(s) sem prazo definido. Clique no ✓ para definir.`);
+    }
+    
+    const tasksInBacklogTooLong = _allTasks.filter(t => {
+        if (t.status !== 'backlog') return false;
+        
+        const updated = t.updatedAt?.toDate?.();
+        return updated && updated <= fiveDaysAgo;
+    });
+    
+    if (tasksInBacklogTooLong.length > 0) {
+        const taskList = tasksInBacklogTooLong.map(t => `• ${t.title}`).join('\n');
+        toast.warning('Backlog', `${tasksInBacklogTooLong.length} tarefa(s) em backlog há mais de 5 dias:\n${taskList}`);
     }
 }
 
