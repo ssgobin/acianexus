@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-Content-Type-Options" content="nosniff">
+  <meta http-equiv="X-Frame-Options" content="DENY">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Login — Nexus</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <script src="/components/icons.js"></script>
+  <link rel="stylesheet" href="/assets/css/auth.css">
+
+  <script type="importmap">
+  {
+    "imports": {
+      "firebase/app":       "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
+      "firebase/auth":      "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
+      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
+    }
+  }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+</head>
+<body>
+<div class="auth-page">
+  <!-- === LEFT PANEL: Branding === -->
+  <div class="auth-left">
+    <div class="auth-left-brand">
+      <img src="/img/logoacianexus_wbg.png" class="auth-logo" style="width:40px;height:40px;object-fit:contain">
+      <div>
+        <div class="auth-brand-name">Nexus</div>
+        <div class="auth-brand-sub">Management Platform</div>
+      </div>
+    </div>
+
+    <div class="auth-left-hero">
+      <h2>Gerencie sua equipe com <span>inteligência e segurança</span></h2>
+      <p>Plataforma corporativa completa para gestão de tarefas, chamados, agenda, relatórios e comunicação interna — tudo em um só lugar.</p>
+
+      <div class="auth-features">
+        <div class="auth-feature-item">
+          <div class="auth-feature-icon"><i class="fa-solid fa-table-columns" aria-hidden="true"></i></div>
+          <div class="auth-feature-text">Gestão centralizada de tarefas</div>
+        </div>
+        <div class="auth-feature-item">
+          <div class="auth-feature-icon"><i class="fa-solid fa-ticket" aria-hidden="true"></i></div>
+          <div class="auth-feature-text">Gestão de chamados com SLA integrado</div>
+        </div>
+        <div class="auth-feature-item">
+          <div class="auth-feature-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></div>
+          <div class="auth-feature-text">Controle de acesso por perfis e auditoria</div>
+        </div>
+        <div class="auth-feature-item">
+          <div class="auth-feature-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></div>
+          <div class="auth-feature-text">Indicadores e analytics em tempo real</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-left-footer">
+      &copy; 2026 Nexus · Plataforma Corporativa
+    </div>
+  </div>
+
+  <!-- === RIGHT PANEL: Login Form === -->
+  <div class="auth-right">
+    <div class="auth-form-wrapper">
+
+      <!-- Login Form -->
+      <div id="login-panel">
+        <div class="auth-form-header">
+          <h1>Bem-vindo de volta</h1>
+          <p>Entre com suas credenciais para acessar a plataforma</p>
+        </div>
+
+        <div class="auth-error-box" id="login-error">
+          <i data-fa-icon="alert-circle"></i>
+          <span id="login-error-msg"></span>
+        </div>
+
+        <form id="login-form" class="auth-form" autocomplete="on" novalidate>
+          <div class="form-group">
+            <label for="email" class="form-label">E-mail <span class="required">*</span></label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              class="form-control"
+              placeholder="seu@email.com"
+              autocomplete="email"
+              required
+              maxlength="254"
+            >
+            <div class="form-error" id="error-email"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="password" class="form-label">Senha <span class="required">*</span></label>
+            <div class="password-wrapper">
+              <input
+                type="password"
+                id="password"
+                name="password"
+                class="form-control"
+                placeholder="Sua senha"
+                autocomplete="current-password"
+                required
+                maxlength="128"
+              >
+              <button type="button" class="password-toggle" id="toggle-pass" aria-label="Mostrar senha">
+                <i data-fa-icon="eye"></i>
+              </button>
+            </div>
+            <div class="form-error" id="error-password"></div>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s-5)">
+            <label class="form-check">
+              <input type="checkbox" id="remember-me" checked>
+              <label for="remember-me" style="font-size:12px;color:var(--text-secondary)">Lembrar acesso</label>
+            </label>
+            <a href="#" class="forgot-link" id="show-reset">Esqueceu a senha?</a>
+          </div>
+
+          <button type="submit" class="btn btn-primary auth-submit-btn" id="login-btn">
+            Entrar na plataforma
+          </button>
+
+          <div class="auth-footer-links" style="margin-top:14px">
+            Ainda não tem conta?
+            <a href="/register.html">Criar conta</a>
+          </div>
+        </form>
+      </div>
+
+      <!-- Reset Password Form -->
+      <div id="reset-panel" style="display:none">
+        <a href="#" class="auth-back" id="back-to-login">
+          <i data-fa-icon="arrow-left"></i>
+          Voltar ao login
+        </a>
+        <div class="auth-form-header">
+          <h1>Recuperar senha</h1>
+          <p>Digite seu e-mail e enviaremos um link para redefinir sua senha.</p>
+        </div>
+
+        <div class="auth-error-box" id="reset-error">
+          <i data-fa-icon="alert-circle"></i>
+          <span id="reset-error-msg"></span>
+        </div>
+        <div class="auth-success-box" id="reset-success">
+          <i data-fa-icon="check-circle"></i>
+          <span>E-mail enviado! Verifique sua caixa de entrada.</span>
+        </div>
+
+        <form id="reset-form" class="auth-form" novalidate>
+          <div class="form-group">
+            <label for="reset-email" class="form-label">E-mail <span class="required">*</span></label>
+            <input
+              type="email"
+              id="reset-email"
+              name="email"
+              class="form-control"
+              placeholder="seu@email.com"
+              autocomplete="email"
+              required
+              maxlength="254"
+            >
+            <div class="form-error" id="error-reset-email"></div>
+          </div>
+          <button type="submit" class="btn btn-primary auth-submit-btn" id="reset-btn">
+            Enviar link de recuperação
+          </button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { signIn, waitForAuthState, resetPassword } from '/services/auth.service.js';
+import { logLogin }    from '/services/audit.service.js';
+import { getStoredTheme, setTheme } from '/utils/helpers.js';
+import { isValidEmail, isRequired } from '/utils/validators.js';
+
+// Aplicar tema salvo
+setTheme(getStoredTheme());
+
+// Inicializar ícones
+window.renderIcons?.();
+
+// Redirecionar se já está autenticado
+const existing = await waitForAuthState();
+if (existing) {
+  window.location.replace('/dashboard.html');
+}
+
+// ================================================================
+// Toggle senha visível
+// ================================================================
+const passInput    = document.getElementById('password');
+const togglePassBtn = document.getElementById('toggle-pass');
+
+togglePassBtn?.addEventListener('click', () => {
+  const isHidden = passInput.type === 'password';
+  passInput.type = isHidden ? 'text' : 'password';
+  const icon = togglePassBtn.querySelector('i');
+  if (icon) {
+    icon.setAttribute('data-fa-icon', isHidden ? 'eye-off' : 'eye');
+    window.renderIcons?.();
+  }
+});
+
+// ================================================================
+// Login Form
+// ================================================================
+const loginForm = document.getElementById('login-form');
+const loginBtn  = document.getElementById('login-btn');
+const loginErrorBox = document.getElementById('login-error');
+const loginErrorMsg = document.getElementById('login-error-msg');
+
+function showLoginError(msg) {
+  loginErrorMsg.textContent = msg;
+  loginErrorBox.classList.add('visible');
+  window.renderIcons?.();
+}
+function hideLoginError() {
+  loginErrorBox.classList.remove('visible');
+}
+
+loginForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  hideLoginError();
+
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const remember = document.getElementById('remember-me').checked;
+
+  // Validação básica
+  let valid = true;
+  document.getElementById('error-email').textContent = '';
+  document.getElementById('error-password').textContent = '';
+  document.getElementById('email').classList.remove('error');
+  document.getElementById('password').classList.remove('error');
+
+  if (!isValidEmail(email)) {
+    document.getElementById('error-email').textContent = 'Informe um e-mail válido.';
+    document.getElementById('error-email').classList.add('visible');
+    document.getElementById('email').classList.add('error');
+    valid = false;
+  }
+  if (!isRequired(password) || password.length < 6) {
+    document.getElementById('error-password').textContent = 'Informe sua senha (mínimo 6 caracteres).';
+    document.getElementById('error-password').classList.add('visible');
+    document.getElementById('password').classList.add('error');
+    valid = false;
+  }
+  if (!valid) return;
+
+  // Submit
+  loginBtn.disabled = true;
+  loginBtn.innerHTML = `<span class="spinner" style="width:16px;height:16px;border-width:2px;
+    border-color:rgba(255,255,255,0.3);border-top-color:white;display:inline-block;vertical-align:middle;
+    margin-right:8px"></span>Entrando…`;
+
+  try {
+    const profile = await signIn(email, password, remember);
+    await logLogin(profile);
+    window.location.replace('/dashboard.html');
+  } catch (err) {
+    let msg = 'Erro ao fazer login. Tente novamente.';
+    const code = err.code || '';
+    if (code === 'auth/invalid-credential' || code === 'auth/user-not-found' || code === 'auth/wrong-password') {
+      msg = 'E-mail ou senha incorretos.';
+    } else if (code === 'auth/too-many-requests') {
+      msg = 'Muitas tentativas. Aguarde alguns minutos ou redefina a senha.';
+    } else if (code === 'auth/user-disabled') {
+      msg = 'Esta conta foi desativada.';
+    } else if (err.message) {
+      msg = err.message;
+    }
+    showLoginError(msg);
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Entrar na plataforma';
+  }
+});
+
+// ================================================================
+// Reset Password Form
+// ================================================================
+document.getElementById('show-reset')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('reset-panel').style.display  = 'block';
+});
+
+document.getElementById('back-to-login')?.addEventListener('click', (e) => {
+  e.preventDefault();
+  document.getElementById('reset-panel').style.display  = 'none';
+  document.getElementById('login-panel').style.display  = 'block';
+  document.getElementById('reset-error').classList.remove('visible');
+  document.getElementById('reset-success').classList.remove('visible');
+});
+
+const resetForm = document.getElementById('reset-form');
+const resetBtn  = document.getElementById('reset-btn');
+
+resetForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('reset-email').value.trim();
+  const errEl   = document.getElementById('reset-error');
+  const errMsg  = document.getElementById('reset-error-msg');
+  const succEl  = document.getElementById('reset-success');
+  errEl.classList.remove('visible');
+  succEl.classList.remove('visible');
+
+  if (!isValidEmail(email)) {
+    errMsg.textContent = 'Informe um e-mail válido.';
+    errEl.classList.add('visible');
+    window.renderIcons?.();
+    return;
+  }
+
+  resetBtn.disabled = true;
+  resetBtn.textContent = 'Enviando…';
+
+  try {
+    await resetPassword(email);
+    succEl.classList.add('visible');
+    resetForm.reset();
+  } catch (err) {
+    errMsg.textContent = 'Erro ao enviar e-mail. Verifique o endereço informado.';
+    errEl.classList.add('visible');
+    window.renderIcons?.();
+  } finally {
+    resetBtn.disabled = false;
+    resetBtn.textContent = 'Enviar link de recuperação';
+  }
+});
+</script>
+</body>
+</html>
