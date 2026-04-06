@@ -1,49 +1,53 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nexus — Redirecionando…</title>
-  <script type="importmap">
-  {
-    "imports": {
-      "firebase/app":       "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js",
-      "firebase/auth":      "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js",
-      "firebase/firestore": "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
-    }
-  }
-  </script>
-  <style>
-    body {
-      margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #F1F5F9; display: flex; align-items: center; justify-content: center;
-      min-height: 100vh;
-    }
-    .loader { text-align: center; color: #64748B; }
-    .spinner {
-      width: 32px; height: 32px; border: 3px solid #E2E8F0;
-      border-top-color: #4F46E5; border-radius: 50%;
-      animation: spin 0.7s linear infinite; margin: 0 auto 16px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    p { font-size: 14px; }
-  </style>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <script src="/components/icons.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirect - Nexus</title>
+    <meta http-equiv="refresh" content="5;url=https://nexus.acia.com.br">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            text-align: center;
+            padding: 40px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 500px;
+        }
+        h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #666;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+        a {
+            color: #0066cc;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-  <div class="loader">
-    <div class="spinner"></div>
-    <p>Carregando Nexus…</p>
-  </div>
-  <script type="module">
-    import { waitForAuthState } from '/services/auth.service.js';
-    const user = await waitForAuthState();
-    if (user) {
-      window.location.replace('/dashboard.html');
-    } else {
-      window.location.replace('/login.html');
-    }
-  </script>
+    <div class="container">
+        <h1>A URL do Nexus mudou, agora é nexus.acia.com.br</h1>
+        <p>Se você não foi redirecionado(a) automaticamente, <a href="https://nexus.acia.com.br">clique aqui</a> para ser redirecionado(a).</p>
+        <p>Obrigado!</p>
+    </div>
 </body>
 </html>
